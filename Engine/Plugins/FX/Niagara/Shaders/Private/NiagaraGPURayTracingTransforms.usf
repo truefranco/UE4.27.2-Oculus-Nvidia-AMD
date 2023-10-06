@@ -1,0 +1,117 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+/*=================================================================================================
+	NiagaraGPURayTracingTransforms.usf: Shader to pass GPU transforms to the ray tracing world
+===================================================================================================*/
+
+#include "/Engine/Private/Common.ush"
+#include "NiagaraCommon.ush"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Parameters
+
+uint	ParticleDataFloatStride;
+//uint	ParticleDataHalfStride;
+uint	ParticleDataIntStride;
+uint	CPUNumInstances;
+uint	InstanceCountOffset;
+
+uint	PositionDataOffset;
+uint	RotationDataOffset;
+uint	ScaleDataOffset;
+uint	bLocalSpace;
+uint	RenderVisibilityOffset;
+uint	MeshIndexOffset;
+
+uint	RenderVisibilityValue;
+uint	MeshIndexValue;
+
+float3	DefaultPosition;
+float4	DefaultRotation;
+float3	DefaultScale;
+float3	MeshScale;
+
+float4x4	LocalTransform;
+
+Buffer<float>	ParticleDataFloatBuffer;
+//Buffer<half>	ParticleDataHalfBuffer;
+Buffer<int>	ParticleDataIntBuffer;
+Buffer<uint>	GPUInstanceCountBuffer;
+
+RWStructuredBuffer<float3x4> TLASTransforms;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Helper function for buffers
+
+float GetFloat(int RegisterIdx, uint InstanceID)
+{
+	RegisterIdx &= (~(1 << 31));
+	return ParticleDataFloatBuffer[(RegisterIdx * ParticleDataFloatStride + InstanceID)];
+}
+
+float GetInt(int RegisterIdx, uint InstanceID)
+{
+	return ParticleDataIntBuffer[(RegisterIdx * ParticleDataIntStride + InstanceID)];
+}
+
+float3 SafeGetVec3(int RegisterIndex, uint InstanceID, float3 DefaultValue)
+{
+	return RegisterIndex == -1 ? DefaultValue : float3(GetFloat(RegisterIndex, InstanceID), GetFloat(RegisterIndex+1, InstanceID), GetFloat(RegisterIndex+2, InstanceID));
+}
+
+float4 SafeGetVec4(int RegisterIndex, uint InstanceID, float4 DefaultValue)
+{
+	return RegisterIndex == -1 ? DefaultValue : float4(GetFloat(RegisterIndex, InstanceID), GetFloat(RegisterIndex+1, InstanceID), GetFloat(RegisterIndex+2, InstanceID), GetFloat(RegisterIndex+3, InstanceID));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#ifndef THREADGROUP_SIZE
+#define THREADGROUP_SIZE 1
+#endif
+
+[numthreads(THREADGROUP_SIZE,1,1)]
+void NiagaraGPURayTracingTransformsCS(uint3 DispatchThreadId : SV_DispatchThreadID)
+{
+	uint InstanceIndex = DispatchThreadId.x;
+	if ( InstanceIndex >= CPUNumInstances)
+	{
+		return;
+	}
+
+	const uint GPUNumInstances = InstanceCountOffset != -1 ? GPUInstanceCountBuffer[InstanceCountOffset] : 0;
+
+	float4x4 InstanceTransformTransposed = 0;
+	if (InstanceIndex < GPUNumInstances)
+	{
+		float3 InstancePosition = SafeGetVec3(PositionDataOffset, InstanceIndex, DefaultPosition);
+		float4 InstanceRotation = SafeGetVec4(RotationDataOffset, InstanceIndex, DefaultRotation);
+		float3 InstanceScale    = SafeGetVec3(ScaleDataOffset, InstanceIndex, DefaultScale) * MeshScale;
+
+		float4x4 InstanceTransform = NiagaraComposeTransformMatrix(InstanceScale, NiagaraQuatTo3x3(InstanceRotation), InstancePosition);
+
+		if (bLocalSpace == 1)
+		{
+			InstanceTransform = mul(InstanceTransform, LocalTransform);
+		}
+
+		uint bInstanceValid = 1;
+		if ( RenderVisibilityOffset != -1 )
+		{
+			bInstanceValid &= GetInt(RenderVisibilityOffset, InstanceIndex) == RenderVisibilityValue;
+		}
+
+		if ( MeshIndexOffset != -1 )
+		{
+			bInstanceValid &= GetInt(MeshIndexOffset, InstanceIndex) == MeshIndexValue;
+		}
+
+		if ( bInstanceValid )
+		{
+			InstanceTransformTransposed = transpose(InstanceTransform);
+		}
+	}
+	TLASTransforms[InstanceIndex][0] = InstanceTransformTransposed[0];
+	TLASTransforms[InstanceIndex][1] = InstanceTransformTransposed[1];
+	TLASTransforms[InstanceIndex][2] = InstanceTransformTransposed[2];
+}

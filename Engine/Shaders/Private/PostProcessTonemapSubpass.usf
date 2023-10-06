@@ -1,0 +1,138 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessTonemapSubpass.usf: PostProcessing tone mapping  
+=============================================================================*/
+
+#include "Common.ush"
+#include "TonemapCommon.ush"
+
+// xyz:SceneColorTint.rgb, w:unused
+float4 ColorScale0;
+
+// xyz:Bloom1Tint.rgb, w:unused
+float4 ColorScale1;
+
+// from the postprocess settings, x:VignetteIntensity, y:SharpenDiv6
+float4 TonemapperParams;
+
+float4 OverlayColor;
+
+// Generate a mask to darken the screen borders.
+// (Camera artifact and artistic effect)
+// @param VignetteCircleSpacePos from VignetteSpace()
+float ComputeVignetteMask(float2 VignetteCircleSpacePos, float Intensity)
+{
+	// Natural vignetting
+	// cosine-fourth law
+	VignetteCircleSpacePos *= Intensity;
+	float Tan2Angle = dot(VignetteCircleSpacePos, VignetteCircleSpacePos);
+	float Cos4Angle = Square(rcp(Tan2Angle + 1));
+	return Cos4Angle;
+}
+
+// LUT for color grading
+#if USE_VOLUME_LUT == 1
+	Texture3D		ColorGradingLUT;
+#else
+	Texture2D       ColorGradingLUT;
+#endif 
+SamplerState        ColorGradingLUTSampler;
+
+static const float LUTSize = 32;
+
+half4 UnwrappedTexture3DSample(Texture2D Texture, SamplerState Sampler, float3 UVW, float Size)
+{
+	// a volume texture 16x16x16 would be unwrapped to a 2d texture 256x16
+
+	float IntW = floor(UVW.z * Size - 0.5);
+	half FracW = UVW.z * Size - 0.5 - IntW;
+
+	float U = (UVW.x + IntW) / Size;
+	float V = UVW.y;
+
+	half4 RG0 = Texture2DSample(Texture, Sampler, float2(U, V));
+	half4 RG1 = Texture2DSample(Texture, Sampler, float2(U + 1.0f / Size, V));
+
+	return lerp(RG0, RG1, FracW);
+}
+
+half3 ColorLookupTable(half3 LinearColor)
+{
+	float3 LUTEncodedColor = LinToLog(LinearColor + LogToLin(0));
+	float3 UVW = LUTEncodedColor * ((LUTSize - 1) / LUTSize) + (0.5f / LUTSize);
+
+#if USE_VOLUME_LUT == 1
+	half3 OutDeviceColor = Texture3DSample(ColorGradingLUT, ColorGradingLUTSampler, UVW).rgb;
+#else
+	half3 OutDeviceColor = UnwrappedTexture3DSample(ColorGradingLUT, ColorGradingLUTSampler, UVW, LUTSize).rgb;
+#endif
+	
+	return OutDeviceColor *1.05;
+}
+
+void MainPS_MobileSubpass(
+	in float4 UVAndScreenPos : TEXCOORD0,
+	in float4 FineDofGrain : TEXCOORD1,
+	in float4 FullViewUV : TEXCOORD2,
+	in float3 InVignetteExposureScale : TEXCOORD3,
+	in float2 InTexCoords[4] : TEXCOORD4,
+	in float4 InFringeTexCoords : FRINGE_COORDS,
+	out half4 OutColor : SV_Target0
+)
+{
+
+#if VULKAN_PROFILE
+	#ifndef SUBPASS_MSAA_SAMPLES
+		half4 SceneColor = half4(1.0, 1.0, 1.0, 1.0);
+	#else
+		#if SUBPASS_MSAA_SAMPLES == 8
+			half4 SceneColor = half4(VulkanSubpassFetchMS0(0) + VulkanSubpassFetchMS0(1) + VulkanSubpassFetchMS0(2) + VulkanSubpassFetchMS0(3) +
+				VulkanSubpassFetchMS0(4) + VulkanSubpassFetchMS0(5) + VulkanSubpassFetchMS0(6) + VulkanSubpassFetchMS0(7)) * 0.125;
+		#elif SUBPASS_MSAA_SAMPLES == 4
+			half4 SceneColor = half4(VulkanSubpassFetchMS0(0) + VulkanSubpassFetchMS0(1) + VulkanSubpassFetchMS0(2) + VulkanSubpassFetchMS0(3)) * 0.25;
+		#elif SUBPASS_MSAA_SAMPLES == 2
+			half4 SceneColor = half4(VulkanSubpassFetchMS0(0) + VulkanSubpassFetchMS0(1)) * 0.5;
+		#else
+			half4 SceneColor = half4(VulkanSubpassFetch0());
+		#endif
+	#endif
+#elif MOBILE_TONEMAP_SUBPASS_EDITOR
+	half4 SceneColor = half4(Texture2DSampleLevel(MobileSceneTextures.GBufferATexture, MobileSceneTextures.GBufferATextureSampler, UVAndScreenPos.xy, 0));
+#else
+	half4 SceneColor = half4(0.0, 1.0, 1.0, 1.0);
+#endif
+
+	const float OneOverPreExposure = View.OneOverPreExposure;
+
+	SceneColor.a = 1.0;
+
+	// Match PC naming.
+	half3 LinearColor = SceneColor.rgb * OneOverPreExposure;
+	LinearColor *= ColorScale0.rgb; // SceneColorTint
+
+#if USE_VIGNETTE
+	LinearColor.rgb *= ComputeVignetteMask(InVignetteExposureScale.xy, TonemapperParams.x);
+#endif
+
+	half3 TonemappedColor;
+
+	#if USE_COLOR_GRADING
+		TonemappedColor = ColorLookupTable(LinearColor);
+	#else
+		half3 FilmColor = FilmPostProcess(LinearColor.rgb);
+
+		// skip sRGB conversion if HW conversion will take place.
+		TonemappedColor = FilmColor;
+	
+		// Blend with custom LDR color, used for Fade track in Matinee.
+		// This is the 101% wrong way to do this,
+		//  - It adds an extra redundant lerp.
+		//  - It is not going to work with the future-forward ES3 fast path of sRGB output.
+		//  - And it does super ugly non-linear blending.
+		// The right way is to adjust exposure instead.
+		TonemappedColor = lerp(TonemappedColor.rgb, OverlayColor.rgb, OverlayColor.a);
+	#endif
+
+OutColor = half4(TonemappedColor, SceneColor.a);
+}

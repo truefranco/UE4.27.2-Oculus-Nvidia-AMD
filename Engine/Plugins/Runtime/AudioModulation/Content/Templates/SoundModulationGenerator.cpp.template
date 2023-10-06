@@ -1,0 +1,66 @@
+%COPYRIGHT_LINE%
+
+%PCH_INCLUDE_DIRECTIVE%
+%MY_HEADER_INCLUDE_DIRECTIVE%
+
+%ADDITIONAL_INCLUDE_DIRECTIVES%
+
+#include "AudioDeviceManager.h"
+#include "AudioMixerDevice.h"
+#include "AudioModulation.h"
+
+
+namespace %MODULE_NAME%
+{
+#if !UE_BUILD_SHIPPING
+	const FString F%UNPREFIXED_CLASS_NAME%::DebugName = TEXT("%MODULE_NAME%:%UNPREFIXED_CLASS_NAME%");
+
+	void F%UNPREFIXED_CLASS_NAME%::GetDebugCategories(TArray<FString>& OutDebugCategories) const
+	{
+		OutDebugCategories = %PREFIXED_CLASS_NAME%::GetDebugCategories();
+	}
+#endif // !UE_BUILD_SHIPPING
+
+	F%UNPREFIXED_CLASS_NAME%::F%UNPREFIXED_CLASS_NAME%(const F%UNPREFIXED_CLASS_NAME%Params& InParams, Audio::FDeviceId InDeviceId)
+		: IGenerator(InDeviceId)
+		, Params(InParams)
+	{
+	}
+
+	float F%UNPREFIXED_CLASS_NAME%::GetValue() const
+	{
+		// Return updated value [0.0f, 1.0f] here
+		return 1.0f;
+	}
+
+	bool F%UNPREFIXED_CLASS_NAME%::IsBypassed() const
+	{
+		return Params.bBypass;
+	}
+
+	void F%UNPREFIXED_CLASS_NAME%::Update(double InElapsed)
+	{
+		// Update internal generator logic on control tick here
+	}
+
+#if !UE_BUILD_SHIPPING
+	void F%UNPREFIXED_CLASS_NAME%::GetDebugValues(TArray<FString>& OutDebugValues) const
+	{
+		// Add instance values here to debug, formatted as strings. Ex:
+		// OutDebugValues.Add(FString::Printf(TEXT("%s"), Params.bBypass ? TEXT("True") : TEXT("False")));
+	}
+
+	const FString& F%UNPREFIXED_CLASS_NAME%::GetDebugName() const
+	{
+		return DebugName;
+	}
+#endif // !UE_BUILD_SHIPPING
+} // namespace %MODULE_NAME%
+
+#if !UE_BUILD_SHIPPING
+const FString& %PREFIXED_CLASS_NAME%::GetDebugName()
+{
+	using namespace %MODULE_NAME%;
+	return F%UNPREFIXED_CLASS_NAME%::DebugName;
+}
+#endif // !UE_BUILD_SHIPPING

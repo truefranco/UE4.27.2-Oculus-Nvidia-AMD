@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <Type Name="UE::MovieScene::FComponentTypeID">
+
+    <DisplayString Condition="Value == 65535">Invalid</DisplayString>
+    <DisplayString Condition="Value != 65535 &amp;&amp; GEntityManagerForDebugging == nullptr">{ Value }</DisplayString>
+    <DisplayString Condition="Value != 65535 &amp;&amp; GEntityManagerForDebugging != nullptr">[{ (*(UE::MovieScene::FComponentTypeInfo*)((TSparseArray&lt;UE::MovieScene::FComponentTypeInfo,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging-&gt;ComponentRegistry-&gt;ComponentTypes.Data.AllocatorInstance.Data + Value)).DebugInfo.Ptr->DebugTypeName,sub }] { (*(UE::MovieScene::FComponentTypeInfo*)((TSparseArray&lt;UE::MovieScene::FComponentTypeInfo,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging-&gt;ComponentRegistry-&gt;ComponentTypes.Data.AllocatorInstance.Data + Value)).DebugInfo.Ptr->DebugName,sub }</DisplayString>
+    
+    <Expand>
+
+      <Item Name="BitIndex">Value</Item>
+      <Item Name="DebugName" Condition="GEntityManagerForDebugging != nullptr">(*(UE::MovieScene::FComponentTypeInfo*)((TSparseArray&lt;UE::MovieScene::FComponentTypeInfo,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging-&gt;ComponentRegistry-&gt;ComponentTypes.Data.AllocatorInstance.Data + Value)).DebugInfo.Ptr->DebugName,sub</Item>
+      <Item Name="DebugTypeName" Condition="GEntityManagerForDebugging != nullptr">(*(UE::MovieScene::FComponentTypeInfo*)((TSparseArray&lt;UE::MovieScene::FComponentTypeInfo,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging-&gt;ComponentRegistry-&gt;ComponentTypes.Data.AllocatorInstance.Data + Value)).DebugInfo.Ptr->DebugTypeName,sub</Item>
+
+      <Item Name="GEntityManagerForDebugging">GEntityManagerForDebugging</Item>
+
+    </Expand>
+  </Type>
+
+  <Type Name="UE::MovieScene::FMovieSceneEntityID">
+    <DisplayString>ID={ Value }</DisplayString>
+    <Expand>
+      <Synthetic Name="Components">
+        <Expand>
+          <CustomListItems>
+            <Variable Name="pEntity"     InitialValue="(UE::MovieScene::FEntityManager::FEntityLocation*)((TSparseArray&lt;UE::MovieScene::FEntityManager::FEntityLocation,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging->EntityLocations.Data.AllocatorInstance.Data + Value)" />
+            <Variable Name="pAllocation" InitialValue="(*(UE::MovieScene::FEntityAllocation**)( (TSparseArray&lt;UE::MovieScene::FEntityAllocation *,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*) GEntityManagerForDebugging-&gt;EntityAllocations.Data.AllocatorInstance.Data + pEntity->AllocationIndex))" />
+
+            <Variable Name="ComponentType" InitialValue="UE::MovieScene::EComponentDebugType::Unknown" />
+            <Variable Name="ComponentIndex" InitialValue="0" />
+            <Variable Name="Count" InitialValue="0" />
+            <Variable Name="ComponentPtr" InitialValue="(void*)0" />
+            <Variable Name="pComponentHeader" InitialValue="(UE::MovieScene::FComponentHeader*)0" />
+
+            <Loop>
+              <Break Condition="ComponentIndex == pAllocation->NumComponents" />
+              <Exec>pComponentHeader = &amp;pAllocation->ComponentHeaders[ComponentIndex]</Exec>
+
+              <If Condition="pComponentHeader->Sizeof != 0">
+                <Exec>ComponentType = (*(FComponentTypeInfo*)((TSparseArray&lt;UE::MovieScene::FComponentTypeInfo,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging-&gt;ComponentRegistry-&gt;ComponentTypes.Data.AllocatorInstance.Data + pComponentHeader->ComponentType.Value)).DebugInfo.Ptr->Type</Exec>
+                <Exec>ComponentPtr = pComponentHeader->Components + pComponentHeader->Sizeof*pEntity->EntryIndexWithinAllocation</Exec>
+                <Exec>Count = Count + 1</Exec>
+
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Unknown">ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Bool">*(bool*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Uint8">*(uint8_t*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Uint16">*(uint16_t*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Int32">*(int32_t*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Float">*(float*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Vector2">*(FVector2D*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Vector3">*(FVector*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Vector4">*(FVector4*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Object">*(UObject**)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::Property">*(FMovieScenePropertyBinding*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::InstanceHandle">*(UE::MovieScene::FInstanceHandle*)ComponentPtr</Item>
+                <Item Name="{ pComponentHeader->ComponentType }" Condition="ComponentType == UE::MovieScene::EComponentDebugType::EntityID">*(UE::MovieScene::FMovieSceneEntityID*)ComponentPtr</Item>
+              </If>
+              <Exec>ComponentIndex = ComponentIndex + 1</Exec>
+            </Loop>
+            <Item Name="Num">Count</Item>
+          </CustomListItems>
+        </Expand>
+      </Synthetic>
+
+      <Synthetic Name="Tags">
+        <Expand>
+          <CustomListItems>
+            <Variable Name="pEntity"     InitialValue="(UE::MovieScene::FEntityManager::FEntityLocation*)((TSparseArray&lt;UE::MovieScene::FEntityManager::FEntityLocation,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging->EntityLocations.Data.AllocatorInstance.Data + Value)" />
+            <Variable Name="pAllocation" InitialValue="(*(UE::MovieScene::FEntityAllocation**)( (TSparseArray&lt;UE::MovieScene::FEntityAllocation *,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*) GEntityManagerForDebugging-&gt;EntityAllocations.Data.AllocatorInstance.Data + pEntity->AllocationIndex))" />
+
+            <Variable Name="ComponentIndex" InitialValue="0" />
+            <Variable Name="Count" InitialValue="0" />
+            <Variable Name="ComponentPtr" InitialValue="(void*)0" />
+            <Variable Name="pComponentHeader" InitialValue="(UE::MovieScene::FComponentHeader*)0" />
+
+            <Loop>
+              <Exec>pComponentHeader = &amp;pAllocation->ComponentHeaders[ComponentIndex]</Exec>
+
+              <Break Condition="ComponentIndex == pAllocation->NumComponents" />
+
+              <If Condition="pComponentHeader->Sizeof == 0">
+                <Item Name="[{Count}]">pComponentHeader->ComponentType</Item>
+                <Exec>Count = Count + 1</Exec>
+              </If>
+              <Exec>ComponentIndex = ComponentIndex + 1</Exec>
+            </Loop>
+            <Item Name="Num">Count</Item>
+          </CustomListItems>
+        </Expand>
+      </Synthetic>
+
+      <Synthetic Name="[Allocation Details]">
+        <Expand>
+          <Synthetic Name="AllocationIndex">
+            <DisplayString>{ (*(UE::MovieScene::FEntityManager::FEntityLocation*)((TSparseArray&lt;UE::MovieScene::FEntityManager::FEntityLocation,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging->EntityLocations.Data.AllocatorInstance.Data + Value)).AllocationIndex }</DisplayString>
+          </Synthetic>
+          <Synthetic Name="ComponentOffset">
+            <DisplayString>{ (*(UE::MovieScene::FEntityManager::FEntityLocation*)((TSparseArray&lt;UE::MovieScene::FEntityManager::FEntityLocation,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging->EntityLocations.Data.AllocatorInstance.Data + Value)).EntryIndexWithinAllocation }</DisplayString>
+          </Synthetic>
+          <Item Name="Owning Allocation">
+            *(FEntityAllocation**)(
+            (TSparseArray&lt;UE::MovieScene::FEntityAllocation *,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging->EntityAllocations.Data.AllocatorInstance.Data +
+            (*(UE::MovieScene::FEntityManager::FEntityLocation*)((TSparseArray&lt;UE::MovieScene::FEntityManager::FEntityLocation,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging->EntityLocations.Data.AllocatorInstance.Data + Value)).AllocationIndex
+            )
+          </Item>
+
+        </Expand>
+      </Synthetic>
+
+      <Item Name="GEntityManagerForDebugging">GEntityManagerForDebugging</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="UE::MovieScene::FComponentMask">
+    <DisplayString Condition="Bits.NumBits == 0">Empty</DisplayString>
+
+    <Expand>
+
+      <CustomListItems MaxItemsPerView="256" Condition="GEntityManagerForDebugging">
+        <Variable Name="BitIndex" InitialValue="0" />
+
+        <Loop>
+          <Break Condition="BitIndex == Bits.NumBits" />
+
+
+          <Item Name="[{ (*(UE::MovieScene::FComponentTypeInfo*)((TSparseArray&lt;UE::MovieScene::FComponentTypeInfo,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging-&gt;ComponentRegistry-&gt;ComponentTypes.Data.AllocatorInstance.Data + BitIndex)).DebugInfo.Ptr->DebugTypeName,sub }] { (*(UE::MovieScene::FComponentTypeInfo*)((TSparseArray&lt;UE::MovieScene::FComponentTypeInfo,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging-&gt;ComponentRegistry-&gt;ComponentTypes.Data.AllocatorInstance.Data + BitIndex)).DebugInfo.Ptr->DebugName,sub }" Condition="((reinterpret_cast&lt;uint32*&gt;(Bits.AllocatorInstance.InlineData)[BitIndex/32]&gt;&gt;(BitIndex%32)) &amp; 1) != 0">BitIndex</Item>
+          <Exec>BitIndex = BitIndex + 1</Exec>
+        </Loop>
+      </CustomListItems>
+
+      <Synthetic Condition="Bits.NumBits != 0" Name="[All Bits]">
+        <Expand>
+          <IndexListItems Condition="Bits.NumBits &gt; 0">
+            <Size>Bits.NumBits</Size>
+            <ValueNode Condition="((reinterpret_cast&lt;uint32*&gt;(Bits.AllocatorInstance.InlineData)[$i/32]&gt;&gt;($i%32)) &amp; 1) != 0">1</ValueNode>
+            <ValueNode Condition="((reinterpret_cast&lt;uint32*&gt;(Bits.AllocatorInstance.InlineData)[$i/32]&gt;&gt;($i%32)) &amp; 1) == 0">0</ValueNode>
+          </IndexListItems>
+        </Expand>
+      </Synthetic>
+
+      <Item Name="GEntityManagerForDebugging">GEntityManagerForDebugging</Item>
+
+    </Expand>
+
+  </Type>
+
+  <Type Name="UE::MovieScene::FEntityAllocation">
+    <DisplayString>Num={ Size }, Num Components={ NumComponents }</DisplayString>
+
+    <Expand>
+      <Synthetic Name="Entities">
+        <DisplayString>Num={ Size }</DisplayString>
+        <Expand>
+          <ArrayItems>
+            <Size>Size</Size>
+            <ValuePointer>EntityIDs</ValuePointer>
+          </ArrayItems>
+        </Expand>
+      </Synthetic>
+
+      <Synthetic Name="Tags">
+        <Expand>
+          <CustomListItems>
+            <Variable Name="HeaderIndex" InitialValue="0" />
+            <Variable Name="Count" InitialValue="0" />
+            <Variable Name="pComponentHeader" InitialValue="(UE::MovieScene::FComponentHeader*)0" />
+            <Loop>
+              <Break Condition="HeaderIndex == NumComponents" />
+              <Exec>pComponentHeader = &amp;ComponentHeaders[HeaderIndex]</Exec>
+
+              <Item Name="[{Count}]" Condition="pComponentHeader->Sizeof == 0">pComponentHeader->ComponentType</Item>
+
+              <Exec Condition="pComponentHeader->Sizeof == 0">Count = Count + 1</Exec>
+              <Exec>HeaderIndex = HeaderIndex + 1</Exec>
+            </Loop>
+
+            <Item Name="Num">Count</Item>
+          </CustomListItems>
+        </Expand>
+        
+      </Synthetic>
+
+      <Synthetic Name="Components">
+        <Expand>
+          <CustomListItems>
+
+            <Variable Name="HeaderIndex" InitialValue="0" />
+            <Variable Name="Count" InitialValue="0" />
+            <Variable Name="ComponentType" InitialValue="UE::MovieScene::EComponentDebugType::Unknown" />
+            <Variable Name="pComponentHeader" InitialValue="(UE::MovieScene::FComponentHeader*)0" />
+            <Loop>
+              <Break Condition="HeaderIndex == NumComponents" />
+              <Exec>pComponentHeader = &amp;ComponentHeaders[HeaderIndex]</Exec>
+              <Exec>ComponentType = (*(UE::MovieScene::FComponentTypeInfo*)((TSparseArray&lt;UE::MovieScene::FComponentTypeInfo,FDefaultSparseArrayAllocator&gt;::FElementOrFreeListLink*)GEntityManagerForDebugging-&gt;ComponentRegistry-&gt;ComponentTypes.Data.AllocatorInstance.Data + pComponentHeader->ComponentType.Value)).DebugInfo.Ptr->Type</Exec>
+
+              <Item Name="{ pComponentHeader->ComponentType }" Condition="pComponentHeader->Sizeof != 0 &amp;&amp; ComponentType == UE::MovieScene::EComponentDebugType::Unknown">(void*)(pComponentHeader->Components)</Item>
+              <Item Name="{ pComponentHeader->ComponentType }" Condition="pComponentHeader->Sizeof != 0 &amp;&amp; ComponentType == UE::MovieScene::EComponentDebugType::Float">(float*)(pComponentHeader->Components),[Size]</Item>
+              <Item Name="{ pComponentHeader->ComponentType }" Condition="pComponentHeader->Sizeof != 0 &amp;&amp; ComponentType == UE::MovieScene::EComponentDebugType::Uint16">(uint16_t*)(pComponentHeader->Components),[Size]</Item>
+              <Item Name="{ pComponentHeader->ComponentType }" Condition="pComponentHeader->Sizeof != 0 &amp;&amp; ComponentType == UE::MovieScene::EComponentDebugType::Object">(UObject**)(pComponentHeader->Components),[Size]</Item>
+              <Item Name="{ pComponentHeader->ComponentType }" Condition="pComponentHeader->Sizeof != 0 &amp;&amp; ComponentType == UE::MovieScene::EComponentDebugType::Property">(FMovieScenePropertyBinding*)(pComponentHeader->Components),[Size]</Item>
+              <Item Name="{ pComponentHeader->ComponentType }" Condition="pComponentHeader->Sizeof != 0 &amp;&amp; ComponentType == UE::MovieScene::EComponentDebugType::InstanceHandle">(UE::MovieScene::FInstanceHandle*)(pComponentHeader->Components),[Size]</Item>
+              <Item Name="{ pComponentHeader->ComponentType }" Condition="pComponentHeader->Sizeof != 0 &amp;&amp; ComponentType == UE::MovieScene::EComponentDebugType::EntityID">(UE::MovieScene::FMovieSceneEntityID*)(pComponentHeader->Components),[Size]</Item>
+
+              <Exec Condition="pComponentHeader->Sizeof != 0">Count = Count + 1</Exec>
+              <Exec>HeaderIndex = HeaderIndex + 1</Exec>
+            </Loop>
+            <Item Name="Num">Count</Item>
+          </CustomListItems>
+        </Expand>
+      </Synthetic>
+
+      <Item Name="SerialNumber">SerialNumber</Item>
+      <Item Name="Capacity">Capacity</Item>
+      <Item Name="MaxCapacity">MaxCapacity</Item>
+
+      <Synthetic Name="[Raw View]">
+        <Expand>
+          <ArrayItems>
+            <Size>NumComponents</Size>
+            <ValuePointer>ComponentHeaders</ValuePointer>
+          </ArrayItems>
+        </Expand>
+      </Synthetic>
+
+    </Expand>
+  </Type>
+
+  <Type Name="UE::MovieScene::FComponentHeader::TDebugTypes&lt;*&gt;">
+    <Expand>
+      <ArrayItems>
+        <Size>Size</Size>
+        <ValuePointer>TypedComponents</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+
+  <!--
+  <Type Name="UE::MovieScene::TMovieSceneEntityTaskComponents&lt;*&gt;">
+
+    <Expand>
+      <ExpandedItem>Accessors</ExpandedItem>
+    </Expand>
+
+  </Type>-->
+
+  <Type Name="UE::MovieScene::TAdd&lt;*&gt;" Inheritable="false">
+    <DisplayString>Add Component={"$T1"}, Value={ Payload }, ComponentType={ ComponentType }</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::FAddUntyped" Inheritable="false">
+    <DisplayString>Add Component={ComponentType}, Value=Defaulted</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::TReadOptional&lt;*&gt;" Inheritable="false">
+    <DisplayString>(Optional) Read Component={"$T1"}, ComponentType={ ComponentType }</DisplayString>
+  </Type>
+  
+  <Type Name="UE::MovieScene::TRead&lt;*&gt;" Inheritable="false">
+    <DisplayString>Read Component={"$T1"}, ComponentType={ ComponentType }</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::TReadProjected&lt;*&gt;" Inheritable="false">
+    <DisplayString>Read Component Projection={"$T1"}, ComponentType={ ComponentType }, Projection={ Projection }</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::TWrite&lt;*&gt;" Inheritable="false">
+    <DisplayString>Write To Component={"$T1"}, ComponentType={ ComponentType }</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::TWriteOptional&lt;*&gt;" Inheritable="false">
+    <DisplayString>(Optional) Write To Component={"$T1"}, ComponentType={ ComponentType }</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::TAddConditional&lt;*&gt;" Inheritable="false">
+    <DisplayString Condition="bCondition == false">noop</DisplayString>
+    <DisplayString Condition="bCondition == true">Add Type={"$T1"}, Value={ Payload }</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::FAddTag" Inheritable="false">
+    <DisplayString>Add Tag {ComponentType}</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::FAddTagConditional" Inheritable="false">
+    <DisplayString Condition="bCondition == false">noop</DisplayString>
+    <DisplayString Condition="bCondition == true">Add Tag {ComponentType}</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::FReadEntityIDs" Inheritable="false">
+    <DisplayString>Read Entity ID</DisplayString>
+  </Type>
+
+  <Type Name="UE::MovieScene::TPartialProjection&lt;*&gt;" Inheritable="false">
+    <DisplayString Condition="Projection == nullptr">ComponentType={ ComponentTypeID } (no projection)"</DisplayString>
+    <DisplayString Condition="Projection != nullptr">ComponentType={ ComponentTypeID} (with projection)</DisplayString>
+  </Type>
+
+</AutoVisualizer>

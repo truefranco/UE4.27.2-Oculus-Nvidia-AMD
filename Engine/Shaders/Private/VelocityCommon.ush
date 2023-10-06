@@ -1,0 +1,37 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	VelocityCommon.usf: Common functions for calculating velocity vectors.
+=============================================================================*/
+
+#pragma once
+
+float3 Calculate3DVelocity(float4 PackedVelocityA, float4 PackedVelocityC)
+{
+	float2 ScreenPos = PackedVelocityA.xy / PackedVelocityA.w - ResolvedView.TemporalAAJitter.xy;
+	float2 PrevScreenPos = PackedVelocityC.xy / PackedVelocityC.w - ResolvedView.TemporalAAJitter.zw;
+
+	float DeviceZ = PackedVelocityA.z / PackedVelocityA.w;
+	float PrevDeviceZ = PackedVelocityC.z / PackedVelocityC.w;
+
+	// 3d velocity, includes camera an object motion
+	float3 Velocity = float3(ScreenPos - PrevScreenPos, DeviceZ - PrevDeviceZ);
+
+	// Make sure not to touch 0,0 which is clear color
+	return Velocity;
+}
+
+// AppSpaceWarp
+#if SUPPORT_VR_FRAME_EXTRAPOLATION
+	// If object rotate too fast, the motion vector direction will be messed up
+	// Here, when rotation speed is above threshold (10 degree),  we'll disable motion vector by replace PrevTransform with CurrentTransform
+	// For saving shader performance, we only detect rotation on 2 axises
+
+bool IsSmoothRotation( float3 PrevAxis1, float3 PrevAxis2, float3 CurrAxis1, float3 CurrAxis2 )
+{
+	const float angleThreshold = 0.984f; // cos(10 degree)
+	float2 AngleDot = float2( dot(normalize(PrevAxis1), normalize(CurrAxis1)),
+	  						  dot(normalize(PrevAxis2), normalize(CurrAxis2)));
+	return all(AngleDot > angleThreshold);
+}
+#endif

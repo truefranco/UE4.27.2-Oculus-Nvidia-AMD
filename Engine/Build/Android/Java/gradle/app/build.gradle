@@ -1,0 +1,193 @@
+apply plugin: 'com.android.application'
+
+android {
+	compileSdkVersion = COMPILE_SDK_VERSION.toInteger()
+	buildToolsVersion = BUILD_TOOLS_VERSION
+	defaultConfig {
+		applicationId = PACKAGE_NAME
+		minSdkVersion = MIN_SDK_VERSION.toInteger()
+		targetSdkVersion = TARGET_SDK_VERSION.toInteger()
+		versionCode = STORE_VERSION.toInteger()
+		versionName = VERSION_DISPLAY_NAME
+	}
+}
+
+apply from: 'buildAdditions.gradle'
+
+android {
+
+	// work in progress
+	//externalNativeBuild {
+	//	cmake {
+	//		path 'CMakeLists.txt'
+	//	}
+	//}
+	
+	sourceSets.main {
+		// disable generation of Android.mk
+		jni.srcDirs = []
+		
+		jniLibs.srcDirs = ['src/main/jniLibs', 'src/main/libs']
+		
+		// aidl in java directories
+		aidl.srcDirs = java.srcDirs
+	}
+
+	lintOptions {
+		// uncomment to get a report
+		//htmlOutput file("lint-report.html")
+
+		// turn this back on if you want to check
+		checkReleaseBuilds false
+		
+		// this will prevent it from stopping if above is true and an issue is found
+		abortOnError false
+	}
+
+	applicationVariants.all { variants ->
+		outputs.all {
+			// move it up one level to help with path limit (app/build/outputs/apk/app-debug.apk or app-release.apk)
+			outputFileName = "../" + outputFileName
+		}
+	}
+}
+
+tasks.whenTaskAdded { task ->
+	if (task.name == 'packageDebug') {
+		tasks.create(name:'ueDeleteOldPackageDebug') {
+			doLast {
+				delete('build/outputs/apk/app-debug.apk')
+				delete('build/outputs/apk/debug/output.json')
+			}
+		}
+		
+		task.dependsOn('ueDeleteOldPackageDebug')
+	}
+	if (task.name == 'packageRelease') {
+		tasks.create(name:'ueDeleteOldPackageRelease') {
+			doLast {
+				delete('build/outputs/apk/app-release.apk')
+				delete('build/outputs/apk/release/output.json')
+			}
+		}
+		
+		task.dependsOn('ueDeleteOldPackageRelease')
+	}
+	if (task.name == 'assembleRelease') {
+		if (project.hasProperty('OUTPUT_FILENAME')) {
+			tasks.create(name:'ue4CompleteRelease', type: Copy) {
+				description "Copy final release APK"
+				from 'build/outputs/apk/app-release.apk'
+				into OUTPUT_PATH
+				rename ("app-release.apk", OUTPUT_FILENAME)
+			}
+
+			task.finalizedBy 'ue4CompleteRelease'
+		}
+	}
+	if (task.name == 'assembleDebug') {
+		if (project.hasProperty('OUTPUT_FILENAME')) {
+			tasks.create(name:'ue4CompleteDebug', type: Copy) {
+				description "Copy final debug APK"
+				from 'build/outputs/apk/app-debug.apk'
+				into OUTPUT_PATH
+				rename ("app-debug.apk", OUTPUT_FILENAME)
+			}
+
+			task.finalizedBy 'ue4CompleteDebug'
+		}
+	}
+	if (task.name == 'bundleRelease') {
+		if (project.hasProperty('OUTPUT_BUNDLEFILENAME')) {
+			task.finalizedBy 'ue4CompleteBundleRelease'
+
+			tasks.create(name:'ue4CompleteBundleRelease', type: Copy) {
+				description "Copy final release AAB"
+				from 'build/outputs/bundle/release/app-release.aab'
+				into OUTPUT_PATH
+				rename ("app-release.aab", OUTPUT_BUNDLEFILENAME)
+			}
+
+			if (project.hasProperty('OUTPUT_UNIVERSALFILENAME')) {
+				tasks.create(name:'ue4ExtractUniversalAPKRelease', type: JavaExec) {
+					description "Extracts universal APK from APKS"
+					main = "-jar"
+					args = [
+						"${GENUNIVERSALAPK_JAR}",
+						"build/outputs/bundle/release/universal.apks",
+						"${OUTPUT_PATH}/${OUTPUT_UNIVERSALFILENAME}"
+					]
+				}
+
+				tasks.create(name:'ue4BuildUniversalAPKSRelease', type: JavaExec) {
+					finalizedBy 'ue4ExtractUniversalAPKRelease'
+					description "Builds universal APKS with bundletool"
+					main = "-jar"
+					args = [
+						"${BUNDLETOOL_JAR}",
+						"build-apks",
+						"--bundle=build/outputs/bundle/release/app-release.aab",
+						"--mode=universal",
+						"--overwrite",
+						"--output=build/outputs/bundle/release/universal.apks",
+						"--ks=" + "${STORE_FILE}",
+						"--ks-key-alias=" + "${KEY_ALIAS}",
+						"--ks-pass=pass:" + "${STORE_PASSWORD}",
+						"--key-pass=pass:" + "${KEY_PASSWORD}"
+					]
+				}
+
+				task.finalizedBy 'ue4BuildUniversalAPKSRelease'
+			}
+		}
+	}
+	if (task.name == 'bundleDebug') {
+		if (project.hasProperty('OUTPUT_BUNDLEFILENAME')) {
+			task.finalizedBy 'ue4CompleteBundleDebug'
+
+			tasks.create(name:'ue4CompleteBundleDebug', type: Copy) {
+				description "Copy final debug AAB"
+				from 'build/outputs/bundle/debug/app-debug.aab'
+				into OUTPUT_PATH
+				rename ("app-debug.aab", OUTPUT_BUNDLEFILENAME)
+			}
+
+			if (project.hasProperty('OUTPUT_UNIVERSALFILENAME')) {
+				tasks.create(name:'ue4ExtractUniversalAPKDebug', type: JavaExec) {
+					description "Extracts universal APK from APKS"
+					main = "-jar"
+					args = [
+						"${GENUNIVERSALAPK_JAR}",
+						"build/outputs/bundle/debug/universal.apks",
+						"${OUTPUT_PATH}/${OUTPUT_UNIVERSALFILENAME}"
+					]
+				}
+
+				tasks.create(name:'ue4BuildUniversalAPKSDebug', type: JavaExec) {
+					finalizedBy 'ue4ExtractUniversalAPKDebug'
+					description "Builds universal APKS with bundletool"
+					main = "-jar"
+					args = [
+						"${BUNDLETOOL_JAR}",
+						"build-apks",
+						"--bundle=build/outputs/bundle/debug/app-debug.aab",
+						"--mode=universal",
+						"--overwrite",
+						"--output=build/outputs/bundle/debug/universal.apks"
+					]
+				}
+
+				task.finalizedBy 'ue4BuildUniversalAPKSDebug'
+			}
+		}
+	}
+}
+
+
+dependencies {
+	implementation fileTree(dir: 'libs', include: ['*.jar'])
+	implementation fileTree(dir: 'src/main/libs', include: ['*.jar'])
+
+	implementation "android.arch.lifecycle:extensions:1.1.1"
+	annotationProcessor "android.arch.lifecycle:compiler:1.1.1"
+}

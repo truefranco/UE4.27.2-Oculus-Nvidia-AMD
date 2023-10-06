@@ -1,0 +1,74 @@
+# Console Commands
+
+    vr.HMDVersion                                   Prints Oculus SDK version used and Oculus Plugin info
+    vr.bEnableHMD [<bool>]              	        Enables/Disables HMD
+    vr.bEnableStereo [<bool>]       	            Enables/Disables Stereo mode
+    vr.WorldToMetersScale [<float>]                 Changes worldunits-to-meters scale
+    vr.HiddenAreaMask [<bool>]  	                Enables/Disables hidden-area mask
+    vr.SpectatorScreenMode [0..5] 		 			0=Disabled, 1=SingleEye Letterboxed, 2=Undistorted, 3=Distorted, 4=SingleEye, 5=SingleEye Cropped
+    vr.TrackingOrigin [floor|eye]                   Sets tracking origin
+    vr.HeadTracking.Reset <yaw>                     Resets position and orientation, applies yaw (in degrees)
+    vr.HeadTracking.ResetPosition                   Resets position only
+    vr.HeadTracking.ResetOrientation <yaw>          Resets orientation only, applies yaw (in degrees)
+    vr.HeadTracking.Status                          Shows current head tracking status
+    vr.oculus.bUpdateOnRenderThred [<bool>]         Enable/Disable updating HMD pose on render thread
+    *vr.oculus.Debug.Show [<bool>]					Shows the current value of various stereo rendering params
+    *vr.oculus.Debug.IPD [<float>]					Shows or changes the current interpupillary distance in meters
+    *vr.oculus.Debug.EnforceHeadTracking [<bool>]   Enables/Disables head tracking even if not in stereo (for testing purposes)
+
+## PC
+    vr.oculus.bHQDistortion [<bool>]         		Enables/Disables using multiple mipmap levels for the eye layer
+    vr.PixelDensity [0.5..2.0]                      Sets pixel density in the center (default is 1.0)
+    vr.oculus.PixelDensity.min [0.5..2.0]           Sets minumum adaptive pixel density (default is 0.5)
+    vr.oculus.PixelDensity.max [0.5..2.0]           Sets maximum adaptive pixel density (default is 1.0)
+    r.DynamicRes.OperationMode [0..2]				0=Disabled, 1=Enabled, 2=Force-Enabled
+    *vr.oculus.Debug.CaptureCubemap  [xoff=?] [yoff=?] [zoff=?] [yaw=?] [gearvr] 
+        All arguments are optional and default to 0. passing GEARVR makes the height of the cubemap 1024px instead of 2048
+
+## Mobile
+    vr.oculus.ShowGlobalMenu 						Opens the global menu
+    vr.oculus.ShowQuitMenu 							Opens the quit menu
+	
+## Mixed Reality
+	mr.ProjectToMirrorWindow [0,1]				    Project the Mixed Reality output to the MirrorWindow, the Oculus MR Output window would get minimized automatically
+    mr.AutoOpenCasting [0,1,2]					    Auto open the Oculus MR Output window and start casting when the game starts: 0=Disable; 1=MultiView; 2=DirectComposition
+	mr.MixedReality_Override [0,1]					Use the Mixed Reality console variables
+	mr.MixedReality_ChromaKeyColor_R [0..255]		Chroma Key Color R
+	mr.MixedReality_ChromaKeyColor_G [0..255]		Chroma Key Color G
+	mr.MixedReality_ChromaKeyColor_B [0..255]		Chroma Key Color B
+	mr.MixedReality_ChromaKeySimilarity	[<float>]	Chroma Key Similarity
+	mr.MixedReality_ChromaKeySmoothRange [<float>]	Chroma Key Smooth Range
+	mr.MixedReality_ChromaKeySpillRange	[<float>]	Chroma Key Spill Range
+	mr.MixedReality_CastingLantency [0.0..0.1]		In MultiView mode, CastingLatency would add a small lag to the Oculus MR Output. User could adjust it to match the latency of camera in an external composition software
+	
+	
+# Command-Line Parameters
+	-mxr_project_to_mirror_window					Project the Mixed Reality output to the MirrorWindow, the Oculus MR Output window would get minimized automatically
+	-mxr_open_multiview								Auto open the Oculus MR Output window in the MultiView mode
+	-mxr_open_direct_composition					Auto open the Oculus MR Output window in the DirectComposition mode
+
+
+# Engine.ini Settings 
+
+## PC
+	[/Script/OculusHMD.OculusHMDRuntimeSettings]
+	bAutoEnabled=[<bool>]
+	bSupportsDash=[<bool>]
+	bCompositesDepth=[<bool>]
+	bHQDistortion=[<bool>]
+	PixelDensityMin=[0.5..2.0]
+	PixelDensityMax=[0.5..2.0]
+
+## Mobile
+	[/Script/OculusHMD.OculusHMDRuntimeSettings]
+	CPULevel=[0..3]
+	GPULevel=[0..3]
+	FFRLevel=ETiledMultiResLevel_[Off,LMSLow,LMSMedium,LMSHigh]
+	bChromaCorrection=[<bool>]
+	bRecenterHMDWithController=[<bool>]
+
+
+* = Not available in UE_BUILD_SHIPPING builds
+
+**No license is granted by Oculus to any Epic Engine Code or to any Third Party Software contained in the Engine Code.
+Your use of Engine Code and any Third Party Software is governed by the Unreal Engine End User License Agreement.**

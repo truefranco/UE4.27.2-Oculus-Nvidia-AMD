@@ -1,0 +1,88 @@
+%COPYRIGHT_LINE%
+#pragma once
+
+#include "CoreMinimal.h"
+%BASE_CLASS_INCLUDE_DIRECTIVE%
+
+#include "AudioDeviceManager.h"
+#include "IAudioModulation.h"
+#include "SoundModulationGenerator.h"
+#include "Templates/SharedPointer.h"
+#include "UObject/Object.h"
+#include "UObject/ObjectMacros.h"
+
+#include "%UNPREFIXED_CLASS_NAME%.generated.h"
+
+// ========================================================================
+// %PREFIXED_CLASS_NAME%
+// %PREFIXED_CLASS_NAME% which implements %PREFIXED_BASE_CLASS_NAME%.
+// ========================================================================
+
+
+USTRUCT(BlueprintType)
+struct %CLASS_MODULE_API_MACRO% F%UNPREFIXED_CLASS_NAME%Params
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** If true, bypasses generator from being modulated by parameters, patches, or mixed (remains active and computed). */
+	UPROPERTY(EditAnywhere, Category = Modulation, BlueprintReadWrite)
+	bool bBypass = false;
+};
+
+namespace %MODULE_NAME%
+{
+	class %CLASS_MODULE_API_MACRO% F%UNPREFIXED_CLASS_NAME% : public AudioModulation::IGenerator
+	{
+		public:
+			F%UNPREFIXED_CLASS_NAME%(const F%UNPREFIXED_CLASS_NAME%Params& InParams, Audio::FDeviceId InDeviceId);
+			virtual ~F%UNPREFIXED_CLASS_NAME%() = default;
+
+			virtual float GetValue() const override;
+			virtual bool IsBypassed() const override;
+			virtual void Update(double InElapsed) override;
+
+#if !UE_BUILD_SHIPPING
+			static const FString DebugName;
+
+			virtual void GetDebugCategories(TArray<FString>& OutDebugCategories) const override;
+			virtual void GetDebugValues(TArray<FString>& OutDebugValues) const override;
+			virtual const FString& GetDebugName() const override;
+#endif // !UE_BUILD_SHIPPING
+
+		protected:
+			F%UNPREFIXED_CLASS_NAME%Params Params;
+	};
+} // namespace %MODULE_NAME%
+
+UCLASS(hidecategories = Object, BlueprintType, editinlinenew)
+class %CLASS_MODULE_API_MACRO% %PREFIXED_CLASS_NAME% : public %PREFIXED_BASE_CLASS_NAME%
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, Category = Modulation, BlueprintReadWrite, meta = (ShowOnlyInnerProperties))
+	F%UNPREFIXED_CLASS_NAME%Params Params;
+
+#if !UE_BUILD_SHIPPING
+	static const TArray<FString>& GetDebugCategories()
+	{
+		static const TArray<FString> Categories =
+		{
+			// Add debug value categories for each string value provided by generator instance(s)
+			// to be displayed when using the au.debug.SoundModulators command. Ex:
+			// TEXT("Bypassed")
+		};
+		return Categories;
+	}
+
+	static const FString& GetDebugName();
+#endif // !UE_BUILD_SHIPPING
+
+	virtual AudioModulation::FGeneratorPtr CreateInstance(Audio::FDeviceId InDeviceId) const override
+	{
+		using namespace %MODULE_NAME%;
+
+		auto NewGenerator = MakeShared<F%UNPREFIXED_CLASS_NAME%, ESPMode::ThreadSafe>(Params, InDeviceId);
+		return StaticCastSharedRef<AudioModulation::IGenerator>(NewGenerator);
+	}
+};

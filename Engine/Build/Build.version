@@ -1,0 +1,10 @@
+{
+	"MajorVersion": 4,
+	"MinorVersion": 27,
+	"PatchVersion": 2,
+	"Changelist": 0,
+	"CompatibleChangelist": 0,
+	"IsLicenseeVersion": 1,
+	"IsPromotedBuild": 0,
+	"BranchName": "++UE4+Partner-Oculus-4.27"
+}

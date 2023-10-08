@@ -77,7 +77,7 @@ inline FScreenPassRenderTarget FScreenPassRenderTarget::CreateFromInput(
 	return FScreenPassRenderTarget(GraphBuilder.CreateTexture(OutputDesc, OutputName), Input.ViewRect, OutputLoadAction);
 }
 
-inline FScreenPassRenderTarget FScreenPassRenderTarget::CreateViewFamilyOutput(FRDGTextureRef ViewFamilyTexture, const FViewInfo& View)
+/*inline FScreenPassRenderTarget FScreenPassRenderTarget::CreateViewFamilyOutput(FRDGTextureRef ViewFamilyTexture, const FViewInfo& View)
 {
 	return FScreenPassRenderTarget(
 		ViewFamilyTexture,
@@ -85,6 +85,29 @@ inline FScreenPassRenderTarget FScreenPassRenderTarget::CreateViewFamilyOutput(F
 		View.PrimaryScreenPercentageMethod == EPrimaryScreenPercentageMethod::RawOutput ? View.ViewRect : View.UnscaledViewRect,
 		// First view clears the view family texture; all remaining views load.
 		(!View.Family->bAdditionalViewFamily && View.IsFirstInFamily() )? ERenderTargetLoadAction::EClear : ERenderTargetLoadAction::ELoad);
+}*/
+
+inline FScreenPassRenderTarget FScreenPassRenderTarget::CreateViewFamilyOutput(FRDGTextureRef ViewFamilyTexture, const FViewInfo& View)
+{
+	const FIntRect ViewRect = View.PrimaryScreenPercentageMethod == EPrimaryScreenPercentageMethod::RawOutput ? View.ViewRect : View.UnscaledViewRect;
+
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::ENoAction;
+
+	if (!View.IsFirstInFamily() || View.Family->bAdditionalViewFamily)
+	{
+		LoadAction = ERenderTargetLoadAction::ELoad;
+	}
+	else if (ViewRect.Min != FIntPoint::ZeroValue || ViewRect.Size() != ViewFamilyTexture->Desc.Extent)
+	{
+		LoadAction = ERenderTargetLoadAction::EClear;
+	}
+
+	return FScreenPassRenderTarget(
+		ViewFamilyTexture,
+		// Raw output mode uses the original view rect. Otherwise the final unscaled rect is used.
+		ViewRect,
+		// First view clears the view family texture; all remaining views load.
+		LoadAction);
 }
 
 inline FScreenPassTexture::FScreenPassTexture(FRDGTextureRef InTexture)

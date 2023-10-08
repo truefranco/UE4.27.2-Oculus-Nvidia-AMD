@@ -242,3 +242,8 @@ Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/**
 # Ignore the private building scripts (which belongs to oculus-build-scripts branch)
 /Collaboration/Private/Scripts/
 
+/Engine/Plugins/Runtime/Nvidia/**
+
+/Engine/Plugins/GeneralMovement/**
+*.ini
+*.ini

@@ -35,7 +35,7 @@
 	"Plugins": [
 		{
 			"Name": "OculusVR",
-			"Enabled": true
+			"Enabled": false
 		}
 	]
 }

@@ -90,6 +90,9 @@ namespace EOculusMobileDevice
 
 		/** Package for Meta Quest Pro */
 		QuestPro = 3 UMETA(DisplayName = "Meta Quest Pro"),
+
+		/** Package for Meta Quest Pro */
+		Quest3 = 4 UMETA(DisplayName = "Meta Quest 3"),
 	};
 }
 

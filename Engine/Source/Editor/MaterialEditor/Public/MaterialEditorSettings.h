@@ -24,7 +24,7 @@ public:
 	/**
 	Offline shader compiler to use.
 	Mali Offline Compiler: Official website address: https://developer.arm.com/products/software-development-tools/graphics-development-tools/mali-offline-compiler/downloads
-	Adreno Offline Compiler: Official website address: TODO: add a website here.
+	Adreno Offline Compiler: Official website address: Not Ready. TODO: Add a website here once it is officially released.
 	*/
 	UPROPERTY(config, EditAnywhere, Category = "Offline Shader Compilers", meta = (DisplayName = "Offline Shader Compiler"))
 	EOfflineShaderCompiler OfflineCompiler;
@@ -36,7 +36,7 @@ public:
 	FFilePath OfflineCompilerPath;
 
 	/**
-	The GPU target if the offline shader compiler needs one.
+	The GPU target if the offline shader compiler needs one (Adreno GPU only).
 	*/
 	UPROPERTY(config, EditAnywhere, Category = "Offline Shader Compilers", meta = (DisplayName = "GPU Target"))
 	FString GPUTarget;
@@ -47,6 +47,11 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = "Offline Shader Compilers", meta = (DisplayName = "Save Compiler Stats Files"))
 	bool bSaveCompilerStatsFiles = false;
 
+	/**
+	Whether to dump stats only or all information to file (Adreno GPU only).
+	*/
+	UPROPERTY(config, EditAnywhere, Category = "Offline Shader Compilers", meta = (DisplayName = "Dump All To Compiler Stats Files"))
+	bool bDumpAll;
 protected:
 	// The width (in pixels) of the preview viewport when a material editor is first opened
 	UPROPERTY(config, EditAnywhere, meta=(ClampMin=1, ClampMax=4096), Category="User Interface Domain")

@@ -30,6 +30,11 @@ AOculusSceneActor::AOculusSceneActor(const FObjectInitializer& ObjectInitializer
 		TEXT("DESK"),
 		TEXT("DOOR_FRAME"),
 		TEXT("WINDOW_FRAME"),
+		TEXT("SCREEN"),
+		TEXT("BED"),
+		TEXT("LAMP"),
+		TEXT("PLANT"),
+		TEXT("STORAGE"),
 		TEXT("OTHER")
 	};
 
@@ -48,6 +53,11 @@ AOculusSceneActor::AOculusSceneActor(const FObjectInitializer& ObjectInitializer
 			defaultSemanticClassification[i] == "DESK" ||
 			defaultSemanticClassification[i] == "DOOR_FRAME" ||
 			defaultSemanticClassification[i] == "WINDOW_FRAME" ||
+			defaultSemanticClassification[i] == "SCREEN" ||
+			defaultSemanticClassification[i] == "BED" ||
+			defaultSemanticClassification[i] == "LAMP" ||
+			defaultSemanticClassification[i] == "PLANT" ||
+			defaultSemanticClassification[i] == "STORAGE" ||
 			defaultSemanticClassification[i] == "OTHER")
 		{
 			props.ForceParallelToFloor = true;

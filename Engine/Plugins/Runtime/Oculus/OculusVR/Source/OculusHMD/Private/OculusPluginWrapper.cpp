@@ -131,6 +131,7 @@ bool OculusPluginWrapper::InitializeOculusPluginWrapper(OculusPluginWrapper* wra
 		OCULUS_BIND_ENTRY_POINT(GetHeadPoseModifier),
 		OCULUS_BIND_ENTRY_POINT(GetControllerState4),
 		OCULUS_BIND_ENTRY_POINT(GetControllerState5),
+		OCULUS_BIND_ENTRY_POINT(GetControllerState6),
 		OCULUS_BIND_ENTRY_POINT(GetActiveController2),
 		OCULUS_BIND_ENTRY_POINT(GetConnectedControllers2),
 		OCULUS_BIND_ENTRY_POINT(SetControllerVibration2),
@@ -252,6 +253,10 @@ bool OculusPluginWrapper::InitializeOculusPluginWrapper(OculusPluginWrapper* wra
 		OCULUS_BIND_ENTRY_POINT(GetLocalDimmingSupported),
 		OCULUS_BIND_ENTRY_POINT(SetLocalDimming),
 		OCULUS_BIND_ENTRY_POINT(GetCurrentInteractionProfile),
+		OCULUS_BIND_ENTRY_POINT(GetLayerRecommendedResolution),
+		OCULUS_BIND_ENTRY_POINT(IsLayerShapeSupported),
+		OCULUS_BIND_ENTRY_POINT(SetEyeBufferSharpenType),
+
 #ifndef OVRPLUGIN_JNI_LIB_EXCLUDED
 		OCULUS_BIND_ENTRY_POINT(GetSystemVolume2),
 		OCULUS_BIND_ENTRY_POINT(GetSystemHeadphonesPresent2),

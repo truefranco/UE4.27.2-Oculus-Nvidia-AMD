@@ -120,6 +120,7 @@ public:
 
 	EOculusXrApi XrApi;
 	EColorSpace ColorSpace;
+	EOculusControllerPoseAlignment ControllerPoseAlignment;
 
 	EHandTrackingSupport HandTrackingSupport;
 	EHandTrackingFrequency HandTrackingFrequency;
@@ -145,7 +146,8 @@ public:
 	void SetPixelDensity(float NewPixelDensity);
 	void SetPixelDensityMin(float NewPixelDensityMin);
 	void SetPixelDensityMax(float NewPixelDensityMax);
-	
+	void SetPixelDensitySmooth(float NewPixelDensity);
+
 	TSharedPtr<FSettings, ESPMode::ThreadSafe> Clone() const;
 };
 

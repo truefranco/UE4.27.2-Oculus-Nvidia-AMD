@@ -29,6 +29,8 @@
 			default="true"/>
 		<setBoolFromPropertyContains result="bPackageForQuest2" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="PackageForOculusMobile" contains="Quest2"/>
 		<setBoolFromPropertyContains result="bPackageForQuestPro" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="PackageForOculusMobile" contains="QuestPro"/>
+		<setBoolFromPropertyContains result="bPackageForQuest3" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="PackageForOculusMobile" contains="Quest3"/>
+
 		<setBoolFromProperty result="bRequiresSystemKeyboard" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bRequiresSystemKeyboard" default="false"/>
 
 		<setStringFromProperty result="HandTrackingSupport" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="HandTrackingSupport" default="ControllersOnly"/>
@@ -53,6 +55,8 @@
 		<setBool result="bPackageForMetaQuest" value="false"/>
 		<setBoolOr result="bPackageForMetaQuest" arg1="$B(bPackageForMetaQuest)" arg2="$B(bPackageForQuest2)"/>
 		<setBoolOr result="bPackageForMetaQuest" arg1="$B(bPackageForMetaQuest)" arg2="$B(bPackageForQuestPro)"/>
+		<setBoolOr result="bPackageForMetaQuest" arg1="$B(bPackageForMetaQuest)" arg2="$B(bPackageForQuest3)"/>
+
 		<if condition="bPackageForMetaQuest">
 			<true>
 				<if condition="bSupported">
@@ -269,6 +273,11 @@
 			<if condition="bPackageForQuestPro">
 				<true>
 					<setStringAdd result="devicesString" arg1="$S(devicesString)" arg2="cambria|" />
+				</true>
+			</if>
+			<if condition="bPackageForQuest3">
+				<true>
+					<setStringAdd result="devicesString" arg1="$S(devicesString)" arg2="eureka|" />
 				</true>
 			</if>
 			<setIntLength result="devicesStringLength" source="$S(devicesString)"/>

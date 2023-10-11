@@ -200,6 +200,7 @@ void FMaterialStatsUtils::GetPlatformOfflineCompilerSettings(const EShaderPlatfo
 			SCSettings.OfflineCompiler = GetSCType(GetDefault<UMaterialEditorSettings>()->OfflineCompiler);
 			SCSettings.OfflineCompilerPath = FPaths::ConvertRelativePathToFull(GetDefault<UMaterialEditorSettings>()->OfflineCompilerPath.FilePath);
 			SCSettings.GPUTarget = GetDefault<UMaterialEditorSettings>()->GPUTarget;
+			SCSettings.bDumpAll = GetDefault<UMaterialEditorSettings>()->bDumpAll;
 			SCSettings.bSaveCompilerStatsFiles = GetDefault<UMaterialEditorSettings>()->bSaveCompilerStatsFiles;
 
 			static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));

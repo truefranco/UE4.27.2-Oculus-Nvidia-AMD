@@ -17,8 +17,8 @@ mkdir ShaderConductor\lib\Win64
 set ENGINE_THIRD_PARTY_BIN=..\..\Binaries\ThirdParty\ShaderConductor\Win64
 set ENGINE_THIRD_PARTY_SOURCE=..\..\Source\ThirdParty\ShaderConductor
 
-set VS16_ROOT_DIR=%ProgramFiles(x86)%\Microsoft Visual Studio\2019
-set MSBUILD_VS16_PROFESSIONAL=%VS16_ROOT_DIR%\Professional\MSBuild\Current\Bin
+set VS16_ROOT_DIR=%ProgramFiles%\Microsoft Visual Studio\2022
+set MSBUILD_VS16_PROFESSIONAL=%VS16_ROOT_DIR%\Community\MSBuild\Current\Bin
 set MSBUILD_VS16_ENTERPRISE=%VS16_ROOT_DIR%\Enterprise\MSBuild\Current\Bin
 
 echo 

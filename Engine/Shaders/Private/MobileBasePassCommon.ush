@@ -47,7 +47,10 @@ struct FSharedMobileBasePassInterpolants
 #endif
 
 #if MOBILE_MULTI_VIEW
-	float MultiViewId : VIEW_ID;
+	// META CHANGE: Changed from float to uint.
+	// Sometimes float interpolation caused this to be 0.999 instead of 1.0,
+	// which is problematic because it is used as an array index in the pixel shader.
+	uint MultiViewId : VIEW_ID;
 #endif
 
 // Keep this dummy at the bottom of the structure for the DXC compiler

@@ -134,6 +134,7 @@ struct OculusPluginWrapper
 	OCULUS_DECLARE_ENTRY_POINT(GetHeadPoseModifier);
 	OCULUS_DECLARE_ENTRY_POINT(GetControllerState4);
 	OCULUS_DECLARE_ENTRY_POINT(GetControllerState5);
+	OCULUS_DECLARE_ENTRY_POINT(GetControllerState6);
 	OCULUS_DECLARE_ENTRY_POINT(GetActiveController2);
 	OCULUS_DECLARE_ENTRY_POINT(GetConnectedControllers2);
 	OCULUS_DECLARE_ENTRY_POINT(SetControllerVibration2);
@@ -255,6 +256,9 @@ struct OculusPluginWrapper
 	OCULUS_DECLARE_ENTRY_POINT(GetLocalDimmingSupported);
 	OCULUS_DECLARE_ENTRY_POINT(SetLocalDimming);
 	OCULUS_DECLARE_ENTRY_POINT(GetCurrentInteractionProfile);
+	OCULUS_DECLARE_ENTRY_POINT(GetLayerRecommendedResolution);
+	OCULUS_DECLARE_ENTRY_POINT(IsLayerShapeSupported);
+	OCULUS_DECLARE_ENTRY_POINT(SetEyeBufferSharpenType);
 #ifndef OVRPLUGIN_JNI_LIB_EXCLUDED
 	OCULUS_DECLARE_ENTRY_POINT(GetSystemVolume2);
 	OCULUS_DECLARE_ENTRY_POINT(GetSystemHeadphonesPresent2);

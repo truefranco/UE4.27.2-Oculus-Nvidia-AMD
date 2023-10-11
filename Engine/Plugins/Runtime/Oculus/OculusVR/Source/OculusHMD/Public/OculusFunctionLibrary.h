@@ -172,6 +172,7 @@ enum class EOculusDeviceType : uint8
 	OculusQuest_Deprecated,
 	OculusQuest2,
 	MetaQuestPro,
+	MetaQuest3,
 
 	//PC HMDs
 	Rift = 100,
@@ -179,6 +180,7 @@ enum class EOculusDeviceType : uint8
 	Quest_Link_Deprecated,
 	Quest2_Link,
 	MetaQuestProLink,
+	MetaQuest3Link,
 
 	//default
 	OculusUnknown = 200,
@@ -190,6 +192,7 @@ enum class EOculusControllerType : uint8
 	None = 0,
 	MetaQuestTouch = 1,
 	MetaQuestTouchPro = 2,
+	MetaQuestTouchPlus = 3,
 	Unknown = 0x7f,
 };
 
@@ -229,6 +232,16 @@ struct FGuardianTestResult
 	/** Normal of closest point */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boundary Test Result")
 	FVector ClosestPointNormal = FVector(0.0f, 0.0f, 1.0f);
+};
+
+UENUM()
+enum class EOculusControllerPoseAlignment : uint8
+{
+	Default = 0 UMETA(ToolTip = "Default pose alignment used in all versions of the OculusVR plugin. Recommended pose for compatibility with previous assets designed for the Meta XR plugin."),
+
+	Grip = 1 UMETA(ToolTip = "Grip pose alignment as defined by OpenXR. Use this for cross-plugin compatibility with assets designed for the native OpenXR grip pose."),
+
+	Aim = 2 UMETA(ToolTip = "Aim pose alignment as defined by OpenXR. Use this for cross-plugin compatibility with assets designed for the native OpenXR aim pose."),
 };
 
 UENUM(BlueprintType)
@@ -554,6 +567,13 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	*/
 	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static bool IsResultSuccess(EOculusResult::Type result);
+
+
+	/**
+	* Sets the eyebuffer sharpen type. This amplifies contrast and fine details.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	static void SetEyeBufferSharpenType(EOculusEyeBufferSharpenType EyeBufferSharpenType);
 
 	/**
 	 * Returns IStereoLayers interface to work with overlays.

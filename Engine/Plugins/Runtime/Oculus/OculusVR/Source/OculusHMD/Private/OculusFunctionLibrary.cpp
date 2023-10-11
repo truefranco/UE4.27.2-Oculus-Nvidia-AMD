@@ -411,6 +411,8 @@ EOculusDeviceType UOculusFunctionLibrary::GetDeviceType()
 				return EOculusDeviceType::OculusQuest2;
 			case ovrpSystemHeadset_Meta_Quest_Pro:
 				return EOculusDeviceType::MetaQuestPro;
+			case ovrpSystemHeadset_Meta_Quest_3:
+				return EOculusDeviceType::MetaQuest3;
 			case ovrpSystemHeadset_Rift_CV1:
 				return EOculusDeviceType::Rift;
 			case ovrpSystemHeadset_Rift_S:
@@ -421,6 +423,8 @@ EOculusDeviceType UOculusFunctionLibrary::GetDeviceType()
 				return EOculusDeviceType::Quest2_Link;
 			case ovrpSystemHeadset_Meta_Link_Quest_Pro:
 				return EOculusDeviceType::MetaQuestProLink;
+			case ovrpSystemHeadset_Meta_Link_Quest_3:
+				return EOculusDeviceType::MetaQuest3Link;
 			default:
 				break;
 			}
@@ -453,6 +457,8 @@ EOculusControllerType UOculusFunctionLibrary::GetControllerType(EControllerHand 
 			return EOculusControllerType::MetaQuestTouch;
 		case ovrpInteractionProfile::ovrpInteractionProfile_TouchPro:
 			return EOculusControllerType::MetaQuestTouchPro;
+		case ovrpInteractionProfile::ovrpInteractionProfile_TouchPlus:
+			return EOculusControllerType::MetaQuestTouchPlus;
 		default:
 			return EOculusControllerType::None;
 		}
@@ -870,6 +876,28 @@ bool UOculusFunctionLibrary::IsResultSuccess(EOculusResult::Type result)
 	return OVRP_SUCCESS(result);
 #endif
 	return false;
+}
+
+void UOculusFunctionLibrary::SetEyeBufferSharpenType(EOculusEyeBufferSharpenType EyeBufferSharpenType)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		switch (EyeBufferSharpenType)
+		{
+		case EOculusEyeBufferSharpenType::SLST_Normal:
+			FOculusHMDModule::GetPluginWrapper().SetEyeBufferSharpenType(ovrpLayerSubmitFlag_EfficientSharpen);
+			break;
+		case EOculusEyeBufferSharpenType::SLST_Quality:
+			FOculusHMDModule::GetPluginWrapper().SetEyeBufferSharpenType(ovrpLayerSubmitFlag_QualitySharpen);
+			break;
+		default:
+			FOculusHMDModule::GetPluginWrapper().SetEyeBufferSharpenType(ovrpLayerSubmitFlags(0));
+			break;
+		}
+	}
+#endif
 }
 
 #undef LOCTEXT_NAMESPACE

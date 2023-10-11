@@ -1110,9 +1110,8 @@ public:
 	UFUNCTION(reliable, client, BlueprintCallable, Category="Game|Feedback")
 	void ClientStopForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag);
 
-private:
-	/** 
-	 * Latent action that controls the playing of force feedback 
+	/**
+	 * Latent action that controls the playing of force feedback
 	 * Begins playing when Start is called.  Calling Update or Stop if the feedback is not active will have no effect.
 	 * Completed will execute when Stop is called or the duration ends.
 	 * When Update is called the Intensity, Duration, and affect values will be updated with the current inputs
@@ -1123,8 +1122,9 @@ private:
 	 * @param   bAffectsRightLarge		Whether the intensity should be applied to the large right servo
 	 * @param   bAffectsRightSmall		Whether the intensity should be applied to the small right servo
 	 */
-	UFUNCTION(BlueprintCallable, meta=(Latent, LatentInfo="LatentInfo", ExpandEnumAsExecs="Action", Duration="-1", bAffectsLeftLarge="true", bAffectsLeftSmall="true", bAffectsRightLarge="true", bAffectsRightSmall="true", AdvancedDisplay="bAffectsLeftLarge,bAffectsLeftSmall,bAffectsRightLarge,bAffectsRightSmall"), Category="Game|Feedback")
+	UFUNCTION(BlueprintCallable, meta = (Latent, LatentInfo = "LatentInfo", ExpandEnumAsExecs = "Action", Duration = "-1", bAffectsLeftLarge = "true", bAffectsLeftSmall = "true", bAffectsRightLarge = "true", bAffectsRightSmall = "true", AdvancedDisplay = "bAffectsLeftLarge,bAffectsLeftSmall,bAffectsRightLarge,bAffectsRightSmall"), Category = "Game|Feedback")
 	void PlayDynamicForceFeedback(float Intensity, float Duration, bool bAffectsLeftLarge, bool bAffectsLeftSmall, bool bAffectsRightLarge, bool bAffectsRightSmall, TEnumAsByte<EDynamicForceFeedbackAction::Type> Action, FLatentActionInfo LatentInfo);
+private:
 
 	//~ This method is purely for debugging purposes.
 	//~ It will trigger a ServerUpdateLevelVisibilityCall with the provided package name.

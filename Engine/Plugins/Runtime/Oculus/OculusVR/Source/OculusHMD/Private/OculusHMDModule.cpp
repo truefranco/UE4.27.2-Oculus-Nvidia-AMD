@@ -309,6 +309,10 @@ FString FOculusHMDModule::GetDeviceSystemName()
 
 		case ovrpSystemHeadset_Meta_Quest_Pro:
 			return FString("Meta Quest Pro");
+
+		case ovrpSystemHeadset_Meta_Quest_3:
+			return FString("Meta Quest 3");
+
 		}
 	}
 	return FString();

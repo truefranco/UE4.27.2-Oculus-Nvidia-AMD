@@ -2962,13 +2962,24 @@ namespace OculusHMD
 
 		if (Settings->Flags.bPixelDensityAdaptive)
 		{
+			FLayer* EyeLayer = EyeLayer_RenderThread.Get();
 			float NewPixelDensity = 1.0;
+			if (EyeLayer && EyeLayer->GetOvrpId())
+			{
+				ovrpSizei RecommendedResolution = { 0,0 };
+				FOculusHMDModule::GetPluginWrapper().GetLayerRecommendedResolution(EyeLayer->GetOvrpId(), &RecommendedResolution);
+				if (RecommendedResolution.h > 0)
+				{
+					NewPixelDensity = RecommendedResolution.h * (float)Settings->PixelDensityMax / Settings->RenderTargetSize.Y;
+				}
+			}
+
 			const float PixelDensityCVarOverride = CVarOculusDynamicResolutionPixelDensity.GetValueOnAnyThread();
 			if (PixelDensityCVarOverride > 0)
 			{
 				NewPixelDensity = PixelDensityCVarOverride;
 			}
-			Settings->SetPixelDensity(NewPixelDensity);
+			Settings->SetPixelDensitySmooth(NewPixelDensity);
 		}
 		else
 		{
@@ -4215,6 +4226,7 @@ namespace OculusHMD
 		Settings->PixelDensityMin = HMDSettings->PixelDensityMin;
 		Settings->PixelDensityMax = HMDSettings->PixelDensityMax;
 		Settings->ColorSpace = HMDSettings->ColorSpace;
+		Settings->ControllerPoseAlignment = HMDSettings->ControllerPoseAlignment;
 		Settings->bLateLatching = HMDSettings->bLateLatching;
 		Settings->bPhaseSync = HMDSettings->bPhaseSync;
 		Settings->XrApi = HMDSettings->XrApi;

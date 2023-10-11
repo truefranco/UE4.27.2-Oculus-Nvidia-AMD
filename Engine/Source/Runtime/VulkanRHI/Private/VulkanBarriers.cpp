@@ -1730,7 +1730,24 @@ void FVulkanLayoutManager::BeginRenderPass(FVulkanCommandListContext& Context, F
 
 	Barrier.Execute(CmdBuffer->GetHandle());
 
-	CmdBuffer->BeginRenderPass(RenderPass->GetLayout(), RenderPass, Framebuffer, ClearValues);
+	VkRect2D RenderArea = {};
+	if (RPInfo.ResolveParameters.Rect.IsValid())
+	{
+		// If an optional renderArea is specified in RPInfo, use it instead of the framebuffer size
+		RenderArea.offset.x = RPInfo.ResolveParameters.Rect.X1;
+		RenderArea.offset.y = RPInfo.ResolveParameters.Rect.Y1;
+		RenderArea.extent.width = RPInfo.ResolveParameters.Rect.X2 - RPInfo.ResolveParameters.Rect.X1;
+		RenderArea.extent.height = RPInfo.ResolveParameters.Rect.Y2 - RPInfo.ResolveParameters.Rect.Y1;
+	}
+	else 
+	{
+		RenderArea.offset.x = 0;
+		RenderArea.offset.y = 0;
+		RenderArea.extent.width = Framebuffer->GetWidth();
+		RenderArea.extent.height = Framebuffer->GetHeight();
+	}
+
+	CmdBuffer->BeginRenderPass(RenderPass->GetLayout(), RenderPass, Framebuffer, ClearValues, RenderArea);
 
 	{
 		const VkExtent3D& Extents = RTLayout.GetExtent3D();

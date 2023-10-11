@@ -84,7 +84,6 @@ ovrp_ConvertPoseToCameraSpace(int cameraId, ovrpPosef* trackingSpacePose, ovrpPo
 /// On Quest, it would stop listenting to the MRC port if needed
 OVRP_EXPORT ovrpResult ovrp_ResetDefaultExternalCamera();
 
-
 /// Set a manual external camera to the system. The manual external camera is valid when there is no camera
 /// configuration can be loaded On Quest, it would start listenting to the MRC port if needed
 OVRP_EXPORT ovrpResult ovrp_SetDefaultExternalCamera(
@@ -98,91 +97,47 @@ OVRP_EXPORT ovrpResult ovrp_SetExternalCameraProperties(
     const ovrpCameraIntrinsics* cameraIntrinsics,
     const ovrpCameraExtrinsics* cameraExtrinsics);
 
-
-//////////////////// Camera Devices //////////////////////////
-
-/// Retrieve all supported camera devices
+// {{ DEPRECATED
+// The following functions will be moved to OVR_Plugin_MixedReality_Deprecated.h after Unreal Plugin revision
 OVRP_EXPORT ovrpResult
 ovrp_EnumerateAllCameraDevices(ovrpCameraDevice* deviceArray, int deviceArraySize, int* deviceCount);
-
-/// Retrive all supported camera devices which is also available
 OVRP_EXPORT ovrpResult
 ovrp_EnumerateAvailableCameraDevices(ovrpCameraDevice* deviceArray, int deviceArraySize, int* deviceCount);
-
-/// Update all the opened cameras. Should be called on each frame from the main thread
 OVRP_EXPORT ovrpResult ovrp_UpdateCameraDevices();
-
-/// Check the camera device availablity
 OVRP_EXPORT ovrpResult ovrp_IsCameraDeviceAvailable2(ovrpCameraDevice camera, ovrpBool* available);
-
-/// The PreferredColorFrameSize is only a hint. The final ColorFrameSize could be different
 OVRP_EXPORT ovrpResult
 ovrp_SetCameraDevicePreferredColorFrameSize(ovrpCameraDevice camera, ovrpSizei preferredColorFrameSize);
-
-/// Open the camera device
 OVRP_EXPORT ovrpResult ovrp_OpenCameraDevice(ovrpCameraDevice camera);
-
-/// Close the camera device
 OVRP_EXPORT ovrpResult ovrp_CloseCameraDevice(ovrpCameraDevice camera);
-
-/// Check if the camera device has been opened
 OVRP_EXPORT ovrpResult ovrp_HasCameraDeviceOpened2(ovrpCameraDevice camera, ovrpBool* opened);
-
-/// Try to retrieve the camera intrinsics parameters if available
 OVRP_EXPORT ovrpResult ovrp_GetCameraDeviceIntrinsicsParameters(
     ovrpCameraDevice camera,
     ovrpBool* supportIntrinsics,
     ovrpCameraDeviceIntrinsicsParameters* intrinsicsParameters);
-
-/// Check if there the color frame is available for the camera device
 OVRP_EXPORT ovrpResult ovrp_IsCameraDeviceColorFrameAvailable2(ovrpCameraDevice camera, ovrpBool* available);
-
-/// Retrieve the dimension of the current color frame
 OVRP_EXPORT ovrpResult ovrp_GetCameraDeviceColorFrameSize(ovrpCameraDevice camera, ovrpSizei* colorFrameSize);
-
-/// Retrieve the raw data of the currect color frame (in BGRA arrangement)
 OVRP_EXPORT ovrpResult ovrp_GetCameraDeviceColorFrameBgraPixels(
     ovrpCameraDevice camera,
     const ovrpByte** colorFrameBgraPixels,
     int* colorFrameRowPitch);
-
-/// Check if the camera device support returning depth frames
 OVRP_EXPORT ovrpResult ovrp_DoesCameraDeviceSupportDepth(ovrpCameraDevice camera, ovrpBool* supportDepth);
-
-/// Get the current depth sensing mode
 OVRP_EXPORT ovrpResult
 ovrp_GetCameraDeviceDepthSensingMode(ovrpCameraDevice camera, ovrpCameraDeviceDepthSensingMode* depthSensingMode);
-
-/// Set the current depth sensing mode
 OVRP_EXPORT ovrpResult
 ovrp_SetCameraDeviceDepthSensingMode(ovrpCameraDevice camera, ovrpCameraDeviceDepthSensingMode depthSensingMode);
-
-/// Get the current preferred depth quality
 OVRP_EXPORT ovrpResult
 ovrp_GetCameraDevicePreferredDepthQuality(ovrpCameraDevice camera, ovrpCameraDeviceDepthQuality* depthQuality);
-
-/// Set the preferred depth quality. It should be set before opening the camera
 OVRP_EXPORT ovrpResult
 ovrp_SetCameraDevicePreferredDepthQuality(ovrpCameraDevice camera, ovrpCameraDeviceDepthQuality depthQuality);
-
-
-/// Check if the depth frame is available
 OVRP_EXPORT ovrpResult ovrp_IsCameraDeviceDepthFrameAvailable(ovrpCameraDevice camera, ovrpBool* available);
-
-/// Get the depth frame resolution
 OVRP_EXPORT ovrpResult ovrp_GetCameraDeviceDepthFrameSize(ovrpCameraDevice camera, ovrpSizei* depthFrameSize);
-
-/// Depth data is in centimeters
 OVRP_EXPORT ovrpResult
 ovrp_GetCameraDeviceDepthFramePixels(ovrpCameraDevice camera, const float** depthFramePixels, int* depthFrameRowPitch);
-
-/// The confidence value is mapped between 0 (high confidence threshold, sparse data) and 100 (low confidence threshold,
-/// dense data)
 OVRP_EXPORT ovrpResult ovrp_GetCameraDeviceDepthConfidencePixels(
     ovrpCameraDevice camera,
     const float** depthConfidencePixels,
     int* depthConfidenceRowPitch);
-
+// }} DEPRECATED
 
 #ifdef __cplusplus
 }

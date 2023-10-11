@@ -164,6 +164,28 @@ void UStereoLayerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 		LayerDesc.Flags |= (!bCurrVisible) ? IStereoLayers::LAYER_FLAG_HIDDEN : 0;
 		LayerDesc.Flags |= (bBicubicFiltering) ? IStereoLayers::LAYER_FLAG_BICUBIC_FILTERING : 0;
 
+		// BEGIN META SECTION - XR Layer GSR
+		switch (SuperSamplingType)
+		{
+		case SLSST_Normal:
+			LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_NORMAL_SUPERSAMPLE;
+			break;
+		case SLSST_Quality:
+			LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_QUALITY_SUPERSAMPLE;
+			break;
+		}
+
+		switch (SharpenType)
+		{
+		case SLST_Normal:
+			LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_NORMAL_SHARPEN;
+			break;
+		case SLST_Quality:
+			LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_QUALITY_SHARPEN;
+			break;
+		}
+		// END META SECTION - XR Layer GSR
+
 		switch (StereoLayerType)
 		{
 		case SLT_WorldLocked:

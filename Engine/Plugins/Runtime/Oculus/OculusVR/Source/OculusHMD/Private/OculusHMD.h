@@ -75,7 +75,7 @@ class FOculusHMD : public FHeadMountedDisplayBase, public FXRRenderTargetManager
 	friend class FConsoleCommands;
 
 public:
-	static const FName OculusSystemName;
+	OCULUSHMD_API static const FName OculusSystemName;
 	// IXRSystemIdentifier
 	virtual FName GetSystemName() const override;
 	virtual int32 GetXRSystemFlags() const override;

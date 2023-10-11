@@ -115,6 +115,7 @@ struct FOculusKey
 	static const FKey OculusTouch_Left_IndexTrigger_Curl;
 	static const FKey OculusTouch_Left_IndexTrigger_Slide;
 	static const FKey OculusTouch_Left_BatteryPercentRemaining;
+	static const FKey OculusTouch_Left_IndexTrigger_Force;
 
 	static const FKey OculusTouch_Right_Thumbstick;
 	static const FKey OculusTouch_Right_Trigger;
@@ -128,6 +129,7 @@ struct FOculusKey
 	static const FKey OculusTouch_Right_IndexTrigger_Curl;
 	static const FKey OculusTouch_Right_IndexTrigger_Slide;
 	static const FKey OculusTouch_Right_BatteryPercentRemaining;
+	static const FKey OculusTouch_Right_IndexTrigger_Force;
 
 	static const FKey OculusRemote_DPad_Up;
 	static const FKey OculusRemote_DPad_Down;
@@ -349,6 +351,9 @@ struct FOculusTouchControllerState : FOculusControllerState
 
 	/** Battery Percentage Remaining rangeing from 0 to 100. Legacy OVRPlugin only. Not supported in OpenXR.**/
 	int BatteryPercentRemaining;
+
+	/** Second stage Index trigger force **/
+	float IndexTriggerForce;
 
 	/** Whether or not we're playing a haptic effect.  If true, force feedback calls will be early-outed in favor of the haptic effect */
 	bool bPlayingHapticEffect;

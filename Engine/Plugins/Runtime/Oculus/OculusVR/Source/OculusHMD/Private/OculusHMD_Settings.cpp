@@ -26,6 +26,7 @@ FSettings::FSettings() :
 	, bSupportEyeTrackedFoveatedRendering(false)
 	, XrApi(EOculusXrApi::OVRPluginOpenXR)
 	, ColorSpace(EColorSpace::P3)
+	, ControllerPoseAlignment(EOculusControllerPoseAlignment::Default)
 	, HandTrackingSupport(EHandTrackingSupport::ControllersOnly)
 	, HandTrackingFrequency(EHandTrackingFrequency::LOW)
 	, HandTrackingVersion(EHandTrackingVersion::Default)
@@ -99,6 +100,24 @@ void FSettings::SetPixelDensityMax(float NewPixelDensityMax)
 	SetPixelDensity(PixelDensity);
 }
 
+
+void FSettings::SetPixelDensitySmooth(float NewPixelDensity)
+{
+	// Pixel Density changes need to be smooth both for artifacts with FFR/TTO (FFR/tile-turnoff is one frame late so shouldn't change too fast)
+	// but also so that if the developer uses the CVar and not the runtime (which is already smooth) there is no jump artifacts.
+	constexpr float MaxPerFrameIncrease = 0.010;
+	constexpr float MaxPerFrameDecrease = 0.045;
+
+	float NewClampedPixelDensity = FMath::Clamp(NewPixelDensity, PixelDensity - MaxPerFrameDecrease, PixelDensity + MaxPerFrameIncrease);
+	if (Flags.bPixelDensityAdaptive)
+	{
+		PixelDensity = FMath::Clamp(NewClampedPixelDensity, PixelDensityMin, PixelDensityMax);
+	}
+	else
+	{
+		PixelDensity = FMath::Clamp(NewClampedPixelDensity, ClampPixelDensityMin, ClampPixelDensityMax);
+	}
+}
 
 } // namespace OculusHMD
 

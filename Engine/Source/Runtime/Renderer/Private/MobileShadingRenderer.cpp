@@ -211,7 +211,7 @@ FMobileSceneRenderer::FMobileSceneRenderer(const FSceneViewFamily* InViewFamily,
 	, bGammaSpace(!IsMobileHDR())
 	, bDeferredShading(IsMobileDeferredShadingEnabled(ShaderPlatform))
 	, bUseVirtualTexturing(UseVirtualTexturing(FeatureLevel))
-	, bTonemapSubpass(IsMobileTonemapSubpassEnabled(ShaderPlatform))
+	, bTonemapSubpass(IsMobileTonemapSubpassEnabled(ShaderPlatform) && (ViewFamily.EngineShowFlags.PostProcessing != 0))
 {
 	bRenderToSceneColor = false;
 	bRequiresMultiPass = false;
@@ -358,13 +358,25 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	ComputeViewVisibility(RHICmdList, BasePassDepthStencilAccess, ViewCommandsPerView, DynamicIndexBuffer, DynamicVertexBuffer, DynamicReadBuffer);
 	PostVisibilityFrameSetup(ILCTaskData);
 
+	// BEGIN META SECTION: Need to know if this is a VR scene
+	// This matches logic in FSceneRenderTargets::ComputeDesiredSize(..).
+	bool bIsVRScene = false;
+	for (int32 ViewIndex = 0, ViewCount = ViewFamily.Views.Num(); ViewIndex < ViewCount; ++ViewIndex)
+	{
+		const FSceneView* View = ViewFamily.Views[ViewIndex];
+		bIsVRScene |= (IStereoRendering::IsStereoEyeView(*View) && GEngine->XRSystem.IsValid());
+	}
+	// END META SECTION
+
 	const FIntPoint RenderTargetSize = (ViewFamily.RenderTarget->GetRenderTargetTexture().IsValid()) ? ViewFamily.RenderTarget->GetRenderTargetTexture()->GetSizeXY() : ViewFamily.RenderTarget->GetSizeXY();
 	const bool bRenderTargetBiggerThanFamily = ((int32)RenderTargetSize.X > FamilySize.X || (int32)RenderTargetSize.Y > FamilySize.Y);
 	const bool bRequiresUpscale = 
 		(bRenderTargetBiggerThanFamily && !ViewFamily.EngineShowFlags.StereoRendering)
 		// in the editor color surface and backbuffer could have a different pixel formats and size, 
 		// so we always run upscale pass to blit content from scene color to backbuffer 
-		|| (GIsEditor && !IsMobileHDR() && NumMSAASamples > 1);
+		// META CHANGE: VR scenes are handled specially in FSceneRenderTargets::ComputeDesiredSize(..),
+		// so they do not require upscale.  Also post processing doesn't work in VR scenes, so we need to disable it.
+		|| (GIsEditor && !IsMobileHDR() && NumMSAASamples > 1 && !bIsVRScene);
 	// ES requires that the back buffer and depth match dimensions.
 	// For the most part this is not the case when using scene captures. Thus scene captures always render to scene color target.
 	const bool bStereoRenderingAndHMD = ViewFamily.EngineShowFlags.StereoRendering && ViewFamily.EngineShowFlags.HMDDistortion;
@@ -424,7 +436,9 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 		bIsFullPrepassEnabled;
     
 	// never keep MSAA depth
-	bKeepDepthContent = (NumMSAASamples > 1 ? false : bKeepDepthContent);
+	// BEGIN META SECTION - Allow keeping MSAA depth
+	//bKeepDepthContent = (NumMSAASamples > 1 ? false : bKeepDepthContent);
+	// END META SECTION
 
 	// In the editor RHIs may split a render-pass into several cmd buffer submissions, so all targets need to Store
 	if (IsSimulatedPlatform(ShaderPlatform))
@@ -1030,6 +1044,7 @@ void FMobileSceneRenderer::RenderForwardHmdMotionVectors(FRHICommandListImmediat
 		RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
 		RPInfo.SubpassHint = ESubpassHint::None;
 		RPInfo.MultiViewCount = View.bIsMobileMultiViewEnabled ? 2 : 1;
+		RPInfo.ResolveParameters.Rect = FResolveRect(View.ViewRect);
 		RHICmdList.BeginRenderPass(RPInfo, TEXT("RenderVelocity"));
 		RenderHmdMotionVectors(RHICmdList, VelocityTexture, ViewList, EVelocityPass::Opaque);
 		RHICmdList.EndRenderPass();
@@ -1059,7 +1074,7 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 	// tells the GPU "execute this renderpass as MSAA, and when you're done, automatically resolve and copy into this non-MSAA texture").
 	bool bMobileMSAA = NumMSAASamples > 1 && SceneContext.GetSceneColorSurface()->GetNumSamples() > 1;
 
-	const bool bUseMobileTonemapSubpass = CVarMobileTonemapSubpass.GetValueOnAnyThread() == 1;
+	const bool bUseMobileTonemapSubpass = bTonemapSubpass;
 	const bool bUseDepthSubpass = CVarMobileDisableTransluencySubpass.GetValueOnAnyThread() == 0;
 
 	static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
@@ -1200,6 +1215,7 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 	}
 	//if the scenecolor isn't multiview but the app is, need to render as a single-view multiview due to shaders
 	SceneColorRenderPassInfo.MultiViewCount = View.bIsMobileMultiViewEnabled ? 2 : (bIsMultiViewApplication ? 1 : 0);
+	SceneColorRenderPassInfo.ResolveParameters.Rect = FResolveRect(View.ViewRect);
 
 	RHICmdList.BeginRenderPass(SceneColorRenderPassInfo, TEXT("SceneColorRendering"));
 	
@@ -1382,6 +1398,13 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 	
 	// End of scene color rendering
 	RHICmdList.EndRenderPass();
+
+	// BEGIN META SECTION - Under MSAA we need to resolve depth in order to use it later
+	if (bKeepDepthContent && bMobileMSAA && !(bRequiresMultiPass || bRequiresPixelProjectedPlanarRelfectionPass))
+	{
+		ConditionalResolveSceneDepth(RHICmdList, View);
+	}
+	// END META SECTION
 
 	return SceneColorResolve ? SceneColorResolve : SceneColor;
 }

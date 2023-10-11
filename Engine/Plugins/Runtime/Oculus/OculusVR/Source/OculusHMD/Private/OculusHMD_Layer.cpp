@@ -1033,8 +1033,9 @@ void FLayer::UpdateTexture_RenderThread(const FSettings* Settings, FCustomPresen
 
 				const ovrpRecti& OvrpViewportRect = OvrpLayerSubmit.ViewportRect[ovrpEye_Left];
 				FIntRect DstRect(OvrpViewportRect.Pos.x, OvrpViewportRect.Pos.y, OvrpViewportRect.Pos.x + OvrpViewportRect.Size.w, OvrpViewportRect.Pos.y + OvrpViewportRect.Size.h);
+				const FIntRect SrcRect = DstRect;
 
-				CustomPresent->CopyTexture_RenderThread(RHICmdList, DstTexture, SrcTexture, DstRect, FIntRect(), bAlphaPremultiply, bNoAlphaWrite, bInvertY);
+				CustomPresent->CopyTexture_RenderThread(RHICmdList, DstTexture, SrcTexture, DstRect, SrcRect , bAlphaPremultiply, bNoAlphaWrite, bInvertY);
 			}
 
 			// Right
@@ -1045,8 +1046,9 @@ void FLayer::UpdateTexture_RenderThread(const FSettings* Settings, FCustomPresen
 
 				const ovrpRecti& OvrpViewportRect = OvrpLayerSubmit.ViewportRect[ovrpEye_Right];
 				FIntRect DstRect(OvrpViewportRect.Pos.x, OvrpViewportRect.Pos.y, OvrpViewportRect.Pos.x + OvrpViewportRect.Size.w, OvrpViewportRect.Pos.y + OvrpViewportRect.Size.h);
+				const FIntRect SrcRect = DstRect;
 
-				CustomPresent->CopyTexture_RenderThread(RHICmdList, DstTexture, SrcTexture, DstRect, FIntRect(), bAlphaPremultiply, bNoAlphaWrite, bInvertY);
+				CustomPresent->CopyTexture_RenderThread(RHICmdList, DstTexture, SrcTexture, DstRect, SrcRect, bAlphaPremultiply, bNoAlphaWrite, bInvertY);
 			}
 
 			bUpdateTexture = false;
@@ -1215,6 +1217,23 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 		if (!(Desc.Flags & IStereoLayers::LAYER_FLAG_SUPPORT_DEPTH))
 		{
 			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_NoDepth;
+		}
+
+		if (Desc.Flags & IStereoLayers::LAYER_FLAG_NORMAL_SUPERSAMPLE)
+		{
+			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_EfficientSuperSample;
+		}
+		if (Desc.Flags & IStereoLayers::LAYER_FLAG_QUALITY_SUPERSAMPLE)
+		{
+			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_ExpensiveSuperSample;
+		}
+		if (Desc.Flags & IStereoLayers::LAYER_FLAG_NORMAL_SHARPEN)
+		{
+			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_EfficientSharpen;
+		}
+		if (Desc.Flags & IStereoLayers::LAYER_FLAG_QUALITY_SHARPEN)
+		{
+			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_QualitySharpen;
 		}
 
 	}

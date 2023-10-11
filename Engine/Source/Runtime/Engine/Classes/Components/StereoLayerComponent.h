@@ -45,6 +45,40 @@ enum EStereoLayerShape
 	SLSH_MAX,
 };
 
+// BEGIN META SECTION - XR Layer GSR
+/** Super sample filter type of this layer*/
+UENUM()
+enum EStereoLayerSuperSamplingType
+{
+	/** No SuperSampling */
+	SLSST_None		UMETA(DisplayName = "No SuperSampling"),
+
+	/** Normal SuperSampling */
+	SLSST_Normal	UMETA(DisplayName = "Normal SuperSampling"),
+
+	/** Quality SuperSampling */
+	SLSST_Quality	UMETA(DisplayName = "Quality SuperSampling"),
+
+	SLSST_MAX,
+};
+
+/** Sharpen filter type of this layer */
+UENUM()
+enum EStereoLayerSharpenType
+{
+	/** No Sharpening */
+	SLST_None		UMETA(DisplayName = "No Sharpening"),
+
+	/** Normal Sharpening */
+	SLST_Normal	UMETA(DisplayName = "Normal Sharpening"),
+
+	/** Quality Sharpening */
+	SLST_Quality	UMETA(DisplayName = "Quality Sharpening"),
+
+	SLST_MAX,
+};
+// END META SECTION - XR Layer GSR
+
 UCLASS(EditInlineNew, Abstract, BlueprintType, CollapseCategories)
 class ENGINE_API UStereoLayerShape : public UObject
 {
@@ -344,6 +378,16 @@ public:
 	/**  Can increase quality for small details on text and icons being viewed at farther distances. Will only apply to devices and/or runtimes that support this feature */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "StereoLayer", DisplayName = "Bicubic Filtering")
 	uint32 bBicubicFiltering : 1;
+
+	// BEGIN META SECTION - XR Layer GSR
+	/**  The super sample filter of this layer. This can help reduce flicker artifacts */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "StereoLayer", DisplayName = "SuperSample Filtering")
+	TEnumAsByte<enum EStereoLayerSuperSamplingType> SuperSamplingType;
+
+	/**  The sharpen filter of this layer. This amplifies contrast and fine details */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "StereoLayer", DisplayName = "Sharpen Filtering")
+	TEnumAsByte<enum EStereoLayerSharpenType> SharpenType;
+	// END META SECTION - XR Layer GSR
 
 	void MarkStereoLayerDirty();
 protected:

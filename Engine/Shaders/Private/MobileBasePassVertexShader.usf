@@ -51,15 +51,15 @@ void Main(
 	const uint EyeIndex = GetEyeIndex(InstanceId);
 	ResolvedView = ResolveView(EyeIndex);
 	LayerIndex = EyeIndex;
-	Output.BasePassInterpolants.MultiViewId = float(EyeIndex);
+	Output.BasePassInterpolants.MultiViewId = EyeIndex; // META CHANGE: Remove float cast
 #elif MOBILE_MULTI_VIEW
 #if COMPILER_GLSL_ES3_1
 	const int MultiViewId = int(ViewId);
 	ResolvedView = ResolveView(uint(MultiViewId));
-	Output.BasePassInterpolants.MultiViewId = float(MultiViewId);
+	Output.BasePassInterpolants.MultiViewId = uint(MultiViewId); // META CHANGE: Remove float cast
 #else
 	ResolvedView = ResolveView(ViewId);
-	Output.BasePassInterpolants.MultiViewId = float(ViewId);
+	Output.BasePassInterpolants.MultiViewId = ViewId; // META CHANGE: Remove float cast
 #endif
 #else
 	ResolvedView = ResolveView();

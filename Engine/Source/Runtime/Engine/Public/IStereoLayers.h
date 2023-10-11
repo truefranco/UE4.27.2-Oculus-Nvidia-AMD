@@ -77,6 +77,16 @@ public:
 		LAYER_FLAG_HIDDEN = 0x00000020,
 		// Enables bicubic filtering for the layer if supported by the device and/or runtime.
 		LAYER_FLAG_BICUBIC_FILTERING = 0x00000040,
+		// BEGIN META SECTION - XR Layer GSR
+		// Enables normal supersample filtering for the layer if supported by the device and/or runtime.
+		LAYER_FLAG_NORMAL_SUPERSAMPLE = 0x00000080,
+		// Enables qualty supersample filtering for the layer if supported by the device and/or runtime.
+		LAYER_FLAG_QUALITY_SUPERSAMPLE = 0x0000100,
+		// Enables normal sharpen filtering for the layer if supported by the device and/or runtime.
+		LAYER_FLAG_NORMAL_SHARPEN = 0x0000200,
+		// Enables qualty sharpen filtering for the layer if supported by the device and/or runtime.
+		LAYER_FLAG_QUALITY_SHARPEN = 0x0000400,
+		// END META SECTION - XR Layer GSR
 	};
 
 

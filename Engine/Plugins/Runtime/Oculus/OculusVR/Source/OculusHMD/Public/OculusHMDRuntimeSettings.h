@@ -34,6 +34,10 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = General)
 	EColorSpace	ColorSpace;
 
+	/** Whether the controller hand poses align to the OculusVR pose definitions or the OpenXR pose definitions */
+	UPROPERTY(config, EditAnywhere, Category = General, meta = (EditCondition = "XrApi != EOculusXrApi::NativeOpenXR"))
+	EOculusControllerPoseAlignment ControllerPoseAlignment;
+
 	/** Whether Dash is supported by the app, which will keep the app in foreground when the User presses the oculus button (needs the app to handle input focus loss!) */
 	UPROPERTY(config, EditAnywhere, Category = PC)
 	bool bSupportsDash;

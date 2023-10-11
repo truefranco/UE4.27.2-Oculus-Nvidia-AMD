@@ -29,6 +29,7 @@ UOculusHMDRuntimeSettings::UOculusHMDRuntimeSettings(const FObjectInitializer& O
 	bDynamicResolution = DefaultSettings.Flags.bPixelDensityAdaptive;
 	XrApi = DefaultSettings.XrApi;
 	ColorSpace = DefaultSettings.ColorSpace;
+	ControllerPoseAlignment = DefaultSettings.ControllerPoseAlignment;
 	bRequiresSystemKeyboard = DefaultSettings.Flags.bRequiresSystemKeyboard;
 	HandTrackingSupport = DefaultSettings.HandTrackingSupport;
 	HandTrackingFrequency = DefaultSettings.HandTrackingFrequency;
@@ -61,6 +62,7 @@ UOculusHMDRuntimeSettings::UOculusHMDRuntimeSettings(const FObjectInitializer& O
 	bLateLatching = false;
 	bPhaseSync = false;
 	ColorSpace = EColorSpace::P3;
+	ControllerPoseAlignment = EOculusControllerPoseAlignment::Default;
 	bRequiresSystemKeyboard = false;
 	HandTrackingSupport = EHandTrackingSupport::ControllersOnly;
 	HandTrackingFrequency = EHandTrackingFrequency::Low;

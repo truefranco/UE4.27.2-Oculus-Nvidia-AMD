@@ -214,20 +214,12 @@ typedef enum {
   ovrpOverlayFlag_BicubicFiltering = 0x00000040,
   // If true, the overlay will use the Vrapi sharpen flag
   ovrpOverlayFlag_QualitySharpen = 0x00000080,
-
-
-
-
-
-  // Use left 5 - 8 bits for shape flags
-  ovrpOverlayFlag_ShapeShift = 4,
-  ovrpOverlayFlag_Quad = (ovrpShape_Quad << ovrpOverlayFlag_ShapeShift),
-  ovrpOverlayFlag_Cylinder = (ovrpShape_Cylinder << ovrpOverlayFlag_ShapeShift),
-  ovrpOverlayFlag_Cubemap = (ovrpShape_Cubemap << ovrpOverlayFlag_ShapeShift),
-  ovrpOverlayFlag_offCenterCubemap = (ovrpShape_OffcenterCubemap << ovrpOverlayFlag_ShapeShift),
-  ovrpOverlayFlag_ShapeMask = (0xF << ovrpOverlayFlag_ShapeShift),
+  // If true, the overlay will be "secure content"; the contents cannot be recorded by users
+  ovrpOverlayFlag_SecureContent = 0x00000100,
 
   ovrpOverlayFlag_Hidden = 0x00000200,
+
+  ovrpOverlayFlag_AutoFilter = 0x00000400,
 
   // Internal flags
   /// If true, the overlay is a loading screen.

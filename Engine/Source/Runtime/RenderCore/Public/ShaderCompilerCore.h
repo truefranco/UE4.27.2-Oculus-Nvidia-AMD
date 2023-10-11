@@ -133,6 +133,7 @@ struct FExtraShaderCompilerSettings
 	FString OfflineCompilerPath;
 	EOfflineShaderCompilerType OfflineCompiler;
 	FString GPUTarget;
+	bool bDumpAll;
 	bool bSaveCompilerStatsFiles = false;
 	bool bMobileMultiView = false;
 
@@ -140,7 +141,7 @@ struct FExtraShaderCompilerSettings
 	{
 		// Note: this serialize is used to pass between UE4 and the shader compile worker, recompile both when modifying
 		return Ar << StatsSettings.bExtractShaderSource << StatsSettings.OfflineCompilerPath 
-			<< StatsSettings.OfflineCompiler << StatsSettings.GPUTarget << StatsSettings.bSaveCompilerStatsFiles << StatsSettings.bMobileMultiView;
+			<< StatsSettings.OfflineCompiler << StatsSettings.GPUTarget << StatsSettings.bDumpAll << StatsSettings.bSaveCompilerStatsFiles << StatsSettings.bMobileMultiView;
 	}
 };
 

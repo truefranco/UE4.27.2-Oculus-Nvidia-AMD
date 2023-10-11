@@ -132,7 +132,7 @@ namespace
             }
 
 #ifdef _WIN32
-            const char* dllName = "dxcompiler.dll";
+            const char* dllName = "D:\\UE4.27.2-Oculus-Nvidia-AMD\\Engine\\Intermediate\\ShaderConductor\\External\\DirectXShaderCompiler\\Debug\\bindxcompiler.dll";
 #elif __APPLE__
             const char* dllName = "libdxcompiler.dylib";
 #else

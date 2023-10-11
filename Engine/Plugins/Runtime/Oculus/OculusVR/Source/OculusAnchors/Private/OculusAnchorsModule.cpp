@@ -20,7 +20,7 @@ DEFINE_LOG_CATEGORY(LogOculusAnchors);
 void FOculusAnchorsModule::StartupModule()
 {
 	OculusHMD::FOculusHMD* HMD = GEngine->XRSystem.IsValid() ? (OculusHMD::FOculusHMD*)(GEngine->XRSystem->GetHMDDevice()) : nullptr;
-	if (!HMD)
+	if (!HMD || (GEngine->XRSystem->GetSystemName() != OculusHMD::FOculusHMD::OculusSystemName))
 	{
 		UE_LOG(LogOculusAnchors, Warning, TEXT("Unable to retrieve OculusHMD, cannot add event polling delegates."));
 		return;

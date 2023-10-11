@@ -774,6 +774,7 @@ FReply SOculusToolWidget::AndroidManifestQuest(bool text)
 	UAndroidRuntimeSettings* Settings = GetMutableDefault<UAndroidRuntimeSettings>();
 	Settings->PackageForOculusMobile.Add(EOculusMobileDevice::Quest2);
 	Settings->PackageForOculusMobile.Add(EOculusMobileDevice::QuestPro);
+	Settings->PackageForOculusMobile.Add(EOculusMobileDevice::Quest3);
 	Settings->SaveConfig(CPF_Config, *Settings->GetDefaultConfigFilename()); // UpdateSinglePropertyInConfigFile does not support arrays
 	return FReply::Handled();
 }
@@ -821,7 +822,7 @@ FReply SOculusToolWidget::AndroidQuestArchFix(bool text)
 EVisibility SOculusToolWidget::AndroidQuestArchVisibility(FName tag) const
 {
 	UAndroidRuntimeSettings* Settings = GetMutableDefault<UAndroidRuntimeSettings>();
-	return (Settings->PackageForOculusMobile.Contains(EOculusMobileDevice::Quest2)) && !Settings->bBuildForArm64 ?
+	return Settings->PackageForOculusMobile.Num() > 0 && !Settings->bBuildForArm64 ?
 		EVisibility::Visible : EVisibility::Collapsed;
 }
 

@@ -172,7 +172,7 @@ public:
 	uint8 bIsUniformBufferBarrierAdded	: 1;
 
 	// You never want to call Begin/EndRenderPass directly as it will mess up the layout manager.
-	void BeginRenderPass(const FVulkanRenderTargetLayout& Layout, class FVulkanRenderPass* RenderPass, class FVulkanFramebuffer* Framebuffer, const VkClearValue* AttachmentClearValues);
+	void BeginRenderPass(const FVulkanRenderTargetLayout& Layout, class FVulkanRenderPass* RenderPass, class FVulkanFramebuffer* Framebuffer, const VkClearValue* AttachmentClearValues, const VkRect2D& RenderArea);
 	void EndRenderPass();
 
 	void BeginUniformUpdateBarrier();

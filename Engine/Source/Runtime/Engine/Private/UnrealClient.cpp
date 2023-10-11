@@ -665,7 +665,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 			const float ScreenPercentage = ResolutionFraction * 100.0f;
 
 			InCanvas->DrawShadowedString(X1, InY, TEXT("DynRes:"), Font, bShowUnitTimeGraph ? FColor(255, 160, 100) : FColor::White);
-			if (!GRHISupportsDynamicResolution || (DynamicResolutionStateInfos.Status == EDynamicResolutionStatus::Unsupported))
+			if (DynamicResolutionStateInfos.Status == EDynamicResolutionStatus::Unsupported)
 			{
 				InCanvas->DrawShadowedString(X2, InY, TEXT("Unsupported"), Font, FColor(160, 160, 160));
 			}

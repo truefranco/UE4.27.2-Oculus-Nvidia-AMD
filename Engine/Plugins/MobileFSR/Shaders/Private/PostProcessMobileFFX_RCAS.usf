@@ -41,6 +41,7 @@ float2 VPColor_ExtentInverse;
 //
 // =====================================================================================
 #define A_HLSL 1
+
 #define A_GPU  1
 
 #if USE_RCAS_DENOISE 

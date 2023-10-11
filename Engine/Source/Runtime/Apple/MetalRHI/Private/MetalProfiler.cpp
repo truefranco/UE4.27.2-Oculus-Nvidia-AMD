@@ -782,7 +782,7 @@ void FMetalProfiler::SaveTrace()
 			}
 			if (!bThreadName)
 			{
-				sprintf(Buffer, "Thread %d", CPUIndex);
+				snprintf(Buffer, sizeof(Buffer), "Thread %d", CPUIndex);
 			}
 			
 			FString Output = FString::Printf(TEXT("{\"pid\":%d, \"tid\":%d, \"ph\": \"M\", \"name\": \"thread_name\", \"args\":{\"name\":\"%s\"}},{\"pid\":%d, \"tid\":%d, \"ph\": \"M\", \"name\": \"thread_sort_index\", \"args\":{\"sort_index\": %d}},\n"),

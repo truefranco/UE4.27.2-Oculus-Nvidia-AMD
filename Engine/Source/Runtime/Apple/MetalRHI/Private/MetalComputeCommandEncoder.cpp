@@ -383,7 +383,7 @@ void FMetalComputeCommandEncoderDebugging::Validate()
 			
 			MTLComputePipelineReflection* Reflection = ((FMetalDebugComputeCommandEncoder*)m_ptr)->Pipeline->ComputePipelineReflection;
 			check(Reflection);
-	
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			NSArray<MTLArgument*>* Arguments = Reflection.arguments;
 			for (uint32 i = 0; i < Arguments.count; i++)
 			{
@@ -442,7 +442,7 @@ void FMetalComputeCommandEncoderDebugging::Validate()
 			break;
 		}
 	}
-	
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
     if (!bOK)
     {
         UE_LOG(LogMetal, Error, TEXT("Metal Validation failures for compute shader:\n%s"), (((FMetalDebugComputeCommandEncoder*)m_ptr)->Pipeline && ((FMetalDebugComputeCommandEncoder*)m_ptr)->Pipeline->ComputeSource) ? *FString(((FMetalDebugComputeCommandEncoder*)m_ptr)->Pipeline->ComputeSource) : TEXT("nil"));

@@ -24,7 +24,7 @@
 
 MTLPP_BEGIN
 
-namespace ue4
+namespace UE
 {
 	template<>
 	struct ITable<id<MTLRenderCommandEncoder>, void> : public IMPTable<id<MTLRenderCommandEncoder>, void>, public ITableCacheRef
@@ -168,12 +168,6 @@ namespace mtlpp
         uint16_t InsideTessellationFactor;
     };
 
-    enum RenderStages
-    {
-        Vertex   = (1 << 0),
-        Fragment = (1 << 1),
-    }
-    MTLPP_AVAILABLE(10_13, 10_0);
 
 	class Heap;
 	
@@ -181,7 +175,7 @@ namespace mtlpp
     {
     public:
         RenderCommandEncoder(ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>(retain) { }
-		RenderCommandEncoder(ns::Protocol<id<MTLRenderCommandEncoder>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetRenderCommandEncoder(handle)) { }
+		RenderCommandEncoder(ns::Protocol<id<MTLRenderCommandEncoder>>::type handle, UE::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>(handle, retain, UE::ITableCacheRef(cache).GetRenderCommandEncoder(handle)) { }
 
 		operator ns::Protocol<id<MTLRenderCommandEncoder>>::type() const = delete;
 		
@@ -244,6 +238,7 @@ namespace mtlpp
         void DrawIndexedPatches(NSUInteger numberOfPatchControlPoints, NSUInteger patchStart, NSUInteger patchCount, const Buffer& patchIndexBuffer, NSUInteger patchIndexBufferOffset, const Buffer& controlPointIndexBuffer, NSUInteger controlPointIndexBufferOffset, NSUInteger instanceCount, NSUInteger baseInstance) MTLPP_AVAILABLE(10_12, 10_0);
         void DrawIndexedPatches(NSUInteger numberOfPatchControlPoints, const Buffer& patchIndexBuffer, NSUInteger patchIndexBufferOffset, const Buffer& controlPointIndexBuffer, NSUInteger controlPointIndexBufferOffset, const Buffer& indirectBuffer, NSUInteger indirectBufferOffset) MTLPP_AVAILABLE(10_12, NA);
 		MTLPP_VALIDATED void UseResource(const Resource& resource, ResourceUsage usage) MTLPP_AVAILABLE(10_13, 11_0);
+		MTLPP_VALIDATED void UseResource(const Resource& resource, ResourceUsage usage, RenderStages stages) MTLPP_AVAILABLE(10_15, 13_0); // EPIC MOD - MetalRT Support
 		MTLPP_VALIDATED void UseResources(const Resource* resource, NSUInteger count, ResourceUsage usage) MTLPP_AVAILABLE(10_13, 11_0);
 		void UseHeap(Heap const& heap) MTLPP_AVAILABLE(10_13, 11_0);
 		void UseHeaps(Heap::Type const* heaps, NSUInteger count) MTLPP_AVAILABLE(10_13, 11_0);

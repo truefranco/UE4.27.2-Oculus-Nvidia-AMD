@@ -624,6 +624,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 }
 - (void)initResourceMask:(EMetalShaderFrequency)Frequency
 {
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	NSArray<MTLArgument*>* Arguments = nil;
 	switch(Frequency)
 	{
@@ -712,6 +713,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 				break;
 		}
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 @end
 

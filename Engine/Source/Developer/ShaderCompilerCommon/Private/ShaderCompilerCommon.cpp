@@ -2881,6 +2881,9 @@ namespace CrossCompiler
 		case 320: return "320";
 		case 330: return "330";
 		case 430: return "430";
+		case 440: return "440";
+		case 450: return "450";
+		case 460: return "460";
 		default: return nullptr;
 		}
 	}
@@ -2897,6 +2900,10 @@ namespace CrossCompiler
 	{
 		switch (Version)
 		{
+		case 30000: return "30000";
+		case 20400: return "20400";
+		case 20300: return "20300";
+		case 20200: return "20200";
 		case 20100: return "20100";
 		case 20000: return "20000";
 		case 10200: return "10200";

@@ -23,6 +23,9 @@
 #include "compute_command_encoder.hpp"
 #include "parallel_render_command_encoder.hpp"
 #include "render_pass.hpp"
+#if MTLPP_OS_VERSION_SUPPORTS_RT
+#include "acceleration_structure_command_encoder.hpp" // EPIC MOD - MetalRT Support
+#endif
 
 MTLPP_BEGIN
 
@@ -44,8 +47,8 @@ namespace mtlpp
 		
 	}
 	
-	CommandBuffer::CommandBuffer(ns::Protocol<id<MTLCommandBuffer>>::type handle, ue4::ITableCache* cache)
-	: ns::Object<ns::Protocol<id<MTLCommandBuffer>>::type>(handle, ns::Ownership::Retain, ue4::ITableCacheRef(cache).GetCommandBuffer(handle))
+	CommandBuffer::CommandBuffer(ns::Protocol<id<MTLCommandBuffer>>::type handle, UE::ITableCache* cache)
+	: ns::Object<ns::Protocol<id<MTLCommandBuffer>>::type>(handle, ns::Ownership::Retain, UE::ITableCacheRef(cache).GetCommandBuffer(handle))
 	{
 	}
 	
@@ -257,7 +260,7 @@ namespace mtlpp
     {
         Validate();
 #if MTLPP_CONFIG_IMP_CACHE
-		ue4::ITableCache* cache = m_table->TableCache;
+		UE::ITableCache* cache = m_table->TableCache;
 		m_table->AddScheduledHandler(m_ptr, ^(id <MTLCommandBuffer> mtlCommandBuffer){
 			CommandBuffer commandBuffer(mtlCommandBuffer, cache);
 			handler(commandBuffer);
@@ -274,7 +277,7 @@ namespace mtlpp
     {
         Validate();
 #if MTLPP_CONFIG_IMP_CACHE
-		ue4::ITableCache* cache = m_table->TableCache;
+		UE::ITableCache* cache = m_table->TableCache;
 		m_table->AddCompletedHandler(m_ptr, ^(id <MTLCommandBuffer> mtlCommandBuffer){
 			CommandBuffer commandBuffer(mtlCommandBuffer, cache);
 			handler(commandBuffer);
@@ -334,6 +337,22 @@ namespace mtlpp
         [(id<MTLCommandBuffer>)m_ptr waitUntilCompleted];
 #endif
     }
+
+// EPIC MOD - BEGIN - MetalRT Support
+#if MTLPP_OS_VERSION_SUPPORTS_RT
+	AccelerationStructureCommandEncoder CommandBuffer::AccelerationStructureCommandEncoder()
+	{
+		Validate();
+
+	class AccelerationStructureCommandEncoder Encoder = [(id<MTLCommandBuffer>)m_ptr accelerationStructureCommandEncoder];
+	#if MTLPP_CONFIG_VALIDATE
+		Encoder.SetCommandBufferFence(GetCompletionFence());
+	#endif
+
+		return Encoder;
+	}
+#endif
+// EPIC MOD - END - MetalRT Support
 
     BlitCommandEncoder CommandBuffer::BlitCommandEncoder()
     {

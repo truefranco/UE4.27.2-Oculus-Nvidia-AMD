@@ -56,14 +56,14 @@ namespace UnrealBuildTool
 			if (UnrealBuildTool.IsEngineInstalled())
 			{
 				string XcodeBuilderVersionOutput = Utils.RunLocalProcessAndReturnStdOut("xcodebuild", "-version");
-				if (XcodeBuilderVersionOutput.Length > 10)
+				if (XcodeBuilderVersionOutput.Length > 13)
 				{
 					string[] Version = XcodeBuilderVersionOutput.Substring(6, 4).Split('.');
 					if (Version.Length == 2)
 					{
-						if (int.Parse(Version[0]) < 11)
+						if (int.Parse(Version[0]) < 13)
 						{
-							throw new BuildException("Building for macOS, iOS and tvOS requires Xcode 11 or newer, Xcode " + Version[0] + "." + Version[1] + " detected");
+							throw new BuildException("Building for macOS, iOS and tvOS requires Xcode 13 or newer, Xcode " + Version[0] + "." + Version[1] + " detected");
 						}
 					}
 					else

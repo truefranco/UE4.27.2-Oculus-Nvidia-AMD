@@ -14,7 +14,7 @@
 
 MTLPP_BEGIN
 
-namespace ue4
+namespace UE
 {
 	template<>
 	struct MTLPP_EXPORT ITable<id<MTLLibrary>, void> : public IMPTable<id<MTLLibrary>, void>, public ITableCacheRef
@@ -69,6 +69,19 @@ namespace ue4
 		static ITable<MTLCompileOptions*, void> Table(object_getClass(handle));
 		return &Table;
 	}
+
+	template<>
+    struct ITable<id<MTLFunctionHandle>, void> : public IMPTable<id<MTLFunctionHandle>, void>, public ITableCacheRef
+    {
+		ITable()
+		{
+		}
+
+		ITable(Class C)
+		: IMPTable<id<MTLFunctionHandle>, void>(C)
+		{
+		}
+    };
 }
 
 namespace mtlpp
@@ -122,6 +135,10 @@ namespace mtlpp
         Vertex   = 1,
         Fragment = 2,
         Kernel   = 3,
+// EPIC MOD - BEGIN - MetalRT Support
+		Visible = 5,
+		Intersection = 6,
+// EPIC MOD - END - MetalRT Support
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
@@ -143,7 +160,7 @@ namespace mtlpp
     {
     public:
 		Function(ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLFunction>>::type>(retain) { }
-		Function(ns::Protocol<id<MTLFunction>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLFunction>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetFunction(handle)) { }
+		Function(ns::Protocol<id<MTLFunction>>::type handle, UE::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLFunction>>::type>(handle, retain, UE::ITableCacheRef(cache).GetFunction(handle)) { }
 
         ns::AutoReleased<ns::String>                                   GetLabel() const MTLPP_AVAILABLE(10_12, 10_0);
         ns::AutoReleased<Device>                                       GetDevice() const;
@@ -167,10 +184,49 @@ namespace mtlpp
         Version1_0 MTLPP_AVAILABLE(NA, 9_0)     = (1 << 16),
         Version1_1 MTLPP_AVAILABLE(10_11, 9_0)  = (1 << 16) + 1,
         Version1_2 MTLPP_AVAILABLE(10_12, 10_0) = (1 << 16) + 2,
-		Version2_0 MTLPP_AVAILABLE(10_13, 11_0) = (2 << 16),
-		Version2_1 MTLPP_AVAILABLE(10_14, 12_0) = (2 << 16) + 1,
+        Version2_0 MTLPP_AVAILABLE(10_13, 11_0) = (2 << 16),
+        Version2_1 MTLPP_AVAILABLE(10_14, 12_0) = (2 << 16) + 1,
+        Version2_2 MTLPP_AVAILABLE(10_15, 13_0) = (2 << 16) + 2,
+		Version2_3 MTLPP_AVAILABLE(11_0, 14_0) = (2 << 16) + 3,
+     	Version2_4 MTLPP_AVAILABLE(12_0, 15_0) = (2 << 16) + 4,
+     	Version3_0 MTLPP_AVAILABLE(13_0, 16_0) = (3 << 16)
+
     }
     MTLPP_AVAILABLE(10_11, 9_0);
+
+// EPIC MOD - BEGIN - MetalRT Support
+    enum class FunctionOptions
+    {
+        None = 0,
+        CompileToBinary MTLPP_AVAILABLE(11_0, 14_0) = 1 << 0,
+    }
+    MTLPP_AVAILABLE(11_0, 14_0);
+
+    class MTLPP_EXPORT FunctionDescriptor : public ns::Object<MTLFunctionDescriptor*>
+    {
+    public:
+        FunctionDescriptor();
+        FunctionDescriptor(MTLFunctionDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLFunctionDescriptor*>(handle, retain) { }
+
+        void SetName(const ns::String& name);
+        void SetSpecializedName(const ns::String& functionName);
+        void SetConstantValues(FunctionConstantValues& constantValues);
+        void SetOptions(FunctionOptions options);
+    }
+    MTLPP_AVAILABLE(11_0, 14_0);
+
+    class MTLPP_EXPORT FunctionHandle : public ns::Object<ns::Protocol<id<MTLFunctionHandle>>::type>
+    {
+    public:
+        FunctionHandle() { }
+        FunctionHandle(ns::Protocol<id<MTLFunctionHandle>>::type handle, UE::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLFunctionHandle>>::type>(handle, retain, UE::ITableCacheRef(cache).GetFunctionHandle(handle)) { }
+
+        FunctionType                 GetFunctionType() const;
+        ns::AutoReleased<Device>     GetDevice() const;
+        ns::AutoReleased<ns::String> GetName() const;
+    }
+    MTLPP_AVAILABLE(11_00, 11_0);
+// EPIC MOD - END - MetalRT Support
 
     class MTLPP_EXPORT CompileOptions : public ns::Object<MTLCompileOptions*>
     {
@@ -213,7 +269,7 @@ namespace mtlpp
     {
     public:
         Library() { }
-		Library(ns::Protocol<id<MTLLibrary>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLLibrary>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetLibrary(handle)) { }
+		Library(ns::Protocol<id<MTLLibrary>>::type handle, UE::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLLibrary>>::type>(handle, retain, UE::ITableCacheRef(cache).GetLibrary(handle)) { }
 
         ns::AutoReleased<ns::String>            GetLabel() const;
         ns::AutoReleased<Device>                GetDevice() const;
@@ -224,6 +280,7 @@ namespace mtlpp
         Function NewFunction(const ns::String& functionName) const;
         Function NewFunction(const ns::String& functionName, const FunctionConstantValues& constantValues, ns::AutoReleasedError* error) const MTLPP_AVAILABLE(10_12, 10_0);
         void NewFunction(const ns::String& functionName, const FunctionConstantValues& constantValues, FunctionHandler completionHandler) const MTLPP_AVAILABLE(10_12, 10_0);
+		Function NewFunction(FunctionDescriptor& descriptor, ns::AutoReleasedError* error) MTLPP_AVAILABLE(11_0, 14_0); // EPIC MOD - MetalRT Support
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 }

@@ -22,6 +22,9 @@
 #include "texture.hpp"
 #include "heap.hpp"
 #include "argument_encoder.hpp"
+#if MTLPP_OS_VERSION_SUPPORTS_RT
+#include "acceleration_structure.hpp" // EPIC MOD - MetalRT Support
+#endif
 
 MTLPP_BEGIN
 
@@ -607,7 +610,7 @@ namespace mtlpp
         Validate();
 		
 #if MTLPP_CONFIG_IMP_CACHE
-		ue4::ITableCache* cache = m_table->TableCache;
+		UE::ITableCache* cache = m_table->TableCache;
 		m_table->NewLibraryWithSourceOptionsCompletionHandler(m_ptr, source, options.GetPtr(), ^(id <MTLLibrary> library, NSError * error) {
 			completionHandler(
 							  Library(library, cache, ns::Ownership::Assign),
@@ -623,6 +626,38 @@ namespace mtlpp
                                           }];
 #endif
     }
+// EPIC MOD - BEGIN - MetalRT Support
+#if MTLPP_OS_VERSION_SUPPORTS_RT
+    bool Device::IsRayTracingSupported() const
+    {
+        return [m_ptr supportsRaytracing];
+    }
+
+    AccelerationStructure Device::NewAccelerationStructure(const AccelerationStructureDescriptor& descriptor)
+    {
+        Validate();
+        return [m_ptr newAccelerationStructureWithDescriptor:descriptor.GetPtr()];
+    }
+
+    AccelerationStructure Device::NewAccelerationStructureWithSize(NSUInteger size)
+    {
+        Validate();
+        return [m_ptr newAccelerationStructureWithSize:size];
+    }
+
+    AccelerationStructureSizes Device::AccelerationStructureSizesWithDescriptor(const AccelerationStructureDescriptor& descriptor)
+    {
+        MTLAccelerationStructureSizes sizes = [m_ptr accelerationStructureSizesWithDescriptor:descriptor.GetPtr()];
+
+        AccelerationStructureSizes OutSizes;
+        OutSizes.accelerationStructureSize = sizes.accelerationStructureSize;
+        OutSizes.buildScratchBufferSize = sizes.buildScratchBufferSize;
+        OutSizes.refitScratchBufferSize = sizes.refitScratchBufferSize;
+
+        return OutSizes;
+    }
+#endif
+// EPIC MOD - END - MetalRT Support
 
     RenderPipelineState Device::NewRenderPipelineState(const RenderPipelineDescriptor& descriptor, ns::AutoReleasedError* error)
     {
@@ -653,7 +688,7 @@ namespace mtlpp
         Validate();
 		
 #if MTLPP_CONFIG_IMP_CACHE
-		ue4::ITableCache* cache = m_table->TableCache;
+		UE::ITableCache* cache = m_table->TableCache;
 		m_table->NewRenderPipelineStateWithDescriptorCompletionHandler(m_ptr, descriptor.GetPtr(), ^(id <MTLRenderPipelineState> renderPipelineState, NSError * error) {
 			completionHandler(
 							  RenderPipelineState(renderPipelineState, cache, ns::Ownership::Assign),
@@ -676,7 +711,7 @@ namespace mtlpp
         Validate();
 		
 #if MTLPP_CONFIG_IMP_CACHE
-		ue4::ITableCache* cache = m_table->TableCache;
+		UE::ITableCache* cache = m_table->TableCache;
 		m_table->NewRenderPipelineStateWithDescriptorOptionsCompletionHandler(m_ptr, descriptor.GetPtr(), MTLPipelineOption(options), ^(id <MTLRenderPipelineState> renderPipelineState, MTLRenderPipelineReflection * reflection, NSError * error) {
 			completionHandler(
 							  RenderPipelineState(renderPipelineState, cache, ns::Ownership::Assign),
@@ -726,7 +761,7 @@ namespace mtlpp
         Validate();
 		
 #if MTLPP_CONFIG_IMP_CACHE
-		ue4::ITableCache* cache = m_table->TableCache;
+		UE::ITableCache* cache = m_table->TableCache;
 		m_table->NewComputePipelineStateWithFunctionCompletionHandler(m_ptr, computeFunction.GetPtr(), ^(id <MTLComputePipelineState> computePipelineState, NSError * error) {
 			completionHandler(
 							  ComputePipelineState(computePipelineState, cache, ns::Ownership::Assign),
@@ -749,7 +784,7 @@ namespace mtlpp
         Validate();
 		
 #if MTLPP_CONFIG_IMP_CACHE
-		ue4::ITableCache* cache = m_table->TableCache;
+		UE::ITableCache* cache = m_table->TableCache;
 		m_table->NewComputePipelineStateWithFunctionOptionsCompletionHandler(m_ptr, computeFunction.GetPtr(), MTLPipelineOption(options), ^(id <MTLComputePipelineState> computePipelineState, MTLComputePipelineReflection * reflection, NSError * error) {
 			completionHandler(
 							  ComputePipelineState(computePipelineState, cache, ns::Ownership::Assign),
@@ -792,7 +827,7 @@ namespace mtlpp
         Validate();
 #if MTLPP_IS_AVAILABLE(10_11, 9_0)
 #if MTLPP_CONFIG_IMP_CACHE
-		ue4::ITableCache* cache = m_table->TableCache;
+		UE::ITableCache* cache = m_table->TableCache;
 		m_table->NewComputePipelineStateWithDescriptorOptionsCompletionHandler(m_ptr,descriptor.GetPtr(), MTLPipelineOption(options), ^(id <MTLComputePipelineState> computePipelineState, MTLComputePipelineReflection * reflection, NSError * error)
 																			   {
 																				   completionHandler(
@@ -942,7 +977,7 @@ namespace mtlpp
 		Validate();
 #if MTLPP_IS_AVAILABLE_IOS(11_0)
 #if MTLPP_CONFIG_IMP_CACHE
-		ue4::ITableCache* cache = m_table->TableCache;
+		UE::ITableCache* cache = m_table->TableCache;
 		m_table->newRenderPipelineStateWithTileDescriptoroptionscompletionHandler(m_ptr, descriptor.GetPtr(), (MTLPipelineOption)options, ^(id <MTLRenderPipelineState> renderPipelineState, MTLRenderPipelineReflection * reflection, NSError * error) {
 			completionHandler(
 							  RenderPipelineState(renderPipelineState, cache, ns::Ownership::Assign),

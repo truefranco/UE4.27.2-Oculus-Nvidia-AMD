@@ -19,10 +19,16 @@
 #include "sampler.hpp"
 #include "texture.hpp"
 #include "buffer.hpp"
+// EPIC MOD - BEGIN - MetalRT Support
+#if MTLPP_OS_VERSION_SUPPORTS_RT
+#include "intersection_function_table.hpp"
+#include "acceleration_structure.hpp"
+#endif
+// EPIC MOD - END - MetalRT Support
 
 MTLPP_BEGIN
 
-namespace ue4
+namespace UE
 {
 	template<>
 	struct ITable<id<MTLComputeCommandEncoder>, void> : public IMPTable<id<MTLComputeCommandEncoder>, void>, public ITableCacheRef
@@ -44,7 +50,7 @@ namespace mtlpp
     {
     public:
         ComputeCommandEncoder(ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLComputeCommandEncoder>>::type>(retain) { }
-		ComputeCommandEncoder(ns::Protocol<id<MTLComputeCommandEncoder>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLComputeCommandEncoder>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetComputeCommandEncoder(handle)) { }
+		ComputeCommandEncoder(ns::Protocol<id<MTLComputeCommandEncoder>>::type handle, UE::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLComputeCommandEncoder>>::type>(handle, retain, UE::ITableCacheRef(cache).GetComputeCommandEncoder(handle)) { }
 		
 		operator ns::Protocol<id<MTLComputeCommandEncoder>>::type() const = delete;
 		
@@ -68,9 +74,17 @@ namespace mtlpp
         void UpdateFence(const Fence& fence) MTLPP_AVAILABLE(10_13, 10_0);
         void WaitForFence(const Fence& fence) MTLPP_AVAILABLE(10_13, 10_0);
 		MTLPP_VALIDATED void UseResource(const Resource& resource, ResourceUsage usage) MTLPP_AVAILABLE(10_13, 11_0);
+		MTLPP_VALIDATED void UseResource(const Resource& resource, ResourceUsage usage, RenderStages stages) MTLPP_AVAILABLE(10_13, 11_0); // EPIC MOD - MetalRT Support
 		MTLPP_VALIDATED void UseResources(const Resource* resource, NSUInteger count, ResourceUsage usage) MTLPP_AVAILABLE(10_13, 11_0);
 		void UseHeap(const Heap& heap) MTLPP_AVAILABLE(10_13, 11_0);
 		void UseHeaps(const Heap::Type* heap, NSUInteger count) MTLPP_AVAILABLE(10_13, 11_0);
+		// EPIC MOD - BEGIN - MetalRT Support
+#if MTLPP_OS_VERSION_SUPPORTS_RT
+		void SetIntersectionFunctionTable(IntersectionFunctionTable& funcTable, NSUInteger bufferIndex) MTLPP_AVAILABLE(11_00, 14_0);
+		void SetVisibleFunctionTable(VisibleFunctionTable& funcTable, NSUInteger bufferIndex) MTLPP_AVAILABLE(11_00, 14_0);
+		void SetAccelerationStructure(AccelerationStructure& accelerationStructure, NSUInteger bufferIndex) MTLPP_AVAILABLE(11_00, 14_0);
+#endif
+		// EPIC MOD - END - MetalRT Support
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 	

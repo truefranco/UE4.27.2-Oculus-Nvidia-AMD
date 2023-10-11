@@ -52,6 +52,7 @@
 				}
 				[playerIdentifierArray addObject : PlayerIDString];
 			}
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			[GKPlayer loadPlayersForIdentifiers : playerIdentifierArray withCompletionHandler : ^ (NSArray *players, NSError *nameLoadError) {
 				if (nameLoadError) {
 					[self turnBasedMatchmakerViewController : viewController didFailWithError : nameLoadError];
@@ -66,6 +67,7 @@
 	else {
 		[match removeWithCompletionHandler : nil];
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 -(void)turnBasedMatchmakerViewController:(GKTurnBasedMatchmakerViewController*)viewController playerQuitForMatch : (GKTurnBasedMatch*)match

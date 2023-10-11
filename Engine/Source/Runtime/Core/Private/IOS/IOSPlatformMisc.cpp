@@ -314,7 +314,7 @@ EDeviceScreenOrientation FIOSPlatformMisc::GetDeviceOrientation()
 #if !PLATFORM_TVOS
 	if (GInterfaceOrientation == UIInterfaceOrientationUnknown)
 	{
-		GInterfaceOrientation = [[UIApplication sharedApplication] statusBarOrientation];
+		GInterfaceOrientation = [[[[[UIApplication sharedApplication]delegate] window] windowScene] interfaceOrientation];
 	}
 
 	return ConvertFromUIInterfaceOrientation(GInterfaceOrientation);
@@ -867,7 +867,7 @@ void FIOSPlatformMisc::RequestStoreReview()
 #if !PLATFORM_TVOS
 	if (@available(iOS 10, *))
 	{
-		[SKStoreReviewController requestReview];
+		[SKStoreReviewController requestReviewInScene : [[[[UIApplication sharedApplication]delegate] window] windowScene] ] ;
 	}
 #endif
 }

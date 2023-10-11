@@ -31,7 +31,7 @@ namespace UnrealBuildTool
 		/// The version of the iOS to allow at build time.
 		/// </summary>
 		[XmlConfigFile(Category = "IOSToolChain")]
-		public string BuildIOSVersion = "7.0";
+		public string BuildIOSVersion = "16.0";
 
 		/// <summary>
 		/// Directory for the developer binaries
@@ -257,6 +257,11 @@ namespace UnrealBuildTool
 			if (CompileEnvironment.bEnableUndefinedIdentifierWarnings)
 			{
 				Result += " -Wundef" + (CompileEnvironment.bUndefinedIdentifierWarningsAsErrors ? "" : " -Wno-error=undef");
+			}
+
+			if (CompileEnvironment.DeprecationWarningLevel == WarningLevel.Error)
+			{
+				Result += " -Werror=deprecated-declarations";
 			}
 
 			// fix for Xcode 8.3 enabling nonportable include checks, but p4 has some invalid cases in it
@@ -974,7 +979,7 @@ namespace UnrealBuildTool
 				Arguments.Append(" --launch-image \"Launch Image\"");
 				Arguments.Append(" --filter-for-device-model AppleTV5,3");
 				Arguments.Append(" --target-device tv");
-				Arguments.Append(" --minimum-deployment-target 12.0");
+				Arguments.Append(" --minimum-deployment-target 16.0");
 				Arguments.Append(" --platform appletvos");
 			}
 			else
@@ -983,7 +988,7 @@ namespace UnrealBuildTool
 				Arguments.Append(" --product-type com.apple.product-type.application");
 				Arguments.Append(" --target-device iphone");
 				Arguments.Append(" --target-device ipad");
-				Arguments.Append(" --minimum-deployment-target 12.0");
+				Arguments.Append(" --minimum-deployment-target 16.0");
 				Arguments.Append(" --platform iphoneos");
 			}
 			Arguments.Append(" --enable-on-demand-resources YES");

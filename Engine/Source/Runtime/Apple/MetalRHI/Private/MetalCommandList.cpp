@@ -228,9 +228,6 @@ static void HandleMetalCommandBufferError(mtlpp::CommandBuffer const& CompletedB
 		case MTLCommandBufferErrorPageFault:
 			MetalCommandBufferFailurePageFault(CompletedBuffer);
 			break;
-		case MTLCommandBufferErrorBlacklisted:
-			MetalCommandBufferFailureBlacklisted(CompletedBuffer);
-			break;
 		case MTLCommandBufferErrorNotPermitted:
 			MetalCommandBufferFailureNotPermitted(CompletedBuffer);
 			break;

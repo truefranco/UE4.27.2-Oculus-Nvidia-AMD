@@ -394,7 +394,7 @@ void FOnlineTurnBasedIOS::LoadAllMatches(FLoadTurnBasedMatchesSignature MatchesL
 	[GKTurnBasedMatch loadMatchesWithCompletionHandler : ^ (NSArray* matches, NSError* error)
 	{
 		MatchArray.Empty();
-
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		NumberOfMatchesBeingLoaded = matches.count;
 		for (GKTurnBasedMatch* match in matches)
 		{
@@ -420,6 +420,7 @@ void FOnlineTurnBasedIOS::LoadAllMatches(FLoadTurnBasedMatchesSignature MatchesL
 			}];
 		}
 	}];
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void FOnlineTurnBasedIOS::LoadMatchWithID(FString MatchID, FLoadTurnBasedMatchWithIDSignature MatchLoadedCallback)
@@ -430,6 +431,7 @@ void FOnlineTurnBasedIOS::LoadMatchWithID(FString MatchID, FLoadTurnBasedMatchWi
 	{
 		if (!error)
 		{
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			NSArray* playerIdentifierArray = FOnlineTurnBasedIOS::GetPlayerIdentifierArrayForMatch(match);
 			[GKPlayer loadPlayersForIdentifiers : playerIdentifierArray withCompletionHandler : ^ (NSArray *players, NSError *nameLoadError)
 			{
@@ -456,6 +458,7 @@ void FOnlineTurnBasedIOS::LoadMatchWithID(FString MatchID, FLoadTurnBasedMatchWi
 			MatchLoadedCallback.ExecuteIfBound(TEXT(""), false);
 		}
 	}];
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 FTurnBasedMatchPtr FOnlineTurnBasedIOS::GetMatchWithID(FString MatchID) const
@@ -541,6 +544,7 @@ void FOnlineTurnBasedIOS::OnMatchEnded(FString MatchID)
 
 void FOnlineTurnBasedIOS::OnMatchReceivedTurnEvent(FString MatchID, bool BecameActive, void* Match)
 {
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	GKTurnBasedMatch* IOSTurnBasedMatch = (GKTurnBasedMatch*)Match;
     NSArray* playerIdentifierArray = FOnlineTurnBasedIOS::GetPlayerIdentifierArrayForMatch(IOSTurnBasedMatch);
     [GKPlayer loadPlayersForIdentifiers : playerIdentifierArray withCompletionHandler : ^ (NSArray *players, NSError *nameLoadError)
@@ -580,6 +584,7 @@ void FOnlineTurnBasedIOS::OnMatchReceivedTurnEvent(FString MatchID, bool BecameA
             });
         }
     }];
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 NSArray* FOnlineTurnBasedIOS::GetPlayerIdentifierArrayForMatch(GKTurnBasedMatch* match)

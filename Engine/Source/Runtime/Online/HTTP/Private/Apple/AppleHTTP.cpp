@@ -722,7 +722,7 @@ static const unsigned char ecdsaSecp384r1Asn1Header[] =
             // look at all certs in the remote chain and calculate the SHA256 hash of their DER-encoded SPKI
             // the chain starts with the server's cert itself, so walk backwards to optimize for roots first
             TArray<TArray<uint8, TFixedAllocator<ISslCertificateManager::PUBLIC_KEY_DIGEST_SIZE>>> CertDigests;
-            
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
             CFIndex NumCerts = SecTrustGetCertificateCount(RemoteTrust);
             for (int i = static_cast<int>(NumCerts) - 1; i >= 0; i--)
             {
@@ -747,7 +747,7 @@ static const unsigned char ecdsaSecp384r1Asn1Header[] =
                     UE_LOG(LogHttp, Warning, TEXT("could not extract public key from certificate %i for domain '%s'; skipping!"), i, *RemoteHost);
                     continue;
                 }
-                
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 				// we got the key. now we have to figure out what type of key it is; thanks, CommonCrypto.
                 TCFRef<CFDictionaryRef> CertPubKeyAttr = SecKeyCopyAttributes(CertPubKey);
                 NSString *CertPubKeyType = static_cast<NSString *>(CFDictionaryGetValue(CertPubKeyAttr, kSecAttrKeyType));

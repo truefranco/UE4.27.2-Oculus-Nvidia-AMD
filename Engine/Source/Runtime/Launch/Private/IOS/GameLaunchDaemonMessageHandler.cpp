@@ -42,7 +42,7 @@ void FGameLaunchDaemonMessageHandler::HandlePingMessage(const FIOSLaunchDaemonPi
 		MessageEndpoint->Send(new FIOSLaunchDaemonPong(FString(FPlatformProperties::PlatformName()) + (TARGET_IPHONE_SIMULATOR ? FString(TEXT("Simulator:")) : FString(TEXT("@"))) + FString(FPlatformProcess::ComputerName())
 			, FPlatformProcess::ComputerName()
 			, "Game_Running"
-			, UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone? "Phone" : "Tablet"
+			, [[UIDevice currentDevice]userInterfaceIdiom] == UIUserInterfaceIdiomPhone? "Phone" : "Tablet"
 			, false
 			, false
 			, false

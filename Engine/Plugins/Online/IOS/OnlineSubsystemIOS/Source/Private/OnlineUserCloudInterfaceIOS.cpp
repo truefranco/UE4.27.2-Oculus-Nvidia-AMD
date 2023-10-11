@@ -80,9 +80,10 @@
 			CKModifyRecordsOperation *modifyRecords = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:@[record] recordIDsToDelete:nil];
 			modifyRecords.savePolicy = CKRecordSaveAllKeys;
 			modifyRecords.qualityOfService = NSQualityOfServiceUserInitiated;
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			modifyRecords.perRecordCompletionBlock = handler;
 			[DB addOperation : modifyRecords];
-
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			return true;
 		}
 	}
@@ -106,6 +107,7 @@
 
 -(bool)query:(bool)shared fetchHandler:(void(^)(CKRecord* record))fetch completionHandler:(void(^)(CKQueryCursor* record, NSError* error))complete
 {
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if ([CKDatabase class])
 	{
 		CKDatabase* DB = shared ? SharedDatabase : UserDatabase;
@@ -121,6 +123,7 @@
 			return true;
 		}
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	return false;
 }
 

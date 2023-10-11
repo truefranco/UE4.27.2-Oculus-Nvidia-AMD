@@ -16,7 +16,7 @@
 
 MTLPP_BEGIN
 
-namespace ue4
+namespace UE
 {
 	template<>
 	struct MTLPP_EXPORT ITable<id<MTLCommandBuffer>, void> : public IMPTable<id<MTLCommandBuffer>, void>, public ITableCacheRef
@@ -44,6 +44,7 @@ namespace mtlpp
     class Drawable;
     class RenderPassDescriptor;
 	class CommandBuffer;
+	class AccelerationStructureCommandEncoder; // EPIC MOD - MetalRT Support
 
     enum class CommandBufferStatus
     {
@@ -85,7 +86,7 @@ namespace mtlpp
 		mutable CommandBufferFence CmdBufferFence;
     public:
 		CommandBuffer(ns::Ownership const retain = ns::Ownership::Retain);
-		CommandBuffer(ns::Protocol<id<MTLCommandBuffer>>::type handle, ue4::ITableCache* cache = nullptr);
+		CommandBuffer(ns::Protocol<id<MTLCommandBuffer>>::type handle, UE::ITableCache* cache = nullptr);
 		
 		CommandBuffer(const CommandBuffer& rhs);
 		CommandBuffer& operator=(const CommandBuffer& rhs);
@@ -126,6 +127,8 @@ namespace mtlpp
 		MTLPP_VALIDATED class ComputeCommandEncoder ComputeCommandEncoder(DispatchType Type) /* MTLPP_AVAILABLE(10_14, 12_0) */;
         MTLPP_VALIDATED ParallelRenderCommandEncoder ParallelRenderCommandEncoder(const RenderPassDescriptor& renderPassDescriptor);
 		
+		AccelerationStructureCommandEncoder AccelerationStructureCommandEncoder(); // EPIC MOD - MetalRT Support
+
 		void PushDebugGroup(const ns::String& string) MTLPP_AVAILABLE(10_13, 11_0);
 		void PopDebugGroup() MTLPP_AVAILABLE(10_13, 11_0);
     }

@@ -36,7 +36,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboardCompletionDelegate(NSArray* players,
 {
     auto ReadObject = InReadObject;
     bool bTriggeredReadRequest = false;
-
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
     GKLeaderboard* LeaderboardRequest = nil;
 	if ([GKLeaderboard instancesRespondToSelector:@selector(initWithPlayers:)] == YES)
 	{
@@ -141,6 +141,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboardCompletionDelegate(NSArray* players,
     }
     
     return bTriggeredReadRequest;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 bool FOnlineLeaderboardsIOS::ReadLeaderboards(const TArray< FUniqueNetIdRef >& Players, FOnlineLeaderboardReadRef& InReadObject)
@@ -170,7 +171,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboards(const TArray< FUniqueNetIdRef >& P
 		{
 			FriendIds[FriendIdx + 1] = [NSString stringWithFString:Players[FriendIdx]->ToString()];
 		}
-
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		// Kick off a game center read request for the list of users
 		if ([GKLeaderboard instancesRespondToSelector:@selector(initWithPlayers:)] == YES)
 		{
@@ -192,6 +193,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboards(const TArray< FUniqueNetIdRef >& P
 	}
 
 	return true;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 
@@ -252,7 +254,7 @@ bool FOnlineLeaderboardsIOS::WriteLeaderboards(const FName& SessionName, const F
 	{
 		// Access the stat and the value.
 		const FVariantData& Stat = It.Value();
-
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		FString LeaderboardName(It.Key().ToString());
 		NSString* Category = [NSString stringWithFString:LeaderboardName];
 
@@ -301,7 +303,7 @@ bool FOnlineLeaderboardsIOS::WriteLeaderboards(const FName& SessionName, const F
 			bWroteAnyLeaderboard = true;
 		}
 	}
-	
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	// Return whether any stat was cached.
 	return bWroteAnyLeaderboard;
 }
@@ -323,7 +325,7 @@ bool FOnlineLeaderboardsIOS::FlushLeaderboards(const FName& SessionName)
 			
 			[UnreportedScores release];
 			UnreportedScores = nil;
-			
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			dispatch_async(dispatch_get_main_queue(), ^
 			{
 				[GKScore reportScores : ArrayCopy withCompletionHandler : ^ (NSError *error)
@@ -360,7 +362,7 @@ bool FOnlineLeaderboardsIOS::FlushLeaderboards(const FName& SessionName)
 		UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("Failed to flush scores to leaderboard"));
 	}
 
-	
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	return bBeganFlushingScores;
 }
 

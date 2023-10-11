@@ -313,30 +313,21 @@ namespace UnrealBuildTool
 			{
 				switch (MinVersion)
 				{
-				case "IOS_12":
-					MinVersion = "12.0";
-					break;
-				case "IOS_13":
-					MinVersion = "13.0";
-					break;
-				case "IOS_14":
-					MinVersion = "14.0";
-					break;
-				case "IOS_15":
-					MinVersion = "15.0";
-					break;
 				case "IOS_16":
 					MinVersion = "16.0";
 					break;
+				case "IOS_17":
+					MinVersion = "17.0";
+					break;
 				default:
-					Log.TraceWarning("MinimumiOSVersion {0} specified in ini file is no longer supported, defaulting to 12.0", MinVersion);
-					MinVersion = "12.0";
+					Log.TraceWarning("MinimumiOSVersion {0} specified in ini file is no longer supported, defaulting to 16.0", MinVersion);
+					MinVersion = "16.0";
 					break;
 				}
 			}
 			else
 			{
-				MinVersion = "12.0";
+				MinVersion = "16.0";
 			}
 
 			// Get Facebook Support details

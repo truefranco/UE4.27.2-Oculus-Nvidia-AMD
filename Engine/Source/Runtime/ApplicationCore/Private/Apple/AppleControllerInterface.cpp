@@ -139,10 +139,12 @@ void FAppleControllerInterface::HandleConnection(GCController* Controller)
         
 		// Deprecated but buttonMenu behavior is unreliable in iOS/tvOS 14.0.1
         Controllers[ControllerIndex].bPauseWasPressed = false;
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
         Controller.controllerPausedHandler = ^(GCController* Cont)
         {
             Controllers[ControllerIndex].bPauseWasPressed = true;
         };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
         
         bFoundSlot = true;
         
@@ -183,20 +185,22 @@ void FAppleControllerInterface::SendControllerEvents()
 		for(int32 i = 0; i < UE_ARRAY_COUNT(Controllers); ++i)
 		{
 			GCController* Cont = Controllers[i].Controller;
-			
+
 			GCExtendedGamepad* ExtendedGamepad = nil;
 
-			if (@available(iOS 13, tvOS 13, *))
+			if (@available(iOS 17, tvOS 17, *))
 			{
 				ExtendedGamepad = [Cont capture].extendedGamepad;
 			}
 			else
 			{
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 				ExtendedGamepad = [Cont.extendedGamepad saveSnapshot];
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			}
-
-			GCMotion* Motion = Cont.motion;
 			
+			GCMotion* Motion = Cont.motion;
+
 			// make sure the connection handler has run on this guy
 			if (Controllers[i].PlayerIndex == PlayerIndex::PlayerUnset)
 			{

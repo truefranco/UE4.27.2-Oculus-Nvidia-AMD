@@ -1784,28 +1784,28 @@ bool FMetalShaderOutputCooker::Build(TArray<uint8>& OutData)
 						TargetDesc.CompileFlags.SetDefine(TEXT("argument_buffer_offset"), IABOffsetIndex);
 					}
 					TargetDesc.CompileFlags.SetDefine(TEXT("texture_buffer_native"), 1);
-					TargetDesc.Version = 20100;
+					TargetDesc.Version = 30000;
 					break;
 				}
 				case 3:
 				{
-					TargetDesc.Version = 20000;
+					TargetDesc.Version = 20400;
 					break;
 				}
 				case 2:
 				{
-					TargetDesc.Version = 10200;
+					TargetDesc.Version = 20300;
 					break;
 				}
 				case 1:
 				{
-					TargetDesc.Version = 10100;
+					TargetDesc.Version = 20200;
 					break;
 				}
 				case 0:
 				default:
 				{
-					TargetDesc.Version = 10000;
+					TargetDesc.Version = 20400;
 					break;
 				}
 			}

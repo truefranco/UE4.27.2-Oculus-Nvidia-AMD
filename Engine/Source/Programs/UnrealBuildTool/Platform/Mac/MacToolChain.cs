@@ -231,7 +231,13 @@ namespace UnrealBuildTool
 			{
 				Result += " -Wshadow" + ((CompileEnvironment.ShadowVariableWarningLevel == WarningLevel.Error) ? "" : " -Wno-error=shadow");
 			}
-			
+
+			if (CompileEnvironment.DeprecationWarningLevel == WarningLevel.Error)
+			{
+				Result += " -Werror=deprecated-declarations";
+			}
+
+
 			if (CompileEnvironment.bEnableUndefinedIdentifierWarnings)
 			{
 				Result += " -Wundef" + (CompileEnvironment.bUndefinedIdentifierWarningsAsErrors ? "" : " -Wno-error=undef");

@@ -429,12 +429,12 @@ FScreenPassTexture FMobileFSRUpscaler::AddPasses(FRDGBuilder& GraphBuilder, cons
 	RDG_GPU_STAT_SCOPE(GraphBuilder, MobileFSRUpscaler);
 	
 	FScreenPassTexture SceneColor;
-
+	const EShaderPlatform ShaderPlatform = View.GetShaderPlatform();
 	if (bIsEASUPass)
 	{
 		SceneColor = AddEASUPass(GraphBuilder, View, PassInputs);
 	}
-	else
+	else if(ShaderPlatform != EShaderPlatform::SP_METAL)
 	{
 		SceneColor = AddCASPass(GraphBuilder, View, PassInputs);
 	}

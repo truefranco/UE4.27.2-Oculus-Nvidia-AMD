@@ -40,3 +40,9 @@
 #include "tools.hpp"
 #include "types.hpp"
 #include "vertex_descriptor.hpp"
+// EPIC MOD - BEGIN - MetalRT Support
+#if MTLPP_OS_VERSION_SUPPORTS_RT
+#include "acceleration_structure.hpp"
+#include "acceleration_structure_command_encoder.hpp"
+#endif
+// EPIC MOD - END - MetalRT Support

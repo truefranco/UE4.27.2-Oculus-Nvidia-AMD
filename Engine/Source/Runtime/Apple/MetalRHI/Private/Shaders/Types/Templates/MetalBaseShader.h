@@ -304,30 +304,30 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(TArrayView<const uint8
 				case 6:
 				case 5:
 				case 4:
-					MetalVersion = mtlpp::LanguageVersion::Version2_1;
+					MetalVersion = mtlpp::LanguageVersion::Version3_0;
 					break;
 				case 3:
-					MetalVersion = mtlpp::LanguageVersion::Version2_0;
+					MetalVersion = mtlpp::LanguageVersion::Version2_4;
 					break;
 				case 2:
-					MetalVersion = mtlpp::LanguageVersion::Version1_2;
+					MetalVersion = mtlpp::LanguageVersion::Version2_3;
 					break;
 				case 1:
-					MetalVersion = mtlpp::LanguageVersion::Version1_1;
+					MetalVersion = mtlpp::LanguageVersion::Version2_2;
 					break;
 				case 0:
 #if PLATFORM_MAC
-					MetalVersion = mtlpp::LanguageVersion::Version1_1;
+					MetalVersion = mtlpp::LanguageVersion::Version2_4;
 #else
-					MetalVersion = mtlpp::LanguageVersion::Version1_0;
+					MetalVersion = mtlpp::LanguageVersion::Version2_4;
 #endif
 					break;
 				default:
 					UE_LOG(LogRHI, Fatal, TEXT("Failed to create shader with unknown version %d: %s"), Header.Version, *FString(NewShaderString));
 #if PLATFORM_MAC
-					MetalVersion = mtlpp::LanguageVersion::Version1_1;
+					MetalVersion = mtlpp::LanguageVersion::Version2_4;
 #else
-					MetalVersion = mtlpp::LanguageVersion::Version1_0;
+					MetalVersion = mtlpp::LanguageVersion::Version2_4;
 #endif
 					break;
 				}

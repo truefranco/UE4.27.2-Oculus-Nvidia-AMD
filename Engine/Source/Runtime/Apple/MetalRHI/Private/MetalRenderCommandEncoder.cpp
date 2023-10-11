@@ -714,7 +714,7 @@ bool FMetalRenderCommandEncoderDebugging::ValidateFunctionBindings(EMetalShaderF
 					check(false);
 					break;
 			}
-			
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			for (uint32 i = 0; i < Arguments.count; i++)
 			{
 				MTLArgument* Arg = [Arguments objectAtIndex:i];
@@ -774,6 +774,7 @@ bool FMetalRenderCommandEncoderDebugging::ValidateFunctionBindings(EMetalShaderF
 	}
 #endif
 	return bOK;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 void FMetalRenderCommandEncoderDebugging::Validate()
 {

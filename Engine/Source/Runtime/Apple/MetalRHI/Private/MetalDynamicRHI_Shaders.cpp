@@ -138,7 +138,9 @@ FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Pl
 
 					METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewLibraryFile: %s"), *MetalLibraryFilePath)));
 					NSError* Error;
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 					mtlpp::Library Library = [GetMetalDeviceContext().GetDevice() newLibraryWithFile:MetalLibraryFilePath.GetNSString() error:&Error];
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 					if (Library != nil)
 					{
 						Libraries.Add(Library);

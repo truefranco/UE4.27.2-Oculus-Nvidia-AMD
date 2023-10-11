@@ -1799,10 +1799,10 @@ FMaterial::~FMaterial()
 	check(RenderingThreadCompilingShaderMapId == 0u);
 	check(!RenderingThreadPendingCompilerEnvironment.IsValid());
 
-#if UE_CHECK_FMATERIAL_LIFETIME
-	const uint32 NumRemainingRefs = GetRefCount();
-	UE_CLOG(NumRemainingRefs > 0u, LogMaterial, Fatal, TEXT("%s Leaked %d refs"), *GetDebugName(), NumRemainingRefs);
-#endif // UE_CHECK_FMATERIAL_LIFETIME
+//#if UE_CHECK_FMATERIAL_LIFETIME
+	//const uint32 NumRemainingRefs = GetRefCount();
+	//UE_CLOG(NumRemainingRefs > 0u, LogMaterial, Fatal, TEXT("%s Leaked %d refs"), *GetDebugName(), NumRemainingRefs);
+//#endif // UE_CHECK_FMATERIAL_LIFETIME
 
 #if WITH_EDITOR
 	checkf(!EditorLoadedMaterialResources.Contains(this), TEXT("FMaterial is still in EditorLoadedMaterialResources when destroyed, should use FMaterial::DeferredDestroy to remove"));

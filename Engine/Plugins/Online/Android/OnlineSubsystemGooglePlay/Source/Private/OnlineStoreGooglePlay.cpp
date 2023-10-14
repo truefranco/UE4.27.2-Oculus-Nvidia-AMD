@@ -106,7 +106,7 @@ void FOnlineStoreGooglePlayV2::OnGooglePlayAvailableIAPQueryComplete(EGooglePlay
 		AddOffer(NewProductOffer);
 		OfferIds.Add(NewProductOffer->OfferId);
 
-		UE_LOG_ONLINE_STOREV2(Log, TEXT("Product Identifier: %s, Name: %s, Desc: %s, Long Desc: %s, Price: %s IntPrice: %d"),
+		UE_LOG_ONLINE_STOREV2(Log, TEXT("Product Identifier: %s, Name: %s, Desc: %s, Long Desc: %s, Price: %s IntPrice: %lld"),
 			*NewProductOffer->OfferId,
 			*NewProductOffer->Title.ToString(),
 			*NewProductOffer->Description.ToString(),
@@ -207,7 +207,7 @@ TSharedPtr<FOnlineStoreOffer> FOnlineStoreGooglePlayV2::GetOffer(const FUniqueOf
 
 #if !OSSGOOGLEPLAY_WITH_AIDL
 
-JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeQueryComplete(JNIEnv* jenv, jobject thiz, jsize responseCode, jobjectArray productIDs, jobjectArray titles, jobjectArray descriptions, jobjectArray prices, jfloatArray pricesRaw, jobjectArray currencyCodes, jobjectArray originalJson)
+JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeQueryComplete(JNIEnv* jenv, jobject thiz, jsize responseCode, jobjectArray productIDs, jobjectArray titles, jobjectArray descriptions, jobjectArray prices, jfloatArray pricesRaw, jobjectArray currencyCodes)
 {
 	TArray<FOnlineStoreOffer> ProvidedProductInformation;
 	EGooglePlayBillingResponseCode EGPResponse = (EGooglePlayBillingResponseCode)responseCode;
@@ -221,9 +221,8 @@ JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeQueryComplete
 		jsize NumPrices = jenv->GetArrayLength(prices);
 		jsize NumPricesRaw = jenv->GetArrayLength(pricesRaw);
 		jsize NumCurrencyCodes = jenv->GetArrayLength(currencyCodes);
-		jsize NumJsonStrings = jenv->GetArrayLength(originalJson);
 
-		ensure((NumProducts == NumTitles) && (NumProducts == NumDescriptions) && (NumProducts == NumPrices) && (NumProducts == NumPricesRaw) && (NumProducts == NumCurrencyCodes) && (NumProducts == NumJsonStrings));
+		ensure((NumProducts == NumTitles) && (NumProducts == NumDescriptions) && (NumProducts == NumPrices) && (NumProducts == NumPricesRaw) && (NumProducts == NumCurrencyCodes));
 
 		jfloat* PricesRaw = jenv->GetFloatArrayElements(pricesRaw, 0);
 
@@ -258,23 +257,12 @@ JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeQueryComplete
 
 			NewProductInfo.NumericPrice = FMath::TruncToInt(Val + 0.5);
 
-			//Loop through original json data and populate dynamic map.
-			TSharedPtr<FJsonObject> JsonObject;
-			TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(FJavaHelper::FStringFromLocalRef(jenv, (jstring)jenv->GetObjectArrayElement(originalJson, Idx)));
-			if (FJsonSerializer::Deserialize(JsonReader, JsonObject) && JsonObject.IsValid())
-			{
-				for (TPair<FString, TSharedPtr<FJsonValue>> JsonValue : JsonObject->Values)
-				{
-					NewProductInfo.DynamicFields.Add(JsonValue.Key, JsonValue.Value->AsString());
-				}
-			}
-
 			NewProductInfo.ReleaseDate = FDateTime::MinValue();
 			NewProductInfo.ExpirationDate = FDateTime::MaxValue();
 
 			ProvidedProductInformation.Add(NewProductInfo);
 
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("\nProduct Identifier: %s, Name: %s, Description: %s, Price: %s, Price Raw: %d, Currency Code: %s\n"),
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("\nProduct Identifier: %s, Name: %s, Description: %s, Price: %s, Price Raw: %lld, Currency Code: %s\n"),
 				*NewProductInfo.OfferId,
 				*NewProductInfo.Title.ToString(),
 				*NewProductInfo.Description.ToString(),

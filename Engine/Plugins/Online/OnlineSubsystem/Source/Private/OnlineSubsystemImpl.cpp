@@ -256,6 +256,10 @@ bool FOnlineSubsystemImpl::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice
 	{
 		bWasHandled = HandlePurchaseExecCommands(InWorld, Cmd, Ar);
 	}
+	else if (FParse::Command(&Cmd, TEXT("STORE")))
+	{
+		bWasHandled = HandleStoreExecCommands(InWorld, Cmd, Ar);
+	}
 
 	return bWasHandled;
 }
@@ -362,11 +366,11 @@ bool FOnlineSubsystemImpl::HandlePurchaseExecCommands(UWorld* InWorld, const TCH
 {
 	bool bWasHandled = false;
 	
-	if (FParse::Command(&Cmd, TEXT("RECEIPTS")))
+	IOnlinePurchasePtr PurchaseInt = GetPurchaseInterface();
+	IOnlineIdentityPtr IdentityInt = GetIdentityInterface();
+	if (PurchaseInt.IsValid() && IdentityInt.IsValid())
 	{
-		IOnlinePurchasePtr PurchaseInt = GetPurchaseInterface();
-		IOnlineIdentityPtr IdentityInt = GetIdentityInterface();
-		if (PurchaseInt.IsValid() && IdentityInt.IsValid())
+		if (FParse::Command(&Cmd, TEXT("RECEIPTS")))
 		{
 			FString CommandStr = FParse::Token(Cmd, false);
 			if (CommandStr.IsEmpty())
@@ -407,8 +411,85 @@ bool FOnlineSubsystemImpl::HandlePurchaseExecCommands(UWorld* InWorld, const TCH
 				}
 			}
 		}
+		else if (FParse::Command(&Cmd, TEXT("BUY")))
+		{
+			FString ProductId = FParse::Token(Cmd, false);
+			FString UserIdStr = FParse::Token(Cmd, false);
+			if (ProductId.IsEmpty() || UserIdStr.IsEmpty())
+			{
+				UE_LOG_ONLINE(Warning, TEXT("usage: PURCHASE BUY <productid> <userid>"));
+			}
+			else
+			{
+				bWasHandled = true;
+				if (FUniqueNetIdPtr UserId = IdentityInt->CreateUniquePlayerId(UserIdStr))
+				{
+					FPurchaseCheckoutRequest Request;
+					Request.AccountId = UserIdStr;
+					Request.AddPurchaseOffer(FString(), ProductId, 1);
+					PurchaseInt->Checkout(*UserId, Request, FOnPurchaseCheckoutComplete::CreateLambda([](const FOnlineError& Result, const TSharedRef<FPurchaseReceipt>& Receipt)
+						{
+							UE_LOG_ONLINE(Log, TEXT("Checkout Result=%s TransactionId=%s TransactionState=%s"), *Result.ToLogString(), *Receipt->TransactionId, LexToString(Receipt->TransactionState));
+							for (const FPurchaseReceipt::FReceiptOfferEntry& OfferEntry : Receipt->ReceiptOffers)
+							{
+								UE_LOG_ONLINE(Log, TEXT("  OfferEntry Namespace=%s OfferId=%s Quantity=%d"), *OfferEntry.Namespace, *OfferEntry.OfferId, OfferEntry.Quantity);
+								for (const FPurchaseReceipt::FLineItemInfo& LineItem : OfferEntry.LineItems)
+								{
+									UE_LOG_ONLINE(Log, TEXT("    LineItem Name=%s UniqueId=%s ValidationInfo=%s"), *LineItem.ItemName, *LineItem.UniqueId, *LineItem.ValidationInfo);
+								}
+							}
+						}));
+				}
+			}
+		}
 	}
 
+	return bWasHandled;
+}
+
+bool FOnlineSubsystemImpl::HandleStoreExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	bool bWasHandled = false;
+
+	IOnlineStoreV2Ptr StoreInt = GetStoreV2Interface();
+	IOnlineIdentityPtr IdentityInt = GetIdentityInterface();
+	if (StoreInt.IsValid() && IdentityInt.IsValid())
+	{
+		if (FParse::Command(&Cmd, TEXT("LIST")))
+		{
+			FString ProductStr = FParse::Token(Cmd, false);
+			FString UserIdStr = FParse::Token(Cmd, false);
+			if (ProductStr.IsEmpty() || UserIdStr.IsEmpty())
+			{
+				UE_LOG_ONLINE(Warning, TEXT("usage: STORE LIST <product> <userid>"));
+			}
+			else
+			{
+				bWasHandled = true;
+				if (FUniqueNetIdPtr UserId = IdentityInt->CreateUniquePlayerId(UserIdStr))
+				{
+					TArray<FString> ProductIds;
+					ProductIds.Add(ProductStr);
+					StoreInt->QueryOffersById(*UserId, ProductIds, FOnQueryOnlineStoreOffersComplete::CreateLambda([StoreInt](bool bWasSuccessful, const TArray<FUniqueOfferId>& /*OfferIds*/, const FString& Error) 
+					{
+						if(!bWasSuccessful)
+						{
+							UE_LOG_ONLINE(Error, TEXT("QueryOffersById failed: %s"), *Error);
+						}
+						TArray<FOnlineStoreOfferRef> Offers;
+						StoreInt->GetOffers(Offers);
+						for (const FOnlineStoreOfferRef& Product : Offers)
+						{
+							UE_LOG_ONLINE(Log, TEXT("Product Id=%s, Title=%s, Price=%s"),
+								*Product->OfferId,
+								*Product->Title.ToString(),
+								*Product->PriceText.ToString());
+						}
+					}));
+				}
+			}
+		}
+	}
 	return bWasHandled;
 }
 

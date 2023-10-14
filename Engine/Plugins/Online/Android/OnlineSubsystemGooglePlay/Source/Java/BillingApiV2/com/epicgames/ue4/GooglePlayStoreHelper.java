@@ -3,24 +3,26 @@
 
 package com.epicgames.ue4;
 
-import android.app.Activity;
-import android.app.PendingIntent;
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentSender.SendIntentException;
-import android.content.ServiceConnection;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.IBinder;
-import android.os.Looper;
-import android.os.RemoteException;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.android.billingclient.api.BillingClient;
+import com.android.billingclient.api.BillingClientStateListener;
+import com.android.billingclient.api.BillingFlowParams;
+import com.android.billingclient.api.BillingResult;
+import com.android.billingclient.api.ConsumeParams;
+import com.android.billingclient.api.ConsumeResponseListener;
+import com.android.billingclient.api.ProductDetails;
+import com.android.billingclient.api.ProductDetailsResponseListener;
+import com.android.billingclient.api.Purchase;
+import com.android.billingclient.api.PurchasesResponseListener;
+import com.android.billingclient.api.PurchasesUpdatedListener;
+import com.android.billingclient.api.QueryProductDetailsParams;
+import com.android.billingclient.api.QueryPurchasesParams;
 import com.android.vending.billing.util.Base64; //WMM should use different base64 here.
-import com.android.billingclient.api.*;
 import java.util.ArrayList;
 import java.util.List;
-import org.json.JSONException;
-import org.json.JSONObject; 
 
 public class GooglePlayStoreHelper implements StoreHelper
 {
@@ -36,16 +38,13 @@ public class GooglePlayStoreHelper implements StoreHelper
 	// Cache access to the games activity.
 	private GameActivity gameActivity;
 
-	// The google play license key.
-	private String productKey;
-
 	private final int UndefinedFailureResponse = -1;
 
 	private int outstandingConsumeRequests = 0;
 
 	private boolean bIsConsumeComplete = false;
 
-	private class GooglePlayProductDescription
+	static private class GooglePlayProductDescription
 	{
 		// Product offer id 
 		public String id;
@@ -59,13 +58,6 @@ public class GooglePlayStoreHelper implements StoreHelper
 		public Float priceRaw;
 		// Local currency code
 		public String currencyCode;
-		// Original Json representation
-		public String originalJson;
-	}
-
-	public interface PurchaseLaunchCallback
-	{
-		void launchForResult(PendingIntent pendingIntent, int requestCode);
 	}
 
 	public GooglePlayStoreHelper(String InProductKey, GameActivity InGameActivity, final Logger InLog)
@@ -77,18 +69,20 @@ public class GooglePlayStoreHelper implements StoreHelper
 		Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::GooglePlayStoreHelper");
 
 		gameActivity = InGameActivity;
-		productKey = InProductKey;
-
-		PurchasesUpdatedListener purchasesUpdatedListener = new PurchasesUpdatedListener(){
+	
+		PurchasesUpdatedListener purchasesUpdatedListener = new PurchasesUpdatedListener() {
 			@Override
-			public void onPurchasesUpdated(BillingResult billingResult, List<Purchase> purchases){
-				if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK
-					&& purchases != null) {
-						for (Purchase purchase : purchases) {
-							onPurchaseResult(billingResult, purchase);
-						}
-				} else
-				{ 
+			public void onPurchasesUpdated(@NonNull BillingResult billingResult, @Nullable List<Purchase> purchases) 
+			{
+				if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK && purchases != null) 
+				{
+					for (Purchase purchase : purchases) 
+					{
+						onPurchaseResult(billingResult, purchase);
+					}
+				} 
+				else
+				{
 					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::UserCancelled Purchase " + billingResult.getDebugMessage());
 					nativePurchaseComplete(billingResult.getResponseCode(), "", "", "", "");
 					// Handle an error caused by a user cancelling the purchase flow.
@@ -97,11 +91,13 @@ public class GooglePlayStoreHelper implements StoreHelper
 		};
 
 		mBillingClient = BillingClient.newBuilder(gameActivity).setListener(purchasesUpdatedListener).enablePendingPurchases().build();
-		
+
 		mBillingClient.startConnection(new BillingClientStateListener() {
 			@Override
-			public void onBillingSetupFinished(BillingResult billingResult) {
-				if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
+			public void onBillingSetupFinished(@NonNull BillingResult billingResult) 
+			{
+				if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) 
+				{
 					bIsIapSetup = true;
 					Log.debug("In-app billing supported for " + gameActivity.getPackageName());
 				}
@@ -110,7 +106,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 					Log.debug("In-app billing NOT supported for " + gameActivity.getPackageName() + " error " + billingResult.getResponseCode());
 				}
 			}
-    
+
 			@Override
 			public void onBillingServiceDisconnected() {
 				// Try to restart the connection on the next request to
@@ -141,56 +137,55 @@ public class GooglePlayStoreHelper implements StoreHelper
 
 		if (InProductIDs.length > 0)
 		{
-			ArrayList<String> skuList = new ArrayList<String>(InProductIDs.length);
+			List<QueryProductDetailsParams.Product> productsList = new ArrayList<>(InProductIDs.length);
 
 			for (String productId : InProductIDs)
 			{
 				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Querying " + productId);
-				skuList.add(productId);
+				QueryProductDetailsParams.Product.Builder builder = QueryProductDetailsParams.Product.newBuilder();
+				builder.setProductType(BillingClient.ProductType.INAPP);
+				builder.setProductId(productId);
+				productsList.add(builder.build());
 			}
 
-			Log.debug("[GooglePlayStoreHelper] - NumSkus: " + skuList.size());
+			Log.debug("[GooglePlayStoreHelper] - NumSkus: " + productsList.size());
 
-			SkuDetailsParams.Builder skuDetailsParams = SkuDetailsParams.newBuilder();
-			skuDetailsParams = skuDetailsParams.setSkusList(skuList).setType(BillingClient.SkuType.INAPP);
+			QueryProductDetailsParams.Builder builder = QueryProductDetailsParams.newBuilder();
+			builder.setProductList(productsList);
 			
-			mBillingClient.querySkuDetailsAsync(skuDetailsParams.build(),
-				new SkuDetailsResponseListener() {
+			mBillingClient.queryProductDetailsAsync (builder.build(), new ProductDetailsResponseListener() {
 					@Override
-					public void onSkuDetailsResponse(BillingResult billingResult,
-						List<SkuDetails> skuDetailsList) 
-					{
+					public void onProductDetailsResponse(@NonNull BillingResult billingResult, @NonNull List<ProductDetails> productDetailsList) {
 						// Process the result.
 						int response = billingResult.getResponseCode();
 
-						if(response == BillingClient.BillingResponseCode.OK && skuDetailsList != null)
+						if (response == BillingClient.BillingResponseCode.OK)
 						{
-							Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Response " + response + " SkuDetails:" + skuDetailsList.toString());
-							
-							ArrayList<GooglePlayProductDescription> productDescriptions = new ArrayList<GooglePlayProductDescription>();
-							for (SkuDetails thisSku : skuDetailsList)
+							Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Response " + response + " SkuDetails:" + productDetailsList.toString());
+
+							ArrayList<GooglePlayProductDescription> productDescriptions = new ArrayList<>();
+							for (ProductDetails product : productDetailsList)
 							{
 								GooglePlayProductDescription newDescription = new GooglePlayProductDescription();
-								newDescription.id = thisSku.getSku();
-								newDescription.title = thisSku.getTitle();
-								newDescription.description = thisSku.getDescription();
-								newDescription.price = thisSku.getPrice();
-								double priceRaw = thisSku.getPriceAmountMicros() / 1000000.0;
-								newDescription.priceRaw = (float)priceRaw;
-								newDescription.currencyCode = thisSku.getPriceCurrencyCode();
-								newDescription.originalJson = thisSku.getOriginalJson();
+								newDescription.id = product.getProductId();
+								newDescription.title = product.getTitle();
+								newDescription.description = product.getDescription();
+								ProductDetails.OneTimePurchaseOfferDetails OfferDetails = product.getOneTimePurchaseOfferDetails();
+								newDescription.price = OfferDetails.getFormattedPrice();
+								double priceRaw = OfferDetails.getPriceAmountMicros() / 1000000.0;
+								newDescription.priceRaw = (float) priceRaw;
+								newDescription.currencyCode = OfferDetails.getPriceCurrencyCode();
 								productDescriptions.add(newDescription);
 							}
 
 							// Should we send JSON, or somehow serialize this so we can have random access fields?
-							ArrayList<String> productIds = new ArrayList<String>();
-							ArrayList<String> titles = new ArrayList<String>();
-							ArrayList<String> descriptions = new ArrayList<String>();
-							ArrayList<String> prices = new ArrayList<String>();
-							ArrayList<Float> pricesRaw = new ArrayList<Float>();
-							ArrayList<String> currencyCodes = new ArrayList<String>();
-							ArrayList<String> originalJson = new ArrayList<String>();
-						
+							ArrayList<String> productIds = new ArrayList<>();
+							ArrayList<String> titles = new ArrayList<>();
+							ArrayList<String> descriptions = new ArrayList<>();
+							ArrayList<String> prices = new ArrayList<>();
+							ArrayList<Float> pricesRaw = new ArrayList<>();
+							ArrayList<String> currencyCodes = new ArrayList<>();
+
 							for (GooglePlayProductDescription product : productDescriptions)
 							{
 								productIds.add(product.id);
@@ -211,9 +206,6 @@ public class GooglePlayStoreHelper implements StoreHelper
 								currencyCodes.add(product.currencyCode);
 								Log.debug("[GooglePlayStoreHelper] - price_currency_code: " + product.currencyCode);
 
-								originalJson.add(product.originalJson);
-								Log.debug("[GooglePlayStoreHelper] - original_json: " + product.originalJson);
-
 							}
 
 							float[] pricesRawPrimitive = new float[pricesRaw.size()];
@@ -223,25 +215,25 @@ public class GooglePlayStoreHelper implements StoreHelper
 							}
 
 							Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases " + productIds.size() + " items - Success!");
-							nativeQueryComplete(BillingClient.BillingResponseCode.OK, productIds.toArray(new String[productIds.size()]), titles.toArray(new String[titles.size()]), descriptions.toArray(new String[descriptions.size()]), prices.toArray(new String[prices.size()]), pricesRawPrimitive, currencyCodes.toArray(new String[currencyCodes.size()]), originalJson.toArray(new String[originalJson.size()]));
+							nativeQueryComplete(BillingClient.BillingResponseCode.OK, productIds.toArray(new String[0]), titles.toArray(new String[0]), descriptions.toArray(new String[0]), prices.toArray(new String[0]), pricesRawPrimitive, currencyCodes.toArray(new String[0]));
 						}
 						else
 						{
 							Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Failed with: " + response);
 							// If anything fails right now, stop immediately, not sure how to reconcile partial success/failure
-							nativeQueryComplete(response, null, null, null, null, null, null, null);
+							nativeQueryComplete(response, null, null, null, null, null, null);
 						}
-						
+
 						Log.debug("[GooglePlayStoreHelper] - nativeQueryComplete done!");
 					}
 				}
-			);			
+			);
 		}
 		else
 		{
 			// nothing to query
 			Log.debug("[GooglePlayStoreHelper] - no products given to query");
-			nativeQueryComplete(UndefinedFailureResponse, null, null, null, null, null, null, null);
+			nativeQueryComplete(UndefinedFailureResponse, null, null, null, null, null, null);
 			return false;
 		}
 
@@ -251,200 +243,163 @@ public class GooglePlayStoreHelper implements StoreHelper
 	/**
 	 * Start the purchase flow for a particular sku
 	 */
-	final int purchaseIntentIdentifier = 1001;
-	public boolean BeginPurchase(String ProductID, String ObfuscatedAccountId)
+	public boolean BeginPurchase(String ProductID, final String ObfuscatedAccountId)
 	{
-		ArrayList<String> skuList = new ArrayList<String>(1);
-		skuList.add(ProductID);
-
-		SkuDetailsParams.Builder skuDetailsParams = SkuDetailsParams.newBuilder();
-		skuDetailsParams.setSkusList(skuList).setType(BillingClient.SkuType.INAPP);
-		
-		class SkuDetailsResponseListenerImpl implements SkuDetailsResponseListener
-		{
-			String ObfuscatedAccountId = null;
-			public SkuDetailsResponseListenerImpl setObfuscatedAccountId(String InObfuscatedAccountId)
-			{
-				ObfuscatedAccountId = InObfuscatedAccountId;
-				return this;
-			}
-			
+		List<QueryProductDetailsParams.Product> productToPurchase = new ArrayList<>();
+		QueryProductDetailsParams.Product.Builder productBuilder = QueryProductDetailsParams.Product.newBuilder();
+		productBuilder.setProductType(BillingClient.ProductType.INAPP);
+		productBuilder.setProductId(ProductID);
+		productToPurchase.add(productBuilder.build());
+		QueryProductDetailsParams.Builder queryBuilder = QueryProductDetailsParams.newBuilder();
+		queryBuilder.setProductList(productToPurchase);
+		mBillingClient.queryProductDetailsAsync(queryBuilder.build(), new ProductDetailsResponseListener() {
 			@Override
-			public void onSkuDetailsResponse(BillingResult billingResult,
-				List<SkuDetails> skuDetailsList) 
+			public void onProductDetailsResponse(@NonNull BillingResult billingResult, @NonNull List<ProductDetails> productDetailsList) 
 			{
 				int response = billingResult.getResponseCode();
-				if(response == BillingClient.BillingResponseCode.OK && skuDetailsList != null)
+				if (response == BillingClient.BillingResponseCode.OK)
 				{
-					for(SkuDetails skuDetails : skuDetailsList)
+					List<BillingFlowParams.ProductDetailsParams> productsToPurchase = new ArrayList<>();
+					for (ProductDetails productDetails : productDetailsList)
 					{
-						BillingFlowParams.Builder flowParams = BillingFlowParams.newBuilder().setSkuDetails(skuDetails);
-						
-						if(ObfuscatedAccountId != null)
-						{
-							flowParams = flowParams.setObfuscatedAccountId(ObfuscatedAccountId);
-						}
-	
-						if (gameActivity.IsInVRMode())
-						{
-							int responseCode = mBillingClient.isFeatureSupported(BillingClient.FeatureType.IN_APP_ITEMS_ON_VR).getResponseCode();
-							boolean isSupportedInVR = (responseCode == BillingClient.BillingResponseCode.OK);
-							if (isSupportedInVR)
-							{
-								Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - v7 VR purchase" + skuDetails.getSku());
-								flowParams = flowParams.setVrPurchaseFlow(true);
-							}
-							else
-							{
-								Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - v3 IAB purchase:" + skuDetails.getSku());
-								flowParams = flowParams.setVrPurchaseFlow(false);
-							}
-						}
-						else
-						{
-							Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - v3 IAB purchase:" + skuDetails.getSku());
-							flowParams = flowParams.setVrPurchaseFlow(false);
-						}
-
-						int responseCode = mBillingClient.launchBillingFlow(gameActivity, flowParams.build()).getResponseCode();
-						Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - Launching billing flow " + skuDetails.getSku());
+						BillingFlowParams.ProductDetailsParams.Builder builder = BillingFlowParams.ProductDetailsParams.newBuilder();
+						builder.setProductDetails(productDetails);
+						productsToPurchase.add(builder.build());
+						Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - Adding to billing flow " + productDetails.getProductId());
 					}
+
+					BillingFlowParams.Builder flowParams = BillingFlowParams.newBuilder().setProductDetailsParamsList(productsToPurchase);
+
+					if (ObfuscatedAccountId != null)
+					{
+						flowParams = flowParams.setObfuscatedAccountId(ObfuscatedAccountId);
+					}
+
+					response = mBillingClient.launchBillingFlow(gameActivity, flowParams.build()).getResponseCode();
 				}
-				else
+				if (response != BillingClient.BillingResponseCode.OK)
 				{
 					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - Failed! " + TranslateServerResponseCode(response));
 					nativePurchaseComplete(UndefinedFailureResponse, "", "", "", "");
 				}
 			}
-		}
-		
-		mBillingClient.querySkuDetailsAsync(skuDetailsParams.build(), new SkuDetailsResponseListenerImpl().setObfuscatedAccountId(ObfuscatedAccountId));
+		});
 		return true;
 	}
 
 	/**
 	 * Restore previous purchases the user may have made.
 	 */
-	public boolean RestorePurchases(String[] InProductIDs, boolean[] bConsumable)
+	public boolean RestorePurchases(final String[] InProductIDs, final boolean[] bConsumable)
 	{
 		Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases");
 
-		ArrayList<Purchase> ownedProducts = new ArrayList<Purchase>();
-		int responseCode = GatherOwnedPurchaseData(ownedProducts);
-		if (responseCode == BillingClient.BillingResponseCode.OK)
-		{
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - User has previously purchased " + ownedProducts.size() + " inapp products" );
-
-			final ArrayList<Purchase> f_ownedProducts = ownedProducts;
-
-			final ArrayList<String> f_ownedSkus = new ArrayList<String>();
-			final ArrayList<String> f_purchaseDataList = new ArrayList<String>();
-			final ArrayList<String> f_signatureList = new ArrayList<String>();
-			final String[] RestoreProductIDs = InProductIDs;
-			final boolean[] bRestoreConsumableFlags = bConsumable;
-
-			// Is this here to ensure callbacks are fired on the main thread?
-			Handler mainHandler = new Handler(Looper.getMainLooper());
-			mainHandler.post(new Runnable()
+		QueryPurchasesParams PurchaseParams = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build();
+		mBillingClient.queryPurchasesAsync(PurchaseParams, new PurchasesResponseListener() {
+			@Override
+			public void onQueryPurchasesResponse(@NonNull BillingResult billingResult, @NonNull List<Purchase> ownedProducts)
 			{
-				@Override
-				public void run()
+				int responseCode = billingResult.getResponseCode();
+
+				if (responseCode != BillingClient.BillingResponseCode.OK)
 				{
-					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Now consuming any purchases that may have been missed.");
-					final ArrayList<String> productTokens = new ArrayList<String>();
-					final ArrayList<String> receipts = new ArrayList<String>();
-					final ArrayList<Integer> cachedErrorResponses = new ArrayList<Integer>();
+					nativeRestorePurchasesComplete(responseCode, null, null, null, null);
+					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Failed to collect existing purchases");
+					return;
+				}
+				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - User has previously purchased " + ownedProducts.size() + " inapp products");
 
-					bIsConsumeComplete = false;
-					// @todo possible bug, restores ALL ownedSkus, not just those provided by caller in RestoreProductIDs
-					for (Purchase ownedProduct : f_ownedProducts)
+				final ArrayList<String> ownedSkus = new ArrayList<>();
+				final ArrayList<String> signatureList = new ArrayList<>();
+
+				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Now consuming any purchases that may have been missed.");
+				final ArrayList<String> productTokens = new ArrayList<>();
+				final ArrayList<String> receipts = new ArrayList<>();
+				final ArrayList<Integer> cachedErrorResponses = new ArrayList<>();
+
+				bIsConsumeComplete = false;
+				// @todo possible bug, restores ALL ownedSkus, not just those provided by caller in RestoreProductIDs
+				for (Purchase ownedProduct : ownedProducts)
+				{
+					productTokens.add(ownedProduct.getPurchaseToken());
+
+					boolean bTryToConsume = false;
+
+					// This is assuming that all purchases should be consumed. Consuming a purchase that is meant to be a one-time purchase makes it so the
+					// user is able to buy it again. Also, it makes it so the purchase will not be able to be restored again in the future.
+
+					for (int Idy = 0; Idy < InProductIDs.length; Idy++)
 					{
-						
-						productTokens.add(ownedProduct.getPurchaseToken());
-
-						boolean bTryToConsume = false;
-
-						// This is assuming that all purchases should be consumed. Consuming a purchase that is meant to be a one-time purchase makes it so the
-						// user is able to buy it again. Also, it makes it so the purchase will not be able to be restored again in the future.
-
-						for (int Idy = 0; Idy < RestoreProductIDs.length; Idy++)
+						if (ownedProduct.getProducts().contains(InProductIDs[Idy]))
 						{
-							if( ownedProduct.getSku().equals(RestoreProductIDs[Idy]) )
+							if (Idy < bConsumable.length)
 							{
-								if(Idy < bRestoreConsumableFlags.length)
-								{
-									bTryToConsume = bRestoreConsumableFlags[Idy];
-									Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Found Consumable Flag for Product " + ownedProduct.getSku() + " bConsumable = " + bTryToConsume);
-								}
-								break;
+								bTryToConsume = bConsumable[Idy];
+								Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Found Consumable Flag for Product " + ownedProduct.getProducts().get(0) + " bConsumable = " + bTryToConsume);
 							}
-						}
-
-						final Purchase constProduct = ownedProduct;
-						if (bTryToConsume)
-						{
-							Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Attempting to consume " + ownedProduct.getSku());
-							ConsumeParams consumeParams = ConsumeParams.newBuilder().setPurchaseToken(ownedProduct.getPurchaseToken()).build();
-							mBillingClient.consumeAsync(consumeParams, (new ConsumeResponseListener() {
-								@Override
-								public void onConsumeResponse(BillingResult billingResult, String purchaseToken) {
-									if(billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK)
-									{
-										// How do we get purchase here.. need to figure out a way to persist cachedResponse and receipts
-										Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Purchase restored for " + constProduct.getSku());
-										String receipt = Base64.encode(constProduct.getOriginalJson().getBytes());
-										receipts.add(receipt);
-										
-										f_ownedSkus.add(constProduct.getSku());
-										f_signatureList.add(constProduct.getSignature());
-									}
-									else
-									{
-										Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - consumePurchase failed for " + constProduct.getSku() + " with error " + billingResult.getResponseCode());
-										receipts.add("");
-										cachedErrorResponses.add(billingResult.getResponseCode());
-									}
-									outstandingConsumeRequests--;
-
-									if(outstandingConsumeRequests <= 0)
-									{
-										Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Success!");
-										int finalResponse = (cachedErrorResponses.size() > 0) ? cachedErrorResponses.get(0) : BillingClient.BillingResponseCode.OK;
-										nativeRestorePurchasesComplete(finalResponse, f_ownedSkus.toArray(new String[f_ownedSkus.size()]), productTokens.toArray(new String[productTokens.size()]), receipts.toArray(new String[receipts.size()]), f_signatureList.toArray(new String[f_signatureList.size()]));
-										bIsConsumeComplete = true;
-									}
-								}
-							}));
-								
-							outstandingConsumeRequests++;
-						}
-						else
-						{
-							// How do we get purchase here.. need to figure out a way to persist cachedResponse and receipts
-							Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Purchase restored for " + constProduct.getSku());
-							String receipt = Base64.encode(constProduct.getOriginalJson().getBytes());
-							receipts.add(receipt);
-										
-							f_ownedSkus.add(constProduct.getSku());
-							f_signatureList.add(constProduct.getSignature());
+							break;
 						}
 					}
 
-					// There was nothing to consume, so we are done!
-					if(outstandingConsumeRequests <= 0 && !bIsConsumeComplete)
+					final Purchase constProduct = ownedProduct;
+					if (bTryToConsume)
 					{
-						Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Success!");
-						nativeRestorePurchasesComplete(BillingClient.BillingResponseCode.OK, f_ownedSkus.toArray(new String[f_ownedSkus.size()]), productTokens.toArray(new String[productTokens.size()]), receipts.toArray(new String[receipts.size()]), f_signatureList.toArray(new String[f_signatureList.size()]));
+						Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Attempting to consume " + ownedProduct.getProducts().get(0));
+						ConsumeParams consumeParams = ConsumeParams.newBuilder().setPurchaseToken(ownedProduct.getPurchaseToken()).build();
+						mBillingClient.consumeAsync(consumeParams, new ConsumeResponseListener() {
+							@Override
+							public void onConsumeResponse(@NonNull BillingResult billingResult, @NonNull String purchaseToken)
+							{
+								if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK)
+								{
+									// How do we get purchase here.. need to figure out a way to persist cachedResponse and receipts
+									Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Purchase restored for " + constProduct.getProducts().get(0));
+									String receipt = Base64.encode(constProduct.getOriginalJson().getBytes());
+									receipts.add(receipt);
+
+									ownedSkus.add(constProduct.getProducts().get(0));
+									signatureList.add(constProduct.getSignature());
+								}
+								else
+								{
+									Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - consumePurchase failed for " + constProduct.getProducts().get(0) + " with error " + billingResult.getResponseCode());
+									receipts.add("");
+									cachedErrorResponses.add(billingResult.getResponseCode());
+								}
+								outstandingConsumeRequests--;
+
+								if (outstandingConsumeRequests <= 0)
+								{
+									Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Success!");
+									int finalResponse = (cachedErrorResponses.size() > 0) ? cachedErrorResponses.get(0) : BillingClient.BillingResponseCode.OK;
+									nativeRestorePurchasesComplete(finalResponse, ownedSkus.toArray(new String[0]), productTokens.toArray(new String[0]), receipts.toArray(new String[0]), signatureList.toArray(new String[0]));
+									bIsConsumeComplete = true;
+								}
+							}
+						});
+
+						outstandingConsumeRequests++;
+					}
+					else
+					{
+						// How do we get purchase here.. need to figure out a way to persist cachedResponse and receipts
+						Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Purchase restored for " + constProduct.getProducts().get(0));
+						String receipt = Base64.encode(constProduct.getOriginalJson().getBytes());
+						receipts.add(receipt);
+
+						ownedSkus.add(constProduct.getProducts().get(0));
+						signatureList.add(constProduct.getSignature());
 					}
 				}
-			});
-		}
-		else
-		{
-			nativeRestorePurchasesComplete(responseCode, null, null, null, null);
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Failed to collect existing purchases");
-			return false;
-		}
+
+				// There was nothing to consume, so we are done!
+				if (outstandingConsumeRequests <= 0 && !bIsConsumeComplete)
+				{
+					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::RestorePurchases - Success!");
+					nativeRestorePurchasesComplete(BillingClient.BillingResponseCode.OK, ownedSkus.toArray(new String[0]), productTokens.toArray(new String[0]), receipts.toArray(new String[0]), signatureList.toArray(new String[0]));
+				}
+			}
+		});
 
 		return true;
 	}
@@ -452,71 +407,63 @@ public class GooglePlayStoreHelper implements StoreHelper
 	public boolean QueryExistingPurchases()
 	{
 		Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryExistingPurchases");
-		ArrayList<String> ownedSkus = new ArrayList<String>();
-		ArrayList<String> purchaseDataList = new ArrayList<String>();
-		ArrayList<String> signatureList = new ArrayList<String>();
 
-		ArrayList<Purchase> ownedProducts = new ArrayList<Purchase>();
-
-		int responseCode = GatherOwnedPurchaseData(ownedProducts);
-		if (responseCode == BillingClient.BillingResponseCode.OK)
-		{
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryExistingPurchases - User has previously purchased " + ownedSkus.size() + " inapp products" );
-
-			ArrayList<String> productTokens = new ArrayList<String>();
-			ArrayList<String> receipts = new ArrayList<String>();
-
-			for (Purchase purchase : ownedProducts)
+		QueryPurchasesParams PurchaseParams = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build();
+		mBillingClient.queryPurchasesAsync(PurchaseParams, new PurchasesResponseListener() {
+			@Override
+			public void onQueryPurchasesResponse(@NonNull BillingResult billingResult, @NonNull List<Purchase> ownedProducts)
 			{
-				productTokens.add(purchase.getPurchaseToken());
-				ownedSkus.add(purchase.getSku());
-				signatureList.add(purchase.getSignature());
-				String receipt = Base64.encode(purchase.getOriginalJson().getBytes());
-				receipts.add(receipt);
-			}
+				int responseCode = billingResult.getResponseCode();
+				if (responseCode != BillingClient.BillingResponseCode.OK)
+				{
+					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryExistingPurchases - Failed to collect existing purchases" + TranslateServerResponseCode(responseCode));
+					nativeQueryExistingPurchasesComplete(responseCode, null, null, null, null);
+					return;
+				}
 
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryExistingPurchases - Success!");
-			nativeQueryExistingPurchasesComplete(responseCode, ownedSkus.toArray(new String[ownedSkus.size()]), productTokens.toArray(new String[productTokens.size()]), receipts.toArray(new String[receipts.size()]), signatureList.toArray(new String[signatureList.size()]));
-			return true;
-		}
-		else
-		{
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryExistingPurchases - Failed to collect existing purchases" +  TranslateServerResponseCode(responseCode));
-			nativeQueryExistingPurchasesComplete(responseCode, null, null, null, null);
-			return false;
-		}
+				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryExistingPurchases - User has previously purchased " + ownedProducts.size() + " inapp products");
+
+				ArrayList<String> ownedSkus = new ArrayList<>();
+				ArrayList<String> signatureList = new ArrayList<>();
+				ArrayList<String> productTokens = new ArrayList<>();
+				ArrayList<String> receipts = new ArrayList<>();
+
+				for (Purchase purchase : ownedProducts)
+				{
+					productTokens.add(purchase.getPurchaseToken());
+					ownedSkus.add(purchase.getProducts().get(0));
+					signatureList.add(purchase.getSignature());
+					String receipt = Base64.encode(purchase.getOriginalJson().getBytes());
+					receipts.add(receipt);
+				}
+
+				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryExistingPurchases - Success!");
+				nativeQueryExistingPurchasesComplete(responseCode, ownedSkus.toArray(new String[0]), productTokens.toArray(new String[0]), receipts.toArray(new String[0]), signatureList.toArray(new String[0]));
+			}
+		});
+		return true;
 	}
 
 	public void ConsumePurchase(String purchaseToken)
 	{
 		Log.debug("[GooglePlayStoreHelper] - Beginning ConsumePurchase: " + purchaseToken);
 
-		final String f_purchaseToken = purchaseToken;
-
-		Handler mainHandler = new Handler(Looper.getMainLooper());
-		mainHandler.post(new Runnable()
-		{
+		ConsumeParams consumeParams = ConsumeParams.newBuilder().setPurchaseToken(purchaseToken).build();
+		mBillingClient.consumeAsync(consumeParams, new ConsumeResponseListener() {
 			@Override
-			public void run()
-			{
-				ConsumeParams consumeParams = ConsumeParams.newBuilder().setPurchaseToken(f_purchaseToken).build();
-				mBillingClient.consumeAsync(consumeParams, (new ConsumeResponseListener() {
-					@Override
-					public void onConsumeResponse(BillingResult billingResult, String purchaseToken) {
-						if(billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK)
-						{
-							Log.debug("[GooglePlayStoreHelper] - ConsumePurchase success");
-						}
-						else
-						{
-							Log.debug("[GooglePlayStoreHelper] - ConsumePurchase failed with error " + TranslateServerResponseCode(billingResult.getResponseCode()));
-						}
-					}
-				}));
+			public void onConsumeResponse(@NonNull BillingResult billingResult, @NonNull String token) {
+				if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK)
+				{
+					Log.debug("[GooglePlayStoreHelper] - ConsumePurchase success");
+				}
+				else
+				{
+					Log.debug("[GooglePlayStoreHelper] - ConsumePurchase failed with error " + TranslateServerResponseCode(billingResult.getResponseCode()));
+				}
 			}
 		});
 	}
-	
+
 	public boolean onActivityResult(int requestCode, int resultCode, Intent data)
 	{
 		Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::onActivityResult unimplemented on BillingApiV2");
@@ -540,10 +487,9 @@ public class GooglePlayStoreHelper implements StoreHelper
 	}
 
 	/**
-	 * Route taken by the Purchase workflow. We listen for our purchaseIntentIdentifier request code and
-	 * handle the response accordingly
-	 */
-	public boolean onPurchaseResult(BillingResult billingResult, Purchase purchase)
+	 * Route taken by a successful Purchase workflow
+	*/
+	public void onPurchaseResult(BillingResult billingResult, Purchase purchase)
 	{
 		Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::onPurchaseResult");
 
@@ -551,7 +497,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 		{
 			Log.debug("Null data in purchase activity result.");
 			nativePurchaseComplete(UndefinedFailureResponse, "", "", "", "");
-			return true;
+			return;
 		}
 
 		int responseCode = billingResult.getResponseCode();
@@ -561,26 +507,17 @@ public class GooglePlayStoreHelper implements StoreHelper
 			Log.debug("Purchase data: " + purchase.toString());
 			Log.debug("Data signature: " + purchase.getSignature());
 
+			String sku = purchase.getProducts().get(0);
 			if(purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED)
 			{
-				final String sku = purchase.getSku();
-				final Purchase f_purchase = purchase;
-				Handler mainHandler = new Handler(Looper.getMainLooper());
-				mainHandler.post(new Runnable()
-				{
-					@Override
-					public void run()
-					{
-						String receipt = Base64.encode(f_purchase.getOriginalJson().getBytes());
-						nativePurchaseComplete(BillingClient.BillingResponseCode.OK, sku, f_purchase.getPurchaseToken(), receipt, f_purchase.getSignature());
-					}
-				});
+				String receipt = Base64.encode(purchase.getOriginalJson().getBytes());
+				nativePurchaseComplete(BillingClient.BillingResponseCode.OK, sku, purchase.getPurchaseToken(), receipt, purchase.getSignature());
+
 			}
 			else
 			{
 				// This is a pending purchase.. need to hold off on reporting as purchase to game until it actually occurs.
 				// Special case - if pending purchase is USER_CANCELLED but the SKU is returned, then it is deferred
-				final String sku = purchase.getSku();
 				nativePurchaseComplete(BillingClient.BillingResponseCode.USER_CANCELED, sku, "", "", "");
 			}
 		}
@@ -592,11 +529,9 @@ public class GooglePlayStoreHelper implements StoreHelper
 		else
 		{
 			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::onActivityResult - Purchase failed. Result code: " +
-				Integer.toString(responseCode) + ". Response: " + TranslateServerResponseCode(responseCode));
+				responseCode + ". Response: " + TranslateServerResponseCode(responseCode));
 			nativePurchaseComplete(UndefinedFailureResponse, "", "", "", "");
 		}
-
-		return true;
 	}
 
 
@@ -616,9 +551,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 			case BillingClient.BillingResponseCode.USER_CANCELED:
 				return "User pressed back or canceled a dialog";
 			case BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE:
-				return "Network connection is down";
-			case BillingClient.BillingResponseCode.SERVICE_TIMEOUT:
-				return "The request has reached the maximum timeout before Google Play responds";
+				return "Network connection is down or there was a timeout";
 			case BillingClient.BillingResponseCode.SERVICE_DISCONNECTED:
 				return "Play Store service is not connected now - potentially transient state";
 			case BillingClient.BillingResponseCode.BILLING_UNAVAILABLE:
@@ -640,42 +573,8 @@ public class GooglePlayStoreHelper implements StoreHelper
 		}
 	}
 
-	/**
-	 * Recursive functionality to gather all of the purchases owned by a user.
-	 * if the user owns a lot of products then we need to getPurchases again with a continuationToken
-	 */
-	private int GatherOwnedPurchaseData(ArrayList<Purchase> inPurchases)
-	{
-		int responseCode = UndefinedFailureResponse;
-		try
-		{
-			Purchase.PurchasesResult purchasesResult = mBillingClient.queryPurchases(BillingClient.SkuType.INAPP);
-
-			responseCode = purchasesResult.getResponseCode();
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::GatherOwnedPurchaseData - getPurchases result. Response Code: " + TranslateServerResponseCode(responseCode));
-			if (responseCode == BillingClient.BillingResponseCode.OK)
-			{
-				List<Purchase> ownedItems = purchasesResult.getPurchasesList();
-				for (Purchase purchase : ownedItems)
-				{
-					// Don't Mark pending purchases as owned
-					if(purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED)
-					{
-						inPurchases.add(purchase);
-					}
-				}
-			}
-		}
-		catch (Exception e)
-		{
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::GatherOwnedPurchaseData - Failed for purchase request!. " + e.getMessage());
-		}
-
-		return responseCode;
-	}
-
 	// Callback that notify the C++ implementation that a task has completed
-	public native void nativeQueryComplete(int responseCode, String[] productIDs, String[] titles, String[] descriptions, String[] prices, float[] pricesRaw, String[] currencyCodes, String[] originalJson );
+	public native void nativeQueryComplete(int responseCode, String[] productIDs, String[] titles, String[] descriptions, String[] prices, float[] pricesRaw, String[] currencyCodes);
 	public native void nativePurchaseComplete(int responseCode, String ProductId, String ProductToken, String ReceiptData, String Signature);
 	public native void nativeRestorePurchasesComplete(int responseCode, String[] ProductIds, String[] ProductTokens, String[] ReceiptsData, String[] Signatures);
 	public native void nativeQueryExistingPurchasesComplete(int responseCode, String[] ProductIds, String[] ProductTokens, String[] ReceiptsData, String[] Signatures);

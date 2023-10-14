@@ -28,7 +28,7 @@
 			<true>
 				<insert>
 					dependencies {
-					implementation 'com.android.billingclient:billing:3.0.0'
+					implementation 'com.android.billingclient:billing:6.0.0'
 					}
 				</insert>
 			</true>
@@ -108,7 +108,9 @@ import java.security.NoSuchAlgorithmException;
 
 	<!-- optional additions to GameActivity class in GameActivity.java -->
 	<gameActivityClassAdditions>
-		<insert>
+		<if condition="bUseGooglePlayBillingApiV2">
+			<false>
+				<insert>
 	/** Implement this if app wants to handle IAB activity launch. For e.g use DaydreamApi for transitions **/
 	GooglePlayStoreHelper.PurchaseLaunchCallback purchaseLaunchCallback = null;
 
@@ -116,7 +118,9 @@ import java.security.NoSuchAlgorithmException;
 	{
 		return purchaseLaunchCallback;
 	}
-		</insert>
+				</insert>
+			</false>
+		</if>
 	</gameActivityClassAdditions>
 
 	<gameActivityIapSetupServiceAdditions>
@@ -149,7 +153,6 @@ import java.security.NoSuchAlgorithmException;
 				GoogleApiClient.Builder gbuilder = new GoogleApiClient.Builder(this);
 				gbuilder.addConnectionCallbacks(this);
 				gbuilder.addOnConnectionFailedListener(this);
-				gbuilder.addApiIfAvailable(Games.API, Games.SCOPE_GAMES);
 				googleClient = gbuilder.build();
 			}
 			catch (Exception e)

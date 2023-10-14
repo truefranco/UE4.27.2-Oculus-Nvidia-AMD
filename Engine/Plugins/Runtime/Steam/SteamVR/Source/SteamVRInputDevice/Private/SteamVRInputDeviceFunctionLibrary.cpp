@@ -27,7 +27,6 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWIS
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
-#pragma warning(disable : 4834)
 #include "SteamVRInputDeviceFunctionLibrary.h"
 
 //#if STEAMVRCONTROLLER_SUPPORTED_PLATFORMS
@@ -508,7 +507,7 @@ bool USteamVRInputDeviceFunctionLibrary::FindSteamVR_ActionOrigin(FName ActionNa
 		return true;
 	}
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, (TEXT("Unable to find Action [%s] for Action Set [%s]"), *ActionName.ToString(), *ActionSet.ToString()));
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, *FString::Printf(TEXT("Unable to find Action [%s] for Action Set [%s]"), *ActionName.ToString(), *ActionSet.ToString()));
 	return false;
 }
 

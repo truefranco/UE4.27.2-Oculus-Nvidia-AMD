@@ -1,0 +1,34 @@
+{
+	"FileVersion": 3,
+	"Version": 0,
+	"VersionName": "4.27",
+	"FriendlyName": "VRExpansionPlugin",
+	"Description": "Adds several new VR features & components to UE4",
+	"Category": "VRExpansion",
+	"CreatedBy": "Joshua (MordenTral) Statzer",
+	"CreatedByURL": "http://www.vreue4.com",
+	"DocsURL": "http://www.vreue4.com",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "4.27.2",
+	"CanContainContent": false,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "VRExpansionPlugin",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "VRExpansionEditor",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "PostEngineInit"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "PhysXVehicles",
+			"Enabled": true
+		}
+	]
+}

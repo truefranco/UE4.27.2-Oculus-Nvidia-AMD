@@ -50,5 +50,6 @@ public class HoloLensTargetPlatform : ModuleRules
 
 		PublicSystemLibraries.Add("shlwapi.lib");
         PublicSystemLibraries.Add("runtimeobject.lib");
+		bEnableUndefinedIdentifierWarnings = false;
 	}
 }

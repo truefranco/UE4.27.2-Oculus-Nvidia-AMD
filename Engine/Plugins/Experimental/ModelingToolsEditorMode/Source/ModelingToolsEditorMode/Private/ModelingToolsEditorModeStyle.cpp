@@ -117,6 +117,8 @@ void FModelingToolsEditorModeStyle::Initialize()
 		StyleSet->Set("ModelingToolsManagerCommands.BeginAddSpherePrimitiveTool.Small", 		new IMAGE_PLUGIN_BRUSH("Icons/ModelingSphere_x40",		Icon40x40));
 		StyleSet->Set("ModelingToolsManagerCommands.BeginAddSphericalBoxPrimitiveTool", 			new IMAGE_PLUGIN_BRUSH("Icons/ModelingSphericalBox_x20", 		Icon20x20));
 		StyleSet->Set("ModelingToolsManagerCommands.BeginAddSphericalBoxPrimitiveTool.Small", 		new IMAGE_PLUGIN_BRUSH("Icons/ModelingSphericalBox_x40",		Icon40x40));
+		StyleSet->Set("ModelingToolsManagerCommands.BeginAddStairsPrimitiveTool",                   new IMAGE_PLUGIN_BRUSH("Icons/Staircase", Icon20x20));
+		StyleSet->Set("ModelingToolsManagerCommands.BeginAddStairsPrimitiveTool.Small",             new IMAGE_PLUGIN_BRUSH("Icons/Staircase", Icon40x40));
 
 		StyleSet->Set("ModelingToolsManagerCommands.BeginDrawPolygonTool", 				new IMAGE_PLUGIN_BRUSH("Icons/DrawPolygon_40x",		Icon20x20));
 		StyleSet->Set("ModelingToolsManagerCommands.BeginDrawPolygonTool.Small", 		new IMAGE_PLUGIN_BRUSH("Icons/DrawPolygon_40x", 	Icon20x20));

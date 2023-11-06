@@ -244,6 +244,8 @@ Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/**
 
 /Engine/Plugins/Runtime/Nvidia/**
 
+!/Engine/Plugins/Experimental/ModelingToolsEditorMode/Content/Icons/Staircase.png
+
 /Engine/Plugins/GeneralMovement/**
 *.ini
 *.ini

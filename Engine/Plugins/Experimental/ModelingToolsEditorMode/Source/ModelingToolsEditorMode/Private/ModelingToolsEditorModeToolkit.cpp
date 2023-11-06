@@ -387,6 +387,7 @@ void FModelingToolsEditorModeToolkit::BuildToolPalette_Standard(FName PaletteInd
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddTorusPrimitiveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddSpherePrimitiveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddSphericalBoxPrimitiveTool);
+		ToolbarBuilder.AddToolBarButton(Commands.BeginAddStairsPrimitiveTool);
 	}
 	else if (PaletteIndex == CreateTabName)
 	{
@@ -544,6 +545,7 @@ void FModelingToolsEditorModeToolkit::BuildToolPalette_Experimental(FName Palett
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddTorusPrimitiveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddSpherePrimitiveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddSphericalBoxPrimitiveTool);
+		ToolbarBuilder.AddToolBarButton(Commands.BeginAddStairsPrimitiveTool);
 	}
 	else if (PaletteIndex == CreateTabName)
 	{

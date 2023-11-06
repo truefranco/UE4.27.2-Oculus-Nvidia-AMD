@@ -33,6 +33,7 @@ void FModelingToolsManagerCommands::RegisterCommands()
 	UI_COMMAND(BeginAddTorusPrimitiveTool, "Torus", "Add Torii", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(BeginAddSphericalBoxPrimitiveTool, "Spherical Box", "Add Box Parametrized Spheres", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(BeginAddSpherePrimitiveTool, "Sphere", "Add Lat/Long Parametrized Spheres", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(BeginAddStairsPrimitiveTool, "Stairs", "Create new stairs objects", EUserInterfaceActionType::Button, FInputChord());
 
 	UI_COMMAND(BeginAddPatchTool, "Patch", "Start the Add Patch Tool", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(BeginRevolveBoundaryTool, "CutRevolve", "Start the CutRevolve Tool, which revolves a section curve created by cutting the selected Mesh", EUserInterfaceActionType::Button, FInputChord());

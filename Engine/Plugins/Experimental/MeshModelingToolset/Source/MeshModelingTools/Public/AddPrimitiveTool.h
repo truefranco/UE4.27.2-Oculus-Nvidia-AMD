@@ -36,7 +36,8 @@ public:
 		PuncturedDisc,
 		Torus,
 		SphericalBox,
-		Sphere
+		Sphere,
+		Stairs
 	};
 
 	IToolsContextAssetAPI* AssetAPI;
@@ -338,6 +339,65 @@ public:
 	int Subdivisions = 16;
 };
 
+UENUM()
+enum class EProceduralStairsType
+{
+	/** Create a linear staircase */
+	Linear,
+	/** Create a floating staircase */
+	Floating,
+	/** Create a curved staircase */
+	Curved,
+	/** Create a spiral staircase */
+	Spiral
+};
+
+UCLASS()
+class MESHMODELINGTOOLS_API UProceduralStairsToolProperties : public UProceduralShapeToolProperties
+{
+	GENERATED_BODY()
+public:
+	/** Type of staircase */
+	UPROPERTY(EditAnywhere, Category = Shape)
+	EProceduralStairsType StairsType = EProceduralStairsType::Linear;
+
+	/** Number of steps */
+	UPROPERTY(EditAnywhere, Category = Shape, meta = (DisplayName = "Number of Steps", UIMin = "2", UIMax = "100", ClampMin = "2", ClampMax = "1000000", ProceduralShapeSetting))
+	int NumSteps = 8;
+
+	/** Width of each step */
+	UPROPERTY(EditAnywhere, Category = Shape, meta = (UIMin = "1.0", UIMax = "1000.0", ClampMin = "0.0001", ClampMax = "1000000.0", ProceduralShapeSetting))
+	float StepWidth = 150.0f;
+
+	/** Height of each step */
+	UPROPERTY(EditAnywhere, Category = Shape, meta = (UIMin = "1.0", UIMax = "1000.0", ClampMin = "0.0001", ClampMax = "1000000.0", ProceduralShapeSetting))
+	float StepHeight = 20.0f;
+
+	/** Depth of each step of linear stairs */
+	UPROPERTY(EditAnywhere, Category = Shape,
+		meta = (UIMin = "1.0", UIMax = "1000.0", ClampMin = "0.0001", ClampMax = "1000000.0", ProceduralShapeSetting,
+			EditCondition = "StairsType == EProceduralStairsType::Linear || StairsType == EProceduralStairsType::Floating"))
+	float StepDepth = 30.0f;
+
+	/** Angular length of curved stairs. Positive values are for clockwise and negative values are for counterclockwise. */
+	UPROPERTY(EditAnywhere, Category = Shape,
+		meta = (UIMin = "-360.0", UIMax = "360.0", ClampMin = "-360.0", ClampMax = "360.0", ProceduralShapeSetting,
+			EditCondition = "StairsType == EProceduralStairsType::Curved"))
+	float CurveAngle = 90.0f;
+
+	/** Angular length of spiral stairs. Positive values are for clockwise and negative values are for counterclockwise. */
+	UPROPERTY(EditAnywhere, Category = Shape,
+		meta = (UIMin = "-720.0", UIMax = "720.0", ClampMin = "-360000.0", ClampMax = "360000.0", ProceduralShapeSetting,
+			EditCondition = "StairsType == EProceduralStairsType::Spiral"))
+	float SpiralAngle = 90.0f;
+
+	/** Inner radius of curved and spiral stairs */
+	UPROPERTY(EditAnywhere, Category = Shape,
+		meta = (UIMin = "1.0", UIMax = "1000.0", ClampMin = "0.0001", ClampMax = "1000000.0", ProceduralShapeSetting,
+			EditCondition = "StairsType == EProceduralStairsType::Curved || StairsType == EProceduralStairsType::Spiral"))
+	float InnerRadius = 150.0f;
+};
+
 UCLASS(Transient)
 class MESHMODELINGTOOLS_API ULastActorInfo : public UObject
 {
@@ -593,6 +653,20 @@ public:
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UProceduralSphericalBoxToolProperties>(TEXT("ShapeSettings")))
 	{
 		AssetName = TEXT("Spherical Type 1");
+	}
+protected:
+	void GenerateMesh(FDynamicMesh3* OutMesh) const override;
+};
+
+UCLASS()
+class UAddStairsPrimitiveTool : public UAddPrimitiveTool
+{
+	GENERATED_BODY()
+public:
+	UAddStairsPrimitiveTool(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer.SetDefaultSubobjectClass<UProceduralStairsToolProperties>(TEXT("ShapeSettings")))
+	{
+		AssetName = TEXT("Stairs");
 	}
 protected:
 	void GenerateMesh(FDynamicMesh3* OutMesh) const override;

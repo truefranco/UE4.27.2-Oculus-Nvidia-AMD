@@ -222,6 +222,58 @@ bool FOculusHandTracking::IsHandPositionValid(int32 ControllerIndex, EOculusHand
 	return false;
 }
 
+void FOculusHandTracking::SetMultimodalHandsControllersSupported(bool Supported)
+{
+#if OCULUS_INPUT_SUPPORTED_PLATFORMS
+	ovrpBool arg = ovrpBool_False;
+	if (Supported == true)
+		arg = ovrpBool_True;
+	FOculusHMDModule::GetPluginWrapper().SetMultimodalHandsControllersSupported(arg);
+#endif
+}
+
+void FOculusHandTracking::SetSimultaneousHandsAndControllersEnabled(bool Enabled)
+{
+#if OCULUS_INPUT_SUPPORTED_PLATFORMS
+	ovrpBool enable = ovrpBool_False;
+	if (Enabled == true)
+		enable = ovrpBool_True;
+	FOculusHMDModule::GetPluginWrapper().SetSimultaneousHandsAndControllersEnabled(enable);
+#endif
+}
+
+bool FOculusHandTracking::GetControllerIsInHand(EOculusHandType DeviceHand)
+{
+#if OCULUS_INPUT_SUPPORTED_PLATFORMS
+	ovrpBool result;
+	ovrpNode node = DeviceHand == EOculusHandType::HandLeft ? ovrpNode_HandLeft : ovrpNode_HandRight;
+	FOculusHMDModule::GetPluginWrapper().GetControllerIsInHand(ovrpStep_Render, node, &result);
+	return result == ovrpBool_True;
+#else
+	return false;
+#endif
+}
+
+void FOculusHandTracking::SetControllerDrivenHandPoses(bool ControllerDrivenHandPose)
+{
+#if OCULUS_INPUT_SUPPORTED_PLATFORMS
+	ovrpBool controllerDriven = ovrpBool_False;
+	if (ControllerDrivenHandPose == true)
+		controllerDriven = ovrpBool_True;
+	FOculusHMDModule::GetPluginWrapper().SetControllerDrivenHandPoses(controllerDriven);
+#endif
+}
+
+void FOculusHandTracking::SetControllerDrivenHandPosesAreNatural(const bool ControllerDrivenHandPosesAreNatural)
+{
+#if OCULUS_INPUT_SUPPORTED_PLATFORMS
+	ovrpBool controllerDrivenAreNatural = ovrpBool_False;
+	if (ControllerDrivenHandPosesAreNatural == true)
+		controllerDrivenAreNatural = ovrpBool_True;
+	FOculusHMDModule::GetPluginWrapper().SetControllerDrivenHandPoses(controllerDrivenAreNatural);
+#endif
+}
+
 bool FOculusHandTracking::GetHandSkeletalMesh(USkeletalMesh* HandSkeletalMesh, const EOculusHandType SkeletonType, const EOculusHandType MeshType, const float WorldToMeters)
 {
 #if OCULUS_INPUT_SUPPORTED_PLATFORMS

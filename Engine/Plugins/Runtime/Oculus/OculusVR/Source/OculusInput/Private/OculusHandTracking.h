@@ -33,6 +33,11 @@ public:
 	static bool IsHandTrackingEnabled();
 	static bool IsHandDominant(const int32 ControllerIndex, const EOculusHandType DeviceHand);
 	static bool IsHandPositionValid(int32 ControllerIndex, EOculusHandType DeviceHand);
+	static void SetMultimodalHandsControllersSupported(bool Supported);
+	static void SetSimultaneousHandsAndControllersEnabled(bool Enabled);
+	static bool GetControllerIsInHand(EOculusHandType DeviceHand);
+	static void SetControllerDrivenHandPoses(bool ControllerDrivenHandPose);
+	static void SetControllerDrivenHandPosesAreNatural(bool ControllerDrivenHandPosesAreNatural);
 
 	// Helper functions
 	static ovrpBoneId ToOvrBone(EBone Bone);

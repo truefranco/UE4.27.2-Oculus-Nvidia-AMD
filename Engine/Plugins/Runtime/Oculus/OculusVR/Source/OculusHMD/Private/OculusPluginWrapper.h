@@ -259,6 +259,11 @@ struct OculusPluginWrapper
 	OCULUS_DECLARE_ENTRY_POINT(GetLayerRecommendedResolution);
 	OCULUS_DECLARE_ENTRY_POINT(IsLayerShapeSupported);
 	OCULUS_DECLARE_ENTRY_POINT(SetEyeBufferSharpenType);
+	OCULUS_DECLARE_ENTRY_POINT(SetMultimodalHandsControllersSupported);
+	OCULUS_DECLARE_ENTRY_POINT(SetSimultaneousHandsAndControllersEnabled);
+	OCULUS_DECLARE_ENTRY_POINT(GetControllerIsInHand);
+	OCULUS_DECLARE_ENTRY_POINT(SetControllerDrivenHandPoses);
+	OCULUS_DECLARE_ENTRY_POINT(SetControllerDrivenHandPosesAreNatural);
 #ifndef OVRPLUGIN_JNI_LIB_EXCLUDED
 	OCULUS_DECLARE_ENTRY_POINT(GetSystemVolume2);
 	OCULUS_DECLARE_ENTRY_POINT(GetSystemHeadphonesPresent2);

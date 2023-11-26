@@ -118,6 +118,31 @@ bool UOculusInputFunctionLibrary::IsHandPositionValid(const EOculusHandType Devi
 	return OculusInput::FOculusHandTracking::IsHandPositionValid(ControllerIndex, DeviceHand);
 }
 
+void UOculusInputFunctionLibrary::SetMultimodalHandsControllersSupported(const bool Supported)
+{
+	OculusInput::FOculusHandTracking::SetMultimodalHandsControllersSupported(Supported);
+}
+
+void UOculusInputFunctionLibrary::SetSimultaneousHandsAndControllersEnabled(const bool Enabled)
+{
+	OculusInput::FOculusHandTracking::SetSimultaneousHandsAndControllersEnabled(Enabled);
+}
+
+bool UOculusInputFunctionLibrary::GetControllerIsInHand(EOculusHandType DeviceHand)
+{
+	return OculusInput::FOculusHandTracking::GetControllerIsInHand(DeviceHand);
+}
+
+void UOculusInputFunctionLibrary::SetControllerDrivenHandPoses(const bool ControllerDrivenHandPoses)
+{
+	OculusInput::FOculusHandTracking::SetControllerDrivenHandPoses(ControllerDrivenHandPoses);
+}
+
+void UOculusInputFunctionLibrary::SetControllerDrivenHandPosesAreNatural(const bool ControllerDrivenHandPosesAreNatural)
+{
+	OculusInput::FOculusHandTracking::SetControllerDrivenHandPosesAreNatural(ControllerDrivenHandPosesAreNatural);
+}
+
 FString UOculusInputFunctionLibrary::GetBoneName(EBone BoneId)
 {
 	uint32 ovrBoneId = OculusInput::FOculusHandTracking::ToOvrBone(BoneId);

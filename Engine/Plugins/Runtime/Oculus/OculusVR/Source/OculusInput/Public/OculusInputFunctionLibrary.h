@@ -234,9 +234,49 @@ public:
 	static bool IsHandPositionValid(const EOculusHandType DeviceHand, const int32 ControllerIndex = 0);
 
 	/**
+	* Enable or disable support for multimodal controller and hand tracking
+	*
+	* @param Supported				(in) Whether multimodal is supported or not
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary|HandTracking")
+	static void SetMultimodalHandsControllersSupported(const bool Supported);
+
+	/**
+	* Enable or disable support for simultaneous controller and hand tracking
+	*
+	* @param Enabled				(in) Whether simultaneous hand and controller tracking is enabled or not
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary|HandTracking")
+	static void SetSimultaneousHandsAndControllersEnabled(const bool Enabled);
+
+	/**
+	* Get whether the controller is currently in the provided hand
+	*
+	* @param DeviceHand				(in) The hand in which to check if the controller is being held
+	*/
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary|HandTracking")
+	static bool GetControllerIsInHand(EOculusHandType DeviceHand);
+
+	/**
+	* Set whether the system should be querying for hand poses powered by controller data
+	*
+	* @param ControllerDrivenPoses				(in) Whether the system should be querying for hand poses powered by controller data
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary|Controller")
+	static void SetControllerDrivenHandPoses(const bool ControllerDrivenPoses);
+
+	/**
+	* Set whether the system should be querying for hand poses powered by hand tracking data
+	*
+	* @param ControllerDrivenHandPosesAreNatural				(in) Whether the system should be querying for hand poses powered by hand tracking data
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary|Controller")
+	static void SetControllerDrivenHandPosesAreNatural(const bool ControllerDrivenHandPosesAreNatural);
+
+	/**
 	 * Get the bone name from the bone index
 	 *
-	 * @param BoneIndex					(in) Bone index to get the name of
+	 * @param BoneId					(in) Bone index to get the name of
 	 */
 	UFUNCTION(BlueprintPure, Category = "OculusLibrary|HandTracking")
 	static FString GetBoneName(EBone BoneId);

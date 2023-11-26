@@ -256,6 +256,11 @@ bool OculusPluginWrapper::InitializeOculusPluginWrapper(OculusPluginWrapper* wra
 		OCULUS_BIND_ENTRY_POINT(GetLayerRecommendedResolution),
 		OCULUS_BIND_ENTRY_POINT(IsLayerShapeSupported),
 		OCULUS_BIND_ENTRY_POINT(SetEyeBufferSharpenType),
+		OCULUS_BIND_ENTRY_POINT(SetMultimodalHandsControllersSupported),
+		OCULUS_BIND_ENTRY_POINT(SetSimultaneousHandsAndControllersEnabled),
+		OCULUS_BIND_ENTRY_POINT(GetControllerIsInHand),
+		OCULUS_BIND_ENTRY_POINT(SetControllerDrivenHandPoses),
+		OCULUS_BIND_ENTRY_POINT(SetControllerDrivenHandPosesAreNatural),
 
 #ifndef OVRPLUGIN_JNI_LIB_EXCLUDED
 		OCULUS_BIND_ENTRY_POINT(GetSystemVolume2),

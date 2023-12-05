@@ -11,7 +11,7 @@ class UGizmoRectangleComponent;
 class UGizmoCircleComponent;
 class UGizmoBoxComponent;
 class UGizmoLineHandleComponent;
-
+class UGizmoViewContext;
 
 /**
  * AGizmoActor is a base class for Actors that would be created to represent Gizmos in the scene.
@@ -46,6 +46,13 @@ public:
 	static UGizmoBoxComponent* AddDefaultBoxComponent(
 		UWorld* World, AActor* Actor,
 		const FLinearColor& Color, const FVector& Origin, 
+		const FVector& Dimensions = FVector(20.0f, 20.0f, 20.0f)
+	);
+
+	/** Add standard 3D box component to Actor. By default the box is axis-aligned, centered at the specified Origin */
+	static UGizmoBoxComponent* AddDefaultBoxComponent(
+		UWorld* World, AActor* Actor, UGizmoViewContext* GizmoViewContext,
+		const FLinearColor& Color, const FVector& Origin,
 		const FVector& Dimensions = FVector(20.0f, 20.0f, 20.0f)
 	);
 

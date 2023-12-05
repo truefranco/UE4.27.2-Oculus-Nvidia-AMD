@@ -71,7 +71,6 @@ private:
 	TSharedPtr<IDetailsView> DetailsView;
 	void UpdateActiveToolProperties();
 
-
 	TSharedPtr<STextBlock> ModeWarningArea;
 	TSharedPtr<STextBlock> ModeHeaderArea;
 	TSharedPtr<STextBlock> ToolWarningArea;
@@ -91,6 +90,7 @@ private:
 	void UpdateAssetLocationMode(TSharedPtr<FString> NewString);
 	void UpdateAssetSaveMode(TSharedPtr<FString> NewString);
 	void UpdateAssetPanelFromSettings();
+	void UpdateObjectCreationOptionsFromSettings();
 	void OnAssetSettingsModified();
 	FDelegateHandle AssetSettingsModifiedHandle;
 	void OnShowAssetSettings();

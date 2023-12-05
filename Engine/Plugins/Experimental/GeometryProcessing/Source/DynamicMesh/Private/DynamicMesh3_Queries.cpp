@@ -636,7 +636,7 @@ FAxisAlignedBox3d FDynamicMesh3::GetCachedBounds()
 {
 	if (CachedBoundingBoxTimestamp != GetShapeTimestamp())
 	{
-		CachedBoundingBox = GetBounds();
+		CachedBoundingBox = GetBounds(true);
 		CachedBoundingBoxTimestamp = GetShapeTimestamp();
 	}
 	return CachedBoundingBox;

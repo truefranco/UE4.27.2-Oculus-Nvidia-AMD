@@ -71,3 +71,50 @@ protected:
 	virtual void Clicked(const FInputDeviceState& Input, const FInputCaptureData& Data);
 };
 
+/**
+ * An implementation of USingleClickInputBehavior that also implements IClickBehaviorTarget directly, via a set
+ * of local lambda functions. To use/customize this class, the client replaces the lambda functions with their own.
+ * This avoids having to create a separate IClickBehaviorTarget implementation for trivial use-cases.
+ */
+UCLASS(MinimalAPI)
+class ULocalSingleClickInputBehavior : public USingleClickInputBehavior, public IClickBehaviorTarget
+{
+	GENERATED_BODY()
+protected:
+	using USingleClickInputBehavior::Initialize;
+
+public:
+	/** Call this to initialize the class */
+	virtual void Initialize()
+	{
+		this->Initialize(this);
+	}
+
+	/** lambda implementation of IsHitByClick */
+	TUniqueFunction<FInputRayHit(const FInputDeviceRay&)> IsHitByClickFunc = [](const FInputDeviceRay& ClickPos) { return FInputRayHit(); };
+
+	/** lambda implementation of OnClicked */
+	TUniqueFunction<void(const FInputDeviceRay&)> OnClickedFunc = [](const FInputDeviceRay& ClickPos) {};
+
+	/** lambda implementation of OnUpdateModifierState */
+	TUniqueFunction< void(int, bool) > OnUpdateModifierStateFunc = [](int ModifierID, bool bIsOn) {};
+
+public:
+	// IClickBehaviorTarget implementation
+
+	virtual FInputRayHit IsHitByClick(const FInputDeviceRay& ClickPos) override
+	{
+		return IsHitByClickFunc(ClickPos);
+	}
+
+	virtual void OnClicked(const FInputDeviceRay& ClickPos) override
+	{
+		return OnClickedFunc(ClickPos);
+	}
+
+	// IModifierToggleBehaviorTarget implementation
+	virtual void OnUpdateModifierState(int ModifierID, bool bIsOn)
+	{
+		return OnUpdateModifierStateFunc(ModifierID, bIsOn);
+	}
+};

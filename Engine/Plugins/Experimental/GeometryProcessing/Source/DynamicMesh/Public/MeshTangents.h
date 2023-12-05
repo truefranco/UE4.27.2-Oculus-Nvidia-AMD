@@ -5,7 +5,6 @@
 #include "DynamicMesh3.h"
 #include "DynamicMeshAttributeSet.h"
 
-
 /**
  * Options used by TMeshTangents for tangents computation
  */
@@ -123,7 +122,10 @@ public:
 	 * @param TangentOut interpolated tangent
 	 * @param BitangentOut interpolated bitangent
 	 */
-	void GetInterpolatedTriangleTangent(int32 TriangleID, const FVector3<RealType>& BaryCoords, FVector3<RealType>& TangentOut, FVector3<RealType>& BitangentOut) const
+	void GetInterpolatedTriangleTangent(int32 TriangleID, 
+		const FVector3<RealType>& BaryCoords, 
+		FVector3<RealType>& TangentOut, 
+		FVector3<RealType>& BitangentOut) const
 	{
 		int32 k = TriangleID * 3;
 		if (k >= 0 && (k+2) < Tangents.Num())
@@ -153,6 +155,18 @@ public:
 		Bitangents[k] = Bitangent;
 	}
 
+	/**
+	 * Get tangent and bitangent at a vertex of a triangle for per-triangle computed tangents
+	 * @param TriangleID triangle index in mesh
+	 * @param TriVertIdx vertex index in range 0,1,2
+	 */
+	template<typename OtherVectorType>
+	inline void GetTriangleVertexTangentVectors(int32 TriangleID, int32 TriVertexIndex, OtherVectorType& TangentOut, OtherVectorType& BitangentOut) const
+	{
+		int k = TriangleID * 3 + TriVertexIndex;
+		TangentOut = (OtherVectorType)Tangents[k];
+		BitangentOut = (OtherVectorType)Bitangents[k];
+	}
 
 	//
 	// Per-Triangle Tangents
@@ -176,7 +190,7 @@ public:
 	 * Set Tangents on mesh overlays
 	 * @param MeshToSet Mesh to copy overlays to; does not need to be the same as the Mesh member of this class
 	 */
-	bool CopyToOverlays(FDynamicMesh3& MeshToSet);
+	bool CopyToOverlays(FDynamicMesh3& MeshToSet) const;
 
 protected:
 	/**

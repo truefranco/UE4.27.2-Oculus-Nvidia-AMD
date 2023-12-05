@@ -114,6 +114,9 @@ public:
 	/** All edges created by mesh boolean algorithm. Only populated if bTrackAllNewEdges = true */
 	TSet<int32> AllNewEdges;
 
+	bool bPopulateSecondMeshGroupMap = false;
+	FIndexMapi SecondMeshGroupMap;
+
 public:
 
 	/**

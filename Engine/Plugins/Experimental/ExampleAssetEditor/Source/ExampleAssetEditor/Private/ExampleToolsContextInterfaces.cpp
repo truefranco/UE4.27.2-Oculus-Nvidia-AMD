@@ -30,6 +30,11 @@ void FToolsContextQueriesImpl::GetCurrentViewState(FViewCameraState& StateOut) c
 	StateOut.bIsVR = false;
 }
 
+UWorld* FToolsContextQueriesImpl::GetCurrentEditingWorld() const
+{
+	return ToolsContext->GetWorld();
+}
+
 EToolContextCoordinateSystem FToolsContextQueriesImpl::GetCurrentCoordinateSystem() const
 {
 	return EToolContextCoordinateSystem::World;

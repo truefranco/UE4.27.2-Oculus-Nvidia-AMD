@@ -67,6 +67,12 @@ public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTransformChanged, UTransformProxy*, FTransform);
 	FOnTransformChanged OnTransformChanged;
 
+	/**
+	 * This delegate is fired whenever the transform is changed by a FTransformProxyChange, ie on undo/redo.
+	 * OnTransformChanged is also fired in those cases, this extra event can be used when undo/redo state changes need to be handled specifically.
+	 */
+	FOnTransformChanged OnTransformChangedUndoRedo;
+
 	/** This delegate is fired when BeginTransformEditSequence() is called to indicate that a transform change has started */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnBeginTransformEdit, UTransformProxy*);
 	FOnBeginTransformEdit OnBeginTransformEdit;
@@ -74,6 +80,21 @@ public:
 	/** This delegate is fired when EndTransformEditSequence() is called to indicate that a transform change has ended */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnEndTransformEdit, UTransformProxy*);
 	FOnEndTransformEdit OnEndTransformEdit;
+
+	/**
+	 * This delegate is fired whenever the internal transform changes due to a pivot reposition, ie on AddComponent and
+	 * when SetTransform is called with bSetPivotMode being true.
+	 */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPivotChanged, UTransformProxy*, FTransform);
+	FOnPivotChanged OnPivotChanged;
+
+	/** This delegate is fired when BeginTransformEditSequence() is called to indicate that a sequence of pivot updates has started */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnBeginPivotEdit, UTransformProxy*);
+	FOnBeginPivotEdit OnBeginPivotEdit;
+
+	/** This delegate is fired when EndTransformEditSequence() is called to indicate that a sequence of pivot updates has ended */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnEndPivotEdit, UTransformProxy*);
+	FOnEndPivotEdit OnEndPivotEdit;
 
 
 	/**
@@ -133,6 +154,7 @@ class INTERACTIVETOOLSFRAMEWORK_API FTransformProxyChange : public FToolCommandC
 public:
 	FTransform From;
 	FTransform To;
+	bool bSetPivotMode = false;
 
 	virtual void Apply(UObject* Object) override;
 	virtual void Revert(UObject* Object) override;
@@ -161,4 +183,12 @@ public:
 	virtual TUniquePtr<FToolCommandChange> EndChange() override;
 	virtual UObject* GetChangeTarget() override;
 	virtual FText GetChangeDescription() override;
+
+	/**
+	 * If true, the emitted changes will always have bSetPivotMode set to true, regardless of
+	 * the current proxy settings. This is meant to accompany a UGizmoTransformProxyTransformSource
+	 * that has bOverrideSetPivotMode set to true, used for gizmos that reposition a proxy that
+	 * otherwise behaves normally.
+	 */
+	bool bOverrideSetPivotMode = false;
 };

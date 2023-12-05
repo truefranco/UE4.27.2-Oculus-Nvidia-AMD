@@ -165,6 +165,16 @@ public:
 	UPROPERTY()
 	UTransformProxy* Proxy;
 
+	/**
+	 * If true, the underlying proxy is modified with its SetPivotMode flag temporarily set to true.
+	 * This allows the transform source to be used for proxy repositioning on a proxy that otherwise
+	 * operates normally.
+	 */
+	bool bOverrideSetPivotMode = false;
+
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnGizmoTransformSourcePivotChanged, IGizmoTransformSource*);
+	FOnGizmoTransformSourcePivotChanged OnPivotChanged;
+
 public:
 	/**
 	 * Construct a default instance of UGizmoComponentWorldTransformSource with the given Proxy
@@ -179,3 +189,63 @@ public:
 	}
 };
 
+/**
+ * A wrapper around two IGizmoTransformSource's that generally forwards transforms to/from its ScaledTransformSource,
+ * but also forwards an unscaled version of the transform to UnscaledTransformSource on SetTransform calls.
+ * This handles the common case of wanting to apply the entire transform to one IGizmoTransformSource, but only
+ * the unscaled transform to a gizmo component (since we don't want to scale the gizmo component but do want to
+ * rotate/translate it).
+ */
+UCLASS()
+class INTERACTIVETOOLSFRAMEWORK_API UGizmoScaledAndUnscaledTransformSources : public UGizmoBaseTransformSource
+{
+	GENERATED_BODY()
+public:
+
+	/** Gets the transform from ScaledTransformSource. */
+	virtual FTransform GetTransform() const override;
+
+	/** Calls SetTransform on ScaledTransformSource and passes the unscaled version to UnscaledTransformSource. */
+	virtual void SetTransform(const FTransform& NewTransform) override;
+
+	UPROPERTY()
+	TScriptInterface<IGizmoTransformSource> ScaledTransformSource;
+
+	UPROPERTY()
+	TScriptInterface<IGizmoTransformSource> UnscaledTransformSource;
+
+public:
+	/**
+	 * Constructs a UGizmoScaledAndUnscaledTransformSources by wrapping the provided IGizmoTransformSource as
+	 * its scaled transform source, and the given gizmo in a UGizmoComponentWorldTransformSource as its
+	 * unscaled transform source.
+	 */
+	static UGizmoScaledAndUnscaledTransformSources* Construct(
+		IGizmoTransformSource* ScaledSource,
+		USceneComponent* GizmoComponentIn,
+		UObject* Outer = (UObject*)GetTransientPackage())
+	{
+		UGizmoScaledAndUnscaledTransformSources* NewSource = NewObject<UGizmoScaledAndUnscaledTransformSources>(Outer);
+		NewSource->ScaledTransformSource = Cast<UObject>(ScaledSource);
+
+		UGizmoComponentWorldTransformSource* WrappedGizmo = UGizmoComponentWorldTransformSource::Construct(GizmoComponentIn, Outer);
+		WrappedGizmo->bModifyComponentOnTransform = false;
+
+		NewSource->UnscaledTransformSource = WrappedGizmo;
+		return NewSource;
+	}
+
+	/**
+	 * Constructs a UGizmoScaledAndUnscaledTransformSources around the given two IGizmoTransformSource's.
+	 */
+	static UGizmoScaledAndUnscaledTransformSources* Construct(
+		IGizmoTransformSource* ScaledSource,
+		IGizmoTransformSource* UnscaledSource,
+		UObject* Outer = (UObject*)GetTransientPackage())
+	{
+		UGizmoScaledAndUnscaledTransformSources* NewSource = NewObject<UGizmoScaledAndUnscaledTransformSources>(Outer);
+		NewSource->ScaledTransformSource = Cast<UObject>(ScaledSource);
+		NewSource->UnscaledTransformSource = Cast<UObject>(UnscaledSource);
+		return NewSource;
+	}
+};

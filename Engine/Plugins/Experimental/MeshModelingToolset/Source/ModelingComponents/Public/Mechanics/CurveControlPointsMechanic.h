@@ -363,6 +363,7 @@ protected:
 	FColor HoverColor;
 	FColor SelectedColor;
 	FColor SnapLineColor;
+	FColor HighlightColor;
 
 	// Used for adding new points on the ends and for limiting point movement
 	FFrame3d DrawPlane;

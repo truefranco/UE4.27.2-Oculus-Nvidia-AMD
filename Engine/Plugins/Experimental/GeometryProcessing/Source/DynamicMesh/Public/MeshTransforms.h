@@ -38,14 +38,14 @@ namespace MeshTransforms
 	 * Apply given Transform to a Mesh.
 	 * Modifies Vertex Positions and Normals, and any Per-Triangle Normal Overlays
 	 */
-	DYNAMICMESH_API void ApplyTransform(FDynamicMesh3& Mesh, const FTransform3d& Transform);
+	DYNAMICMESH_API void ApplyTransform(FDynamicMesh3& Mesh, const FTransform3d& Transform, bool bReverseOrientationIfNeeded = false);
 
 
 	/**
 	 * Apply inverse of given Transform to a Mesh.
 	 * Modifies Vertex Positions and Normals, and any Per-Triangle Normal Overlays
 	 */
-	DYNAMICMESH_API void ApplyTransformInverse(FDynamicMesh3& Mesh, const FTransform3d& Transform);
+	DYNAMICMESH_API void ApplyTransformInverse(FDynamicMesh3& Mesh, const FTransform3d& Transform, bool bReverseOrientationIfNeeded = false);
 
 
 	/**
@@ -56,6 +56,10 @@ namespace MeshTransforms
 		TFunctionRef<FVector3d(const FVector3d&)> PositionTransform,
 		TFunctionRef<FVector3f(const FVector3f&)> NormalTransform);
 
-
+	/**
+	 * If applying Transform would invert Mesh w/ a negative scale, then invert Mesh's triangle orientations.
+	 * Note: Does not apply the transform.
+	 */
+	DYNAMICMESH_API void ReverseOrientationIfNeeded(FDynamicMesh3& Mesh, const FTransform3d& Transform);
 
 };

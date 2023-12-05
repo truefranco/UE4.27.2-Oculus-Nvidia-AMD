@@ -41,7 +41,22 @@ void UPreviewGeometry::Disconnect()
 	}
 }
 
+FTransform UPreviewGeometry::GetTransform() const
+{
+	if (ParentActor != nullptr)
+	{
+		return ParentActor->GetTransform();
+	}
+	return FTransform();
+}
 
+void UPreviewGeometry::SetTransform(const FTransform& UseTransform)
+{
+	if (ParentActor != nullptr)
+	{
+		ParentActor->SetActorTransform(UseTransform);
+	}
+}
 
 
 ULineSetComponent* UPreviewGeometry::AddLineSet(const FString& SetIdentifier)

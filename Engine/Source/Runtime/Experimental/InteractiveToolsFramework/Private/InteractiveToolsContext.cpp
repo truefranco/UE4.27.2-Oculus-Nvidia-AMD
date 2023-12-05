@@ -2,28 +2,37 @@
 
 
 #include "InteractiveToolsContext.h"
-
+#include "ToolTargetManager.h"
+#include "ToolContextInterfaces.h"
 
 UInteractiveToolsContext::UInteractiveToolsContext()
 {
 	InputRouter = nullptr;
 	ToolManager = nullptr;
+	TargetManager = nullptr;
+	ContextObjectStore = nullptr;
 	ToolManagerClass = UInteractiveToolManager::StaticClass();
 }
 
 void UInteractiveToolsContext::Initialize(IToolsContextQueriesAPI* QueriesAPI, IToolsContextTransactionsAPI* TransactionsAPI)
 {
+	ContextObjectStore = NewObject<UContextObjectStore>(this);
+
 	InputRouter = NewObject<UInputRouter>(this);
 	InputRouter->Initialize(TransactionsAPI);
 
 	ToolManager = NewObject<UInteractiveToolManager>(this, ToolManagerClass.Get());
-
-	ToolManager->Initialize(QueriesAPI, TransactionsAPI, InputRouter);
+    ToolManager->Initialize(QueriesAPI, TransactionsAPI, InputRouter);
+	
+	TargetManager = NewObject<UToolTargetManager>(this);
+	TargetManager->Initialize();
 
 	GizmoManager = NewObject<UInteractiveGizmoManager>(this);
 	GizmoManager->Initialize(QueriesAPI, TransactionsAPI, InputRouter);
 
 	GizmoManager->RegisterDefaultGizmos();
+
+	
 }
 
 
@@ -39,6 +48,10 @@ void UInteractiveToolsContext::Shutdown()
 
 	ToolManager->Shutdown();
 	ToolManager = nullptr;
+
+	ContextObjectStore->Shutdown();
+	ContextObjectStore = nullptr;
+
 }
 
 void UInteractiveToolsContext::DeactivateActiveTool(EToolSide WhichSide, EToolShutdownType ShutdownType)

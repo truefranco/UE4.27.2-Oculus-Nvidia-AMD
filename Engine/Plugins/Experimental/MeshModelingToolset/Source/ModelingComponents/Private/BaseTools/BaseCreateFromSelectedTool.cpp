@@ -7,6 +7,8 @@
 #include "SimpleDynamicMeshComponent.h"
 #include "Async/Async.h"
 
+#include "ModelingObjectsCreationAPI.h"
+
 #include "MeshNormals.h"
 #include "MeshTransforms.h"
 #include "DynamicMeshToMeshDescription.h"
@@ -80,14 +82,28 @@ void UBaseCreateFromSelectedTool::Setup()
 	TransformProperties->RestoreProperties(this);
 	AddToolPropertySource(TransformProperties);
 	
+	OutputTypeProperties = NewObject<UCreateMeshObjectTypeProperties>(this);
+	OutputTypeProperties->InitializeDefaultWithAuto();
+	OutputTypeProperties->OutputType = UCreateMeshObjectTypeProperties::AutoIdentifier;
+	OutputTypeProperties->RestoreProperties(this, TEXT("OutputTypeFromInputTool"));
+	OutputTypeProperties->WatchProperty(OutputTypeProperties->OutputType, [this](FString) { OutputTypeProperties->UpdatePropertyVisibility(); });
+	AddToolPropertySource(OutputTypeProperties);
+
 	HandleSourcesProperties = NewObject<UBaseCreateFromSelectedHandleSourceProperties>(this);
 	HandleSourcesProperties->RestoreProperties(this);
 	AddToolPropertySource(HandleSourcesProperties);
 
 	Preview = NewObject<UMeshOpPreviewWithBackgroundCompute>(this, "Preview");
 	Preview->Setup(this->TargetWorld, this);
+	ToolSetupUtil::ApplyRenderingConfigurationToPreview(Preview->PreviewMesh, nullptr);
 
 	SetPreviewCallbacks();
+	Preview->OnMeshUpdated.AddLambda(
+		[this](const UMeshOpPreviewWithBackgroundCompute* UpdatedPreview)
+		{
+			UpdateAcceptWarnings(UpdatedPreview->HaveEmptyResult() ? EAcceptWarning::EmptyForbidden : EAcceptWarning::NoWarning);
+		}
+	);
 
 	SetTransformGizmos();
 

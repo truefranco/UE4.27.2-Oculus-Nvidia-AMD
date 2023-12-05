@@ -115,7 +115,7 @@ void UBakeMeshAttributeMapsTool::Setup()
 	BaseMesh.Copy(*DynamicMeshComponent->GetMesh());
 	BaseSpatial.SetMesh(&BaseMesh, true);
 	BaseMeshTangents = MakeShared<FMeshTangentsd>(&BaseMesh);
-	BaseMeshTangents->CopyTriVertexTangents(*DynamicMeshComponent->GetTangents());
+	BaseMeshTangents->CopyTriVertexTangents(*DynamicMeshComponent->GetAutoCalculatedTangents());
 
 	UMaterial* Material = LoadObject<UMaterial>(nullptr, TEXT("/MeshModelingToolset/Materials/BakePreviewMaterial"));
 	check(Material);

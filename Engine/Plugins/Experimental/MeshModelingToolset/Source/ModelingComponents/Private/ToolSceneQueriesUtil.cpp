@@ -2,7 +2,11 @@
 
 
 #include "ToolSceneQueriesUtil.h"
+#include "ToolContextInterfaces.h"
+#include "Snapping/ModelingSceneSnappingManager.h"
+#include "Engine/World.h"
 #include "VectorUtil.h"
+#include "RayTypes.h"
 #include "Quaternion.h"
 #include "GameFramework/Actor.h"
 #include "Components/PrimitiveComponent.h"
@@ -135,54 +139,75 @@ bool ToolSceneQueriesUtil::IsPointVisible(const FViewCameraState& CameraState, c
 	return true;
 }
 
-
 bool ToolSceneQueriesUtil::FindSceneSnapPoint(const UInteractiveTool* Tool, const FVector3d& Point, FVector3d& SnapPointOut,
-	bool bVertices, bool bEdges, double VisualAngleThreshold, 
+	bool bVertices, bool bEdges, double VisualAngleThreshold,
 	FSnapGeometry* SnapGeometry, FVector* DebugTriangleOut)
 {
-	double UseThreshold = (VisualAngleThreshold <= 0) ? GetDefaultVisualAngleSnapThreshD() : VisualAngleThreshold;
+	FFindSceneSnapPointParams Params;
+
+	Params.SnappingManager = USceneSnappingManager::Find(Tool->GetToolManager());
+	Tool->GetToolManager()->GetContextQueriesAPI()->GetCurrentViewState(Params.CameraState);
+	Params.Point = &Point;
+	Params.SnapPointOut = &SnapPointOut;
+	Params.bVertices = bVertices;
+	Params.bEdges = bEdges;
+	Params.VisualAngleThreshold = VisualAngleThreshold;
+	Params.SnapGeometryOut = SnapGeometry;
+	Params.DebugTriangleOut = DebugTriangleOut;
+
+	return FindSceneSnapPoint(Params);
+}
+
+
+bool ToolSceneQueriesUtil::FindSceneSnapPoint(FFindSceneSnapPointParams& Params)
+{
+	double UseThreshold = (Params.VisualAngleThreshold <= 0) ? GetDefaultVisualAngleSnapThreshD() : Params.VisualAngleThreshold;
+
+	if (!Params.SnappingManager)
+	{
+		return false;
+	}
 
 	FViewCameraState CameraState;
-	Tool->GetToolManager()->GetContextQueriesAPI()->GetCurrentViewState(CameraState);
-	UseThreshold *= CameraState.GetFOVAngleNormalizationFactor();
+	
+	UseThreshold *= Params.CameraState.GetFOVAngleNormalizationFactor();
 
-	IToolsContextQueriesAPI* QueryAPI = Tool->GetToolManager()->GetContextQueriesAPI();
 	FSceneSnapQueryRequest Request;
 	Request.RequestType = ESceneSnapQueryType::Position;
 	Request.TargetTypes = ESceneSnapQueryTargetType::None;
-	if (bVertices)
+	if (Params.bVertices)
 	{
 		Request.TargetTypes |= ESceneSnapQueryTargetType::MeshVertex;
 	}
-	if (bEdges)
+	if (Params.bEdges)
 	{
 		Request.TargetTypes |= ESceneSnapQueryTargetType::MeshEdge;
 	}
-	Request.Position = (FVector)Point;
+	Request.Position = (FVector)*Params.Point;
 	Request.VisualAngleThresholdDegrees = UseThreshold;
 	
 	TArray<FSceneSnapQueryResult> Results;
-	if (QueryAPI->ExecuteSceneSnapQuery(Request, Results))
+	if (Params.SnappingManager->ExecuteSceneSnapQuery(Request, Results))
 	{
-		SnapPointOut = Results[0].Position;
+		*Params.SnapPointOut = (FVector3d)Results[0].Position;
 
-		if (SnapGeometry != nullptr)
+		if (Params.SnapGeometryOut != nullptr)
 		{
 			int iSnap = Results[0].TriSnapIndex;
-			SnapGeometry->Points[0] = Results[0].TriVertices[iSnap];
-			SnapGeometry->PointCount = 1;
+			Params.SnapGeometryOut->Points[0] = Results[0].TriVertices[iSnap];
+			Params.SnapGeometryOut->PointCount = 1;
 			if (Results[0].TargetType == ESceneSnapQueryTargetType::MeshEdge)
 			{
-				SnapGeometry->Points[1] = Results[0].TriVertices[(iSnap+1)%3];
-				SnapGeometry->PointCount = 2;
+				Params.SnapGeometryOut->Points[1] = Results[0].TriVertices[(iSnap+1)%3];
+				Params.SnapGeometryOut->PointCount = 2;
 			}
 		}
 
-		if (DebugTriangleOut != nullptr)
+		if (Params.DebugTriangleOut != nullptr)
 		{
-			DebugTriangleOut[0] = Results[0].TriVertices[0];
-			DebugTriangleOut[1] = Results[0].TriVertices[1];
-			DebugTriangleOut[2] = Results[0].TriVertices[2];
+			Params.DebugTriangleOut[0] = Results[0].TriVertices[0];
+			Params.DebugTriangleOut[1] = Results[0].TriVertices[1];
+			Params.DebugTriangleOut[2] = Results[0].TriVertices[2];
 		}
 
 		return true;
@@ -207,7 +232,23 @@ bool ToolSceneQueriesUtil::FindWorldGridSnapPoint(const UInteractiveTool* Tool, 
 	return false;
 }
 
+double ToolSceneQueriesUtil::SnapDistanceToWorldGridSize(const UInteractiveTool* Tool, const double Distance)
+{
+	IToolsContextQueriesAPI* QueryAPI = Tool->GetToolManager()->GetContextQueriesAPI();
+	FToolContextSnappingConfiguration SnapConfig = QueryAPI->GetCurrentSnappingSettings();
 
+	if (QueryAPI->GetCurrentSnappingSettings().bEnablePositionGridSnapping)
+	{
+		double DX = SnapConfig.PositionGridDimensions.GetMax();
+		if (DX > 0.0)
+		{
+			int N = FMath::RoundToInt(Distance / DX);
+			return N * DX;
+		}
+	}
+
+	return Distance;
+}
 
 
 
@@ -289,4 +330,43 @@ bool ToolSceneQueriesUtil::FindNearestVisibleObjectHit(UWorld* World, FHitResult
 	const TArray<UPrimitiveComponent*>* IgnoreComponents, const TArray<UPrimitiveComponent*>* InvisibleComponentsToInclude)
 {
 	return FindNearestVisibleObjectHit(World, HitResultOut, Ray.Origin, Ray.PointAt(HALF_WORLD_MAX), IgnoreComponents, InvisibleComponentsToInclude);
+}
+
+bool ToolSceneQueriesUtil::FindNearestVisibleObjectHit(USceneSnappingManager* SnapManager, FHitResult& HitResultOut, const FRay& Ray,
+	const TArray<const UPrimitiveComponent*>* IgnoreComponents, const TArray<const UPrimitiveComponent*>* InvisibleComponentsToInclude)
+{
+	if (!SnapManager)
+	{
+		return false;
+	}
+
+	FSceneHitQueryRequest Request;
+	Request.WorldRay = Ray;
+	Request.bWantHitGeometryInfo = false;
+	Request.VisibilityFilter.ComponentsToIgnore = IgnoreComponents;
+	Request.VisibilityFilter.InvisibleComponentsToInclude = InvisibleComponentsToInclude;
+
+	FSceneHitQueryResult Result;
+	if (SnapManager->ExecuteSceneHitQuery(Request, Result))
+	{
+		HitResultOut = Result.HitResult;
+		return true;
+	};
+	return false;
+}
+
+
+
+bool ToolSceneQueriesUtil::FindNearestVisibleObjectHit(const UInteractiveTool* Tool, FHitResult& HitResultOut, const FVector& Start, const FVector& End,
+	const TArray<const UPrimitiveComponent*>* IgnoreComponents, const TArray<const UPrimitiveComponent*>* InvisibleComponentsToInclude)
+{
+	FRay WorldRay(Start, (End - Start), false);
+	return FindNearestVisibleObjectHit(USceneSnappingManager::Find(Tool->GetToolManager()), HitResultOut, WorldRay, IgnoreComponents, InvisibleComponentsToInclude);
+}
+
+
+bool ToolSceneQueriesUtil::FindNearestVisibleObjectHit(const UInteractiveTool* Tool, FHitResult& HitResultOut, const FRay& Ray,
+	const TArray<const UPrimitiveComponent*>* IgnoreComponents, const TArray<const UPrimitiveComponent*>* InvisibleComponentsToInclude)
+{
+	return FindNearestVisibleObjectHit(USceneSnappingManager::Find(Tool->GetToolManager()), HitResultOut, Ray, IgnoreComponents, InvisibleComponentsToInclude);
 }

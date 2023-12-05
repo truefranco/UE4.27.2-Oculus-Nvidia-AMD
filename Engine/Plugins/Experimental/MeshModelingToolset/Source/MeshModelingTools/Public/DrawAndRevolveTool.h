@@ -11,6 +11,7 @@
 #include "InteractiveToolChange.h" //FToolCommandChange
 #include "MeshOpPreviewHelpers.h" //FDynamicMeshOpResult
 #include "Properties/MeshMaterialProperties.h"
+#include "PropertySets/CreateMeshObjectTypeProperties.h"
 #include "Properties/RevolveProperties.h"
 
 #include "DrawAndRevolveTool.generated.h"
@@ -26,7 +27,6 @@ class MESHMODELINGTOOLS_API UDrawAndRevolveToolBuilder : public UInteractiveTool
 	GENERATED_BODY()
 
 public:
-	IToolsContextAssetAPI* AssetAPI = nullptr;
 
 	virtual bool CanBuildTool(const FToolBuilderState& SceneState) const override;
 	virtual UInteractiveTool* BuildTool(const FToolBuilderState& SceneState) const override;
@@ -39,6 +39,11 @@ class MESHMODELINGTOOLS_API URevolveToolProperties : public URevolveProperties
 	GENERATED_BODY()
 
 public:
+
+	/** Determines how end caps are created. This is not relevant if the end caps are not visible or if the path is not closed. */
+	UPROPERTY(EditAnywhere, Category = Revolve, AdvancedDisplay, meta = (DisplayAfter = "QuadSplitMode",
+		EditCondition = "HeightOffsetPerDegree != 0 || RevolveDegrees != 360", ValidEnumValues = "None, CenterFan, Delaunay"))
+	ERevolvePropertiesCapFillMode CapFillMode = ERevolvePropertiesCapFillMode::Delaunay;
 
 	/** Connect the ends of an open profile to the axis to close the top and bottom of the revolved result. Not relevant if profile curve is closed. */
 	UPROPERTY(EditAnywhere, Category = RevolveSettings, AdvancedDisplay)
@@ -66,6 +71,12 @@ public:
 	// Not user visible- used to disallow draw plane modification.
 	UPROPERTY(meta = (TransientToolProperty))
 	bool bAllowedToEditDrawPlane = true;
+
+protected:
+	virtual ERevolvePropertiesCapFillMode GetCapFillMode() const override
+	{
+		return CapFillMode;
+	}
 };
 
 UCLASS()
@@ -118,7 +129,7 @@ protected:
 	// plane, but the tool turned out to be much easier to write and edit with this decoupling.
 	FVector3d RevolutionAxisOrigin;
 	FVector3d RevolutionAxisDirection;
-
+	
 	bool bProfileCurveComplete = false;
 
 	void UpdateRevolutionAxis();
@@ -128,6 +139,10 @@ protected:
 
 	UPROPERTY()
 	UConstructionPlaneMechanic* PlaneMechanic = nullptr;
+
+	/** Property set for type of output object (StaticMesh, Volume, etc) */
+	UPROPERTY()
+	UCreateMeshObjectTypeProperties* OutputTypeProperties;
 
 	UPROPERTY()
 	URevolveToolProperties* Settings = nullptr;
@@ -143,4 +158,8 @@ protected:
 	void GenerateAsset(const FDynamicMeshOpResult& Result);
 
 	friend class URevolveOperatorFactory;
+
+private:
+	constexpr static double FarDrawPlaneThreshold = 100 * 100;
+	bool bHasFarPlaneWarning = false;
 };

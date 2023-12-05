@@ -6,7 +6,6 @@
 
 #include "BaseGizmos/GizmoComponents.h"
 #include "BaseGizmos/GizmoLineHandleComponent.h"
-
 // need this to implement hover
 #include "BaseGizmos/GizmoBaseComponent.h"
 
@@ -120,9 +119,6 @@ UInteractiveGizmo* UIntervalGizmoBuilder::BuildGizmo(const FToolBuilderState& Sc
 	UIntervalGizmo* NewGizmo = NewObject<UIntervalGizmo>(SceneState.GizmoManager);
 	NewGizmo->SetWorld(SceneState.World);
 
-	// use default gizmo actor if client has not given us a new builder
-	NewGizmo->SetGizmoActorBuilder((GizmoActorBuilder) ? GizmoActorBuilder : MakeShared<FIntervalGizmoActorFactory>());
-
 	// override default hover function if proposed
 	if (UpdateHoverFunction)
 	{
@@ -158,6 +154,26 @@ void UIntervalGizmo::SetUpdateHoverFunction(TFunction<void(UPrimitiveComponent*,
 void UIntervalGizmo::SetUpdateCoordSystemFunction(TFunction<void(UPrimitiveComponent*, EToolContextCoordinateSystem)> CoordSysFunction)
 {
 	UpdateCoordSystemFunction = CoordSysFunction;
+}
+
+void UIntervalGizmo::SetWorldAlignmentFunctions(TUniqueFunction<bool()>&& ShouldAlignDestinationIn, TUniqueFunction<bool(const FRay&, FVector&)>&& DestinationAlignmentRayCasterIn)
+{
+	// Save these so that any later gizmo resets (using SetActiveTarget) keep the settings.
+	ShouldAlignDestination = MoveTemp(ShouldAlignDestinationIn);
+	DestinationAlignmentRayCaster = MoveTemp(DestinationAlignmentRayCasterIn);
+
+	for (UInteractiveGizmo* SubGizmo : this->ActiveGizmos)
+	{
+		if (UAxisPositionGizmo* CastGizmo = Cast<UAxisPositionGizmo>(SubGizmo))
+		{
+			CastGizmo->ShouldUseCustomDestinationFunc = [this]() { return ShouldAlignDestination(); };
+			CastGizmo->CustomDestinationFunc =
+				[this](const UAxisPositionGizmo::FCustomDestinationParams& Params, FVector& OutputPoint) {
+				return DestinationAlignmentRayCaster(*Params.WorldRay, OutputPoint);
+				};
+			CastGizmo->bCustomDestinationAlignsAxisOrigin = false; // We're aligning the endpoints of the intervals
+		}
+	}
 }
 
 void UIntervalGizmo::Setup()
@@ -346,6 +362,11 @@ void UIntervalGizmo::ClearActiveTarget()
 	ClearSources();
 
 	TransformProxy = nullptr;
+}
+
+FTransform UIntervalGizmo::GetGizmoTransform() const
+{
+	return TransformProxy->GetTransform();
 }
 
 

@@ -12,6 +12,9 @@
 #include "Mechanics/ConstructionPlaneMechanic.h"
 #include "Mechanics/CurveControlPointsMechanic.h"
 #include "Properties/MeshMaterialProperties.h"
+#include "ModelingObjectsCreationAPI.h"
+#include "DynamicMeshToMeshDescription.h"
+#include "MeshDescriptionToDynamicMesh.h"
 #include "Selection/ToolSelectionUtil.h"
 #include "ToolSceneQueriesUtil.h"
 #include "ToolSetupUtil.h"
@@ -27,7 +30,8 @@ const FText EditModeMessage = LOCTEXT("CurveEditing", "Click points to select th
 
 bool UDrawAndRevolveToolBuilder::CanBuildTool(const FToolBuilderState& SceneState) const
 {
-	return (this->AssetAPI != nullptr);
+	//return (this->AssetAPI != nullptr);
+	return true;
 }
 
 UInteractiveTool* UDrawAndRevolveToolBuilder::BuildTool(const FToolBuilderState& SceneState) const
@@ -35,7 +39,7 @@ UInteractiveTool* UDrawAndRevolveToolBuilder::BuildTool(const FToolBuilderState&
 	UDrawAndRevolveTool* NewTool = NewObject<UDrawAndRevolveTool>(SceneState.ToolManager);
 
 	NewTool->SetWorld(SceneState.World);
-	NewTool->SetAssetAPI(AssetAPI);
+	//NewTool->SetAssetAPI(AssetAPI);
 	return NewTool;
 }
 
@@ -86,6 +90,12 @@ void UDrawAndRevolveTool::RegisterActions(FInteractiveToolActionSet& ActionSet)
 		LOCTEXT("DeletePointTooltip", "Delete currently selected point(s)"),
 		EModifierKey::None, EKeys::BackSpace,
 		[this]() { OnBackspacePress(); });
+	ActionSet.RegisterAction(this, (int32)EStandardToolActions::BaseClientDefinedActionID + 2,
+		TEXT("DeletePointDeleteKey"),
+		LOCTEXT("DeletePointUIName", "Delete Point"),
+		LOCTEXT("DeletePointTooltip", "Delete currently selected point(s)"),
+		EModifierKey::None, EKeys::Delete,
+		[this]() { OnBackspacePress(); });
 }
 
 void UDrawAndRevolveTool::OnBackspacePress()
@@ -100,14 +110,21 @@ void UDrawAndRevolveTool::OnBackspacePress()
 
 bool UDrawAndRevolveTool::CanAccept() const
 {
-	return Preview != nullptr && Preview->HaveValidResult();
+	return Preview != nullptr && Preview->HaveValidNonEmptyResult();
 }
 
 void UDrawAndRevolveTool::Setup()
 {
 	UInteractiveTool::Setup();
 
+	SetToolDisplayName(LOCTEXT("ToolName", "Revolve PolyPath"));
 	GetToolManager()->DisplayMessage(InitializationModeMessage, EToolMessageLevel::UserNotification);
+
+	OutputTypeProperties = NewObject<UCreateMeshObjectTypeProperties>(this);
+	OutputTypeProperties->RestoreProperties(this);
+	OutputTypeProperties->InitializeDefault();
+	OutputTypeProperties->WatchProperty(OutputTypeProperties->OutputType, [this](FString) { OutputTypeProperties->UpdatePropertyVisibility(); });
+	AddToolPropertySource(OutputTypeProperties);
 
 	Settings = NewObject<URevolveToolProperties>(this, TEXT("Revolve Tool Settings"));
 	Settings->RestoreProperties(this);
@@ -126,7 +143,12 @@ void UDrawAndRevolveTool::Setup()
 		{
 			Preview->InvalidateResult();
 		}
-		Settings->bAllowedToEditDrawPlane = (ControlPointsMechanic->GetNumPoints() == 0);
+		bool bAllowedToEditDrawPlane = (ControlPointsMechanic->GetNumPoints() == 0);
+		if (Settings->bAllowedToEditDrawPlane != bAllowedToEditDrawPlane)
+		{
+			Settings->bAllowedToEditDrawPlane = bAllowedToEditDrawPlane;
+			NotifyOfPropertyChangeByTool(Settings);
+		}
 		});
 	// This gets called when we enter/leave curve initialization mode
 	ControlPointsMechanic->OnModeChanged.AddLambda([this]() {
@@ -150,6 +172,15 @@ void UDrawAndRevolveTool::Setup()
 
 	UpdateRevolutionAxis();
 
+	FViewCameraState InitialCameraState;
+	GetToolManager()->GetContextQueriesAPI()->GetCurrentViewState(InitialCameraState);
+	if (FVector::DistSquared(InitialCameraState.Position, Settings->DrawPlaneOrigin) > FarDrawPlaneThreshold * FarDrawPlaneThreshold)
+	{
+		bHasFarPlaneWarning = true;
+		GetToolManager()->DisplayMessage(
+			LOCTEXT("FarDrawPlane", "The axis of revolution is far from the camera. Note that you can ctrl-click to place the axis on a visible surface."),
+			EToolMessageLevel::UserWarning);
+	}
 	// The plane mechanic lets us update the plane in which we draw the profile curve, as long as we haven't
 	// started adding points to it already.
 	FFrame3d ProfileDrawPlane(Settings->DrawPlaneOrigin, Settings->DrawPlaneOrientation.Quaternion());
@@ -164,12 +195,19 @@ void UDrawAndRevolveTool::Setup()
 	PlaneMechanic->OnPlaneChanged.AddLambda([this]() {
 		Settings->DrawPlaneOrigin = (FVector)PlaneMechanic->Plane.Origin;
 		Settings->DrawPlaneOrientation = ((FQuat)PlaneMechanic->Plane.Rotation).Rotator();
+		NotifyOfPropertyChangeByTool(Settings);
 		if (ControlPointsMechanic)
 		{
 			ControlPointsMechanic->SetPlane(PlaneMechanic->Plane);
 		}
 		UpdateRevolutionAxis();
+		if (bHasFarPlaneWarning) // if the user has changed the plane, no longer need a warning
+		{
+			bHasFarPlaneWarning = false;
+			GetToolManager()->DisplayMessage(FText(), EToolMessageLevel::UserWarning);
+		}
 		});
+
 	PlaneMechanic->SetEnableGridSnaping(Settings->bSnapToWorldGrid);
 
 	ControlPointsMechanic->SetPlane(PlaneMechanic->Plane);
@@ -187,16 +225,21 @@ void UDrawAndRevolveTool::Setup()
 /** Uses the settings currently stored in the properties object to update the revolution axis. */
 void UDrawAndRevolveTool::UpdateRevolutionAxis()
 {
-	RevolutionAxisOrigin = Settings->DrawPlaneOrigin;
-	RevolutionAxisDirection = Settings->DrawPlaneOrientation.RotateVector(FVector(1,0,0));
+	RevolutionAxisOrigin = (FVector3d)Settings->DrawPlaneOrigin;
+	RevolutionAxisDirection = (FVector3d)Settings->DrawPlaneOrientation.RotateVector(FVector(1,0,0));
 
 	const int32 AXIS_SNAP_TARGET_ID = 1;
 	ControlPointsMechanic->RemoveSnapLine(AXIS_SNAP_TARGET_ID);
 	ControlPointsMechanic->AddSnapLine(AXIS_SNAP_TARGET_ID, FLine3d(RevolutionAxisOrigin, RevolutionAxisDirection));
+	if (Preview)
+	{
+		Preview->InvalidateResult();
+	}
 }
 
 void UDrawAndRevolveTool::Shutdown(EToolShutdownType ShutdownType)
 {
+	OutputTypeProperties->SaveProperties(this);
 	Settings->SaveProperties(this);
 	MaterialProperties->SaveProperties(this);
 
@@ -207,6 +250,7 @@ void UDrawAndRevolveTool::Shutdown(EToolShutdownType ShutdownType)
 	{
 		if (ShutdownType == EToolShutdownType::Accept)
 		{
+			Preview->PreviewMesh->CalculateTangents();
 			GenerateAsset(Preview->Shutdown());
 		}
 		else
@@ -216,17 +260,27 @@ void UDrawAndRevolveTool::Shutdown(EToolShutdownType ShutdownType)
 	}
 }
 
-void UDrawAndRevolveTool::GenerateAsset(const FDynamicMeshOpResult& Result)
+void UDrawAndRevolveTool::GenerateAsset(const FDynamicMeshOpResult& OpResult)
 {
+	if (OpResult.Mesh->TriangleCount() <= 0)
+	{
+		return;
+	}
+
 	GetToolManager()->BeginUndoTransaction(LOCTEXT("RevolveToolTransactionName", "Revolve Tool"));
 
 
-	AActor* NewActor = AssetGenerationUtil::GenerateStaticMeshActor(
-		AssetAPI, TargetWorld, Result.Mesh.Get(), Result.Transform, TEXT("RevolveResult"), MaterialProperties->Material.Get());
-
-	if (NewActor != nullptr)
+	FCreateMeshObjectParams NewMeshObjectParams;
+	NewMeshObjectParams.TargetWorld = TargetWorld;
+	NewMeshObjectParams.Transform = (FTransform)OpResult.Transform;
+	NewMeshObjectParams.BaseName = TEXT("Revolve");
+	NewMeshObjectParams.Materials.Add(MaterialProperties->Material.Get());
+	NewMeshObjectParams.SetMesh(OpResult.Mesh.Get());
+	OutputTypeProperties->ConfigureCreateMeshObjectParams(NewMeshObjectParams);
+	FCreateMeshObjectResult Result = UE::Modeling::CreateMeshObject(GetToolManager(), MoveTemp(NewMeshObjectParams));
+	if (Result.IsOK() && Result.NewActor != nullptr)
 	{
-		ToolSelectionUtil::SetNewActorSelection(GetToolManager(), NewActor);
+		ToolSelectionUtil::SetNewActorSelection(GetToolManager(), Result.NewActor);
 	}
 
 	GetToolManager()->EndUndoTransaction();
@@ -237,17 +291,22 @@ void UDrawAndRevolveTool::StartPreview()
 	URevolveOperatorFactory* RevolveOpCreator = NewObject<URevolveOperatorFactory>();
 	RevolveOpCreator->RevolveTool = this;
 
-	// Normally we wouldn't give the object a name, but since we may destroy the preview using undo,
-	// the ability to reuse the non-cleaned up memory is useful. Careful if copy-pasting this!
 	Preview = NewObject<UMeshOpPreviewWithBackgroundCompute>(RevolveOpCreator, "RevolveToolPreview");
 
 	Preview->Setup(TargetWorld, RevolveOpCreator);
+	ToolSetupUtil::ApplyRenderingConfigurationToPreview(Preview->PreviewMesh, nullptr);
 	Preview->PreviewMesh->SetTangentsMode(EDynamicMeshTangentCalcType::AutoCalculated);
 
 	Preview->ConfigureMaterials(MaterialProperties->Material.Get(),
 		ToolSetupUtil::GetDefaultWorkingMaterial(GetToolManager()));
 	Preview->PreviewMesh->EnableWireframe(MaterialProperties->bWireframe);
-
+	Preview->OnMeshUpdated.AddLambda(
+		[this](const UMeshOpPreviewWithBackgroundCompute* UpdatedPreview)
+		{
+			UpdateAcceptWarnings(UpdatedPreview->HaveEmptyResult() ? EAcceptWarning::EmptyForbidden : EAcceptWarning::NoWarning);
+		}
+	);
+	
 	Preview->SetVisibility(true);
 	Preview->InvalidateResult();
 }
@@ -269,7 +328,7 @@ void UDrawAndRevolveTool::OnPropertyModified(UObject* PropertySet, FProperty* Pr
 			Preview->ConfigureMaterials(MaterialProperties->Material.Get(),
 				ToolSetupUtil::GetDefaultWorkingMaterial(GetToolManager()));
 		}
-
+		
 		Preview->PreviewMesh->EnableWireframe(MaterialProperties->bWireframe);
 		Preview->InvalidateResult();
 	}
@@ -293,6 +352,13 @@ void UDrawAndRevolveTool::OnTick(float DeltaTime)
 void UDrawAndRevolveTool::Render(IToolsContextRenderAPI* RenderAPI)
 {
 	GetToolManager()->GetContextQueriesAPI()->GetCurrentViewState(CameraState);
+
+	if (bHasFarPlaneWarning && FVector::DistSquared(CameraState.Position, Settings->DrawPlaneOrigin) < FarDrawPlaneThreshold * FarDrawPlaneThreshold)
+	{
+		// if camera is now closer to the axis, no longer need a warning
+		bHasFarPlaneWarning = false;
+		GetToolManager()->DisplayMessage(FText(), EToolMessageLevel::UserWarning);
+	}
 
 	if (PlaneMechanic != nullptr)
 	{

@@ -6,6 +6,9 @@
 #include "DynamicMeshOverlay.h"
 #include "DynamicMeshTriangleAttribute.h"
 #include "DynamicAttribute.h"
+#include "DynamicMeshOverlay.h"
+#include "DynamicMeshTriangleAttribute.h"
+#include "DynamicVertexAttribute.h"
 #include "GeometryTypes.h"
 #include "InfoTypes.h"
 #include "Containers/IndirectArray.h"
@@ -14,6 +17,9 @@
 typedef TDynamicMeshVectorOverlay<float, 2, FVector2f> FDynamicMeshUVOverlay;
 /** Standard Normal overlay type - 3-element float */
 typedef TDynamicMeshVectorOverlay<float, 3, FVector3f> FDynamicMeshNormalOverlay;
+
+/** Standard Color overlay type - 4-element float (rbga) */
+typedef TDynamicMeshVectorOverlay<float, 4, FVector4f> FDynamicMeshColorOverlay;
 
 /** Standard per-triangle integer material ID */
 typedef TDynamicMeshScalarTriangleAttribute<int32> FDynamicMeshMaterialAttribute;
@@ -85,7 +91,7 @@ public:
 	/**
 	 * Enable the matching attributes and overlay layers as the reference Copy set, but do not copy any data across
 	 */
-	void EnableMatchingAttributes(const FDynamicMeshAttributeSet& ToMatch);
+	void EnableMatchingAttributes(const FDynamicMeshAttributeSet& ToMatch, bool bClearExisting = true, bool bDiscardExtraAttributes = false);
 
 	/** @return the parent mesh for this overlay */
 	const FDynamicMesh3* GetParentMesh() const { return ParentMesh; }
@@ -235,6 +241,24 @@ public:
 		return (PrimaryNormals() != nullptr && PrimaryTangents()  != nullptr && PrimaryBiTangents() != nullptr);
 	}
 
+	bool HasPrimaryColors() const
+	{
+		return !!ColorLayer;
+	}
+
+	FDynamicMeshColorOverlay* PrimaryColors()
+	{
+		return ColorLayer.Get();
+	}
+
+	const FDynamicMeshColorOverlay* PrimaryColors() const
+	{
+		return ColorLayer.Get();
+	}
+
+	void EnablePrimaryColors();
+
+	void DisablePrimaryColors();
 
 	//
 	// Polygroup layers
@@ -326,6 +350,7 @@ protected:
 	
 	TIndirectArray<FDynamicMeshUVOverlay> UVLayers;
 	TIndirectArray<FDynamicMeshNormalOverlay> NormalLayers;
+	TUniquePtr<FDynamicMeshColorOverlay> ColorLayer;
 
 	TUniquePtr<FDynamicMeshMaterialAttribute> MaterialIDAttrib;
 

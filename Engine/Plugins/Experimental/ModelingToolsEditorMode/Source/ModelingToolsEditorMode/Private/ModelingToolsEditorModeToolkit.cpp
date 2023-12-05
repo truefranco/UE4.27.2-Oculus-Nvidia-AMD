@@ -6,6 +6,8 @@
 #include "ModelingToolsEditorModeSettings.h"
 #include "Engine/Selection.h"
 
+#include "PropertySets/CreateMeshObjectTypeProperties.h"
+
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
@@ -141,8 +143,7 @@ void FModelingToolsEditorModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitT
 		ClearWarning();
 	});
 
-
-	GetToolsEditorMode()->OnToolNotificationMessage.AddLambda([this](const FText& Message)
+    GetToolsEditorMode()->OnToolNotificationMessage.AddLambda([this](const FText& Message)
 	{
 		PostNotification(Message);
 	});
@@ -150,6 +151,7 @@ void FModelingToolsEditorModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitT
 	{
 		PostWarning(Message);
 	});
+	UpdateObjectCreationOptionsFromSettings();
 }
 
 
@@ -361,8 +363,6 @@ void FModelingToolsEditorModeToolkit::BuildToolPalette(FName PaletteIndex, class
 	}
 }
 
-
-
 void FModelingToolsEditorModeToolkit::BuildToolPalette_Standard(FName PaletteIndex, class FToolBarBuilder& ToolbarBuilder)
 {
 	const FModelingToolsManagerCommands& Commands = FModelingToolsManagerCommands::Get();
@@ -388,6 +388,7 @@ void FModelingToolsEditorModeToolkit::BuildToolPalette_Standard(FName PaletteInd
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddSpherePrimitiveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddSphericalBoxPrimitiveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddStairsPrimitiveTool);
+		
 	}
 	else if (PaletteIndex == CreateTabName)
 	{
@@ -398,6 +399,7 @@ void FModelingToolsEditorModeToolkit::BuildToolPalette_Standard(FName PaletteInd
 		ToolbarBuilder.AddToolBarButton(Commands.BeginDrawPolyPathTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginDrawAndRevolveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginRevolveBoundaryTool);
+		ToolbarBuilder.AddToolBarButton(Commands.BeginCubeGridTool);
 		ToolbarBuilder.AddSeparator();
 		ToolbarBuilder.AddToolBarButton(Commands.BeginMeshBooleanTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginSelfUnionTool);
@@ -418,6 +420,7 @@ void FModelingToolsEditorModeToolkit::BuildToolPalette_Standard(FName PaletteInd
 		ToolbarBuilder.AddToolBarButton(Commands.BeginBakeTransformTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginCombineMeshesTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginDuplicateMeshesTool);
+		ToolbarBuilder.AddToolBarButton(Commands.BeginPatternTool);
 		ToolbarBuilder.AddSeparator();
 		ToolbarBuilder.AddToolBarButton(Commands.BeginMeshInspectorTool);
 	}
@@ -546,6 +549,7 @@ void FModelingToolsEditorModeToolkit::BuildToolPalette_Experimental(FName Palett
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddSpherePrimitiveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddSphericalBoxPrimitiveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginAddStairsPrimitiveTool);
+		
 	}
 	else if (PaletteIndex == CreateTabName)
 	{
@@ -556,6 +560,7 @@ void FModelingToolsEditorModeToolkit::BuildToolPalette_Experimental(FName Palett
 		ToolbarBuilder.AddToolBarButton(Commands.BeginDrawPolyPathTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginDrawAndRevolveTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginRevolveBoundaryTool);
+		ToolbarBuilder.AddToolBarButton(Commands.BeginCubeGridTool);
 		ToolbarBuilder.AddSeparator();
 		ToolbarBuilder.AddToolBarButton(Commands.BeginMeshBooleanTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginSelfUnionTool);
@@ -576,6 +581,7 @@ void FModelingToolsEditorModeToolkit::BuildToolPalette_Experimental(FName Palett
 		ToolbarBuilder.AddToolBarButton(Commands.BeginBakeTransformTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginCombineMeshesTool);
 		ToolbarBuilder.AddToolBarButton(Commands.BeginDuplicateMeshesTool);
+		ToolbarBuilder.AddToolBarButton(Commands.BeginPatternTool);
 		ToolbarBuilder.AddSeparator();
 		ToolbarBuilder.AddToolBarButton(Commands.BeginMeshInspectorTool);
 	}
@@ -799,9 +805,32 @@ void FModelingToolsEditorModeToolkit::UpdateAssetPanelFromSettings()
 	}
 }
 
+void FModelingToolsEditorModeToolkit::UpdateObjectCreationOptionsFromSettings()
+{
+	// update DynamicMeshActor Settings
+	const UModelingToolsEditorModeSettings* Settings = GetDefault<UModelingToolsEditorModeSettings>();
+
+	// enable/disable dynamic mesh actors
+	UCreateMeshObjectTypeProperties::bEnableDynamicMeshActorSupport = true;
+
+	// set configured default type
+	if (Settings->DefaultMeshObjectType == EModelingModeDefaultMeshObjectType::DynamicMeshActor)
+	{
+		UCreateMeshObjectTypeProperties::DefaultObjectTypeIdentifier = UCreateMeshObjectTypeProperties::DynamicMeshActorIdentifier;
+	}
+	else if (Settings->DefaultMeshObjectType == EModelingModeDefaultMeshObjectType::VolumeActor)
+	{
+		UCreateMeshObjectTypeProperties::DefaultObjectTypeIdentifier = UCreateMeshObjectTypeProperties::VolumeIdentifier;
+	}
+	else
+	{
+		UCreateMeshObjectTypeProperties::DefaultObjectTypeIdentifier = UCreateMeshObjectTypeProperties::StaticMeshIdentifier;
+	}
+}
 
 void FModelingToolsEditorModeToolkit::OnAssetSettingsModified()
 {
+	UpdateObjectCreationOptionsFromSettings();
 	UpdateAssetPanelFromSettings();
 }
 

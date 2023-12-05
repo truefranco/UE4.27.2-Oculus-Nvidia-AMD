@@ -35,6 +35,8 @@ namespace ToolBuilderUtil
 	template<typename ComponentType>
 	ComponentType* FindFirstComponentOfType(const FToolBuilderState& InputState);
 
+	INTERACTIVETOOLSFRAMEWORK_API
+		void EnumerateComponents(const FToolBuilderState& InputState, TFunctionRef<void(UActorComponent*)> ComponentFunc);
 
 	/** Count number of selected Actors that pass predicate. */
 	INTERACTIVETOOLSFRAMEWORK_API

@@ -339,7 +339,24 @@ public:
 			Data[i] = Elements[k + i];
 		}
 	}
+	/**
+	 * Get the Element value associated with a vertex of a triangle.
+	 *
+	 * @param TriangleID ID of a triangle containing the Element
+	 * @param VertexID ID of the Element's parent vertex
+	 * @param Data Value contained at the Element
+	 */
+	template<typename AsType>
+	inline void GetElementAtVertex(int TriangleID, int VertexID, AsType& Data) const
+	{
+		int ElementID = GetElementIDAtVertex(TriangleID, VertexID);
 
+		checkSlow(ElementID != IndexConstants::InvalidID);
+		if (ElementID != IndexConstants::InvalidID)
+		{
+			GetElement(ElementID, Data);
+		}
+	}
 
 	/** Get the parent vertex id for the element at a given index */
 	inline int GetParentVertex(int ElementID) const
@@ -355,6 +372,19 @@ public:
 		return FIndex3i(ElementTriangles[i], ElementTriangles[i + 1], ElementTriangles[i + 2]);
 	}
 
+	/** If the triangle is set to valid element indices, return the indices in TriangleOut and return true, otherwise return false */
+	inline bool GetTriangleIfValid(int TriangleID, FIndex3i& TriangleOut) const
+	{
+		int i = 3 * TriangleID;
+		int a = ElementTriangles[i];
+		if (a >= 0)
+		{
+			TriangleOut = FIndex3i(a, ElementTriangles[i + 1], ElementTriangles[i + 2]);
+			checkSlow(TriangleOut.B >= 0 && TriangleOut.C >= 0);
+			return true;
+		}
+		return false;
+	}
 
 	/** Set the element at a given index */
 	inline void SetElement(int ElementID, const RealType* Data)
@@ -409,6 +439,13 @@ public:
 
 	/** find the triangles connected to an element */
 	void GetElementTriangles(int ElementID, TArray<int>& OutTriangles) const;
+
+	/**
+	 * Find the element ID at a vertex of a triangle.
+	 *
+	 * @return Returns the element ID or FDynamicMesh3::InvalidID if the vertex is not a parent of any element contained in the triangle.
+	 */
+	int GetElementIDAtVertex(int TriangleID, int VertexID) const;
 
 	/** @return true if overlay has any interior seam edges. This requires an O(N) search unless it early-outs. */
 	bool HasInteriorSeamEdges() const;
@@ -505,6 +542,13 @@ public:
 	}
 
 	/**
+	 * Append a new Element to the overlay
+	 */
+	inline int AppendElement(const RealType* Value)
+	{
+		return BaseType::AppendElement(Value);
+	}
+	/**
 	 * Get Element at a specific ID
 	 */
 	inline VectorType GetElement(int ElementID) const
@@ -520,6 +564,34 @@ public:
 	inline void GetElement(int ElementID, VectorType& V) const
 	{
 		BaseType::GetElement(ElementID, V);
+	}
+
+	/**
+	 * Get the Element value associated with a vertex of a triangle.
+	 */
+	inline VectorType GetElementAtVertex(int TriangleID, int VertexID) const
+	{
+		VectorType V;
+		BaseType::GetElementAtVertex(TriangleID, VertexID, V);
+		return V;
+	}
+
+	/**
+	 * Get the Element value associated with a vertex of a triangle.
+	 */
+	inline void GetElementAtVertex(int TriangleID, int VertexID, VectorType& V) const
+	{
+		BaseType::GetElementAtVertex(TriangleID, VertexID, V);
+	}
+
+	/**
+	 * Get the Element associated with a vertex of a triangle
+	 * @param TriVertexIndex index of vertex in triangle, valid values are 0,1,2
+	 */
+	inline void GetTriElement(int TriangleID, int32 TriVertexIndex, VectorType& Value) const
+	{
+		checkSlow(TriVertexIndex >= 0 && TriVertexIndex <= 2);
+		GetElement(BaseType::ElementTriangles[(3 * TriangleID) + TriVertexIndex], Value);
 	}
 
 	/**
@@ -541,6 +613,18 @@ public:
 	{
 		BaseType::SetElement(ElementID, Value);
 	}
+
+	/**
+	 * Iterate through triangles connected to VertexID and call ProcessFunc for each per-triangle-vertex Element with its Value.
+	 * ProcessFunc must return true to continue the enumeration, or false to early-terminate it
+	 *
+	 * @param bFindUniqueElements if true, ProcessFunc is only called once for each ElementID, otherwise it is called once for each Triangle
+	 * @return true if at least one valid Element was found, ie if ProcessFunc was called at least one time
+	 */
+	bool EnumerateVertexElements(
+		int VertexID,
+		TFunctionRef<bool(int TriangleID, int ElementID, const VectorType& Value)> ProcessFunc,
+		bool bFindUniqueElements = true) const;
 };
 
 

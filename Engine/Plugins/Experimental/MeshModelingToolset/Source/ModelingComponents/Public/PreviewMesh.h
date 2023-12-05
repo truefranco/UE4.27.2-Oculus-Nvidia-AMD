@@ -97,6 +97,11 @@ public:
 	void EnableWireframe(bool bEnable);
 
 	/**
+	 * Enable/disable shadow rendering
+	 */
+	void SetShadowsEnabled(bool bEnable);
+
+	/**
 	 * Set material on the preview mesh
 	 */
 	void SetMaterial(UMaterialInterface* Material);
@@ -172,6 +177,14 @@ public:
 	 * Note that this function may need to be called before the mesh is initialized.
 	 */
 	void SetTangentsMode(EDynamicMeshTangentCalcType TangentsType);
+
+	/**
+	 * Calculate tangents for the underlying component.
+	 * This will calculate and assign tangents for the preview mesh independent of the tangents mode.
+	 * But if the tangents mode is set to AutoCalculated then it will try to use the auto calculated tangents.
+	 * @return true if tangents were successfully calculated and assigned to the underlying mesh
+	 */
+	bool CalculateTangents();
 
 	/**
 	 * @return a MeshTangents data structure for the underlying component, if available, otherwise nullptr
@@ -277,13 +290,21 @@ public:
 
 	/**
 	 * Update the internal mesh by copying the given Mesh
+	 * @param Mesh to copy.
+	 * @param UpdateMode Type of rendering update required. Should be FullUpdate if topology changes, otherwise can be FastUpdate.
+	 * @param ModifiedAttribs Only relevant in case of FastUpdate- determines which attributes actually changed.
 	 */
-	void UpdatePreview(const FDynamicMesh3* Mesh);
+	void UpdatePreview(const FDynamicMesh3* Mesh, ERenderUpdateMode UpdateMode = ERenderUpdateMode::FullUpdate,
+		EMeshRenderAttributeFlags ModifiedAttribs = EMeshRenderAttributeFlags::All);
 
 	/**
 	 * Update the internal mesh by moving in the given Mesh
+	 * @param Mesh to move.
+	 * @param UpdateMode Type of rendering update required. Should be FullUpdate if topology changes, otherwise can be FastUpdate.
+	 * @param ModifiedAttribs Only relevant in case of FastUpdate- determines which attributes actually changed.
 	 */
-	void UpdatePreview(FDynamicMesh3&& Mesh);
+	void UpdatePreview(FDynamicMesh3&& Mesh, ERenderUpdateMode UpdateMode = ERenderUpdateMode::FullUpdate,
+		EMeshRenderAttributeFlags ModifiedAttribs = EMeshRenderAttributeFlags::All);
 
 	/**
 	 * Initialize the internal mesh based on the given MeshDescription
@@ -299,6 +320,12 @@ public:
 	* @return pointer to the current FDynamicMesh used for preview
 	*/
 	const FDynamicMesh3* GetMesh() const;
+
+	/**
+	 * Give external code direct read access to the internal FDynamicMesh3.
+	 * This should be used preferentially over GetMesh() / GetPreviewDynamicMesh()
+	 */
+	virtual void ProcessMesh(TFunctionRef<void(const FDynamicMesh3&)> ProcessFunc) const;
 
 	/**
 	 * @return point to the current AABBTree used for preview spatial mesh, or nullptr if not available
@@ -323,6 +350,11 @@ public:
 	//
 	// Edit access to internal mesh, and change-tracking/notification
 	// 
+
+	/**
+	 * Replace mesh with new mesh
+	 */
+	void ReplaceMesh(const FDynamicMesh3& NewMesh);
 
 	/**
 	 * Replace mesh with new mesh
@@ -386,7 +418,12 @@ public:
 	void ForceRebuildSpatial();
 
 
-
+	/**
+	 * Enable automatically-computed decomposition of internal mesh into subregions when rendering (ie inside the Component).
+	 * This allows for faster local updates via NotifyRegionDeferredEditCompleted() functions above.
+	 * Decomposition will be automatically recomputed as necessary when internal mesh is modified via changes, edits, etc
+	 */
+	virtual void SetEnableRenderMeshDecomposition(bool bEnable);
 
 public:
 	/** If true, we build a spatial data structure internally for the preview mesh, which allows for hit-testing */
@@ -407,6 +444,16 @@ protected:
 
 	/** Spatial data structure that is initialized if bBuildSpatialDataStructure = true when UpdatePreview() is called */
 	FDynamicMeshAABBTree3 MeshAABBTree;
+
+	/** If true, mesh will be chunked into multiple render buffers inside the DynamicMeshComponent */
+	bool bDecompositionEnabled = false;
+
+	/** Update chunk decomposition */
+	void UpdateRenderMeshDecomposition();
+
+	// This function is called internally on some changes, to let the path tracer know that this mesha/actor
+	// has been modified in a way that will require invalidating the current path tracing result
+	void NotifyWorldPathTracedOutputInvalidated();
 };
 
 

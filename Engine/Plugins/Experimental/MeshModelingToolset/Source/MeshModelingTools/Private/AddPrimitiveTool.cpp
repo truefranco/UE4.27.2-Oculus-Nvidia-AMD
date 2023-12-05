@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "AddPrimitiveTool.h"
+
+#include "BaseGizmos/TransformProxy.h"
 #include "ToolBuilderUtil.h"
 #include "InteractiveToolManager.h"
 #include "BaseBehaviors/MouseHoverBehavior.h"

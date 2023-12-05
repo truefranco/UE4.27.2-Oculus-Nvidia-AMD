@@ -19,7 +19,6 @@
 #include "Util/RefCountVector.h"
 #include "Util/SmallListSet.h"
 #include "VectorTypes.h"
-#include "VectorUtil.h"
 
 class FDynamicMeshAttributeSet;
 class FMeshShapeGenerator;
@@ -204,6 +203,14 @@ public:
 	/** Discard all data */
 	void Clear();
 
+	/**
+	 * Ensure that all the same extended attributes available in ToMatch are also enabled.
+	 * By default, clears existing attributes, so that there will be an exact match
+	 * If bClearExisting is passed as false, existing attributes are not removed/cleared.
+	 * If bDiscardExtraAttributes=true and bClearExisting=false, extra attributes not in ToMatch are discarded, but existing attributes are not cleared/reset
+	 */
+	void EnableMatchingAttributes(const FDynamicMesh3& ToMatch, bool bClearExisting = true, 
+		bool bDiscardExtraAttributes = false);
 
 public:
 	/** @return number of vertices in the mesh */
@@ -491,14 +498,17 @@ public:
 	}
 
 	/** Set vertex position */
-	inline void SetVertex(int VertexID, const FVector3d& vNewPos)
+	inline void SetVertex(int VertexID, const FVector3d& vNewPos, bool bTrackChange = true)
 	{
 		checkSlow(VectorUtil::IsFinite(vNewPos));
 		checkSlow(IsVertex(VertexID));
 		if (VectorUtil::IsFinite(vNewPos))
 		{
 			Vertices[VertexID] = vNewPos;
-			UpdateTimeStamp(true, false);
+			if (bTrackChange)
+			{
+				UpdateTimeStamp(true, false);
+			}
 		}
 	}
 

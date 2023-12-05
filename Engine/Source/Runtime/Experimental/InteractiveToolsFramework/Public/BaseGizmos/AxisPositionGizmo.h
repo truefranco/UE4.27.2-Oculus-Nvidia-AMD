@@ -9,7 +9,14 @@
 #include "BaseGizmos/GizmoComponents.h"
 #include "AxisPositionGizmo.generated.h"
 
-
+class IGizmoAxisSource;
+class IGizmoClickTarget;
+class IGizmoFloatParameterSource;
+class IGizmoStateTarget;
+class UClickDragInputBehavior;
+class UGizmoViewContext;
+class UObject;
+struct FToolBuilderState;
 
 
 UCLASS()
@@ -80,12 +87,49 @@ public:
 	UPROPERTY()
 	TScriptInterface<IGizmoStateTarget> StateTarget;
 
+	/** The mouse click behavior of the gizmo is accessible so that it can be modified to use different mouse keys. */
+	UPROPERTY()
+	UClickDragInputBehavior* MouseBehavior;
 
 public:
 	/** If enabled, then the sign on the parameter delta is always "increasing" when moving away from the origin point, rather than just being a projection onto the axis */
 	UPROPERTY()
 	bool bEnableSignedAxis = false;
 
+	/**
+	 * This gets checked to see if we should use the custom destination function to get a destination point for
+	 * the gizmo, rather than grabbing the closest point on axis to ray.
+	 */
+	TUniqueFunction<bool()> ShouldUseCustomDestinationFunc = []() {return false; };
+
+	struct FCustomDestinationParams
+	{
+		// Right now we use the custom destination function for aligning to items in the scene, which
+		// we just need the world ray for. If we want to use functions that use other inputs as the
+		// basis for the destination (for instance, just the line parameter), we would add those
+		// parameters here and would make sure that the gizmo passes them in.
+		const FRay* WorldRay = nullptr;
+	};
+
+	/**
+	 * If ShouldUseCustomDestinationFunc() returns true, this function gets queried to get a destination point.
+	 * The gizmo parameter will then be picked in such a way that the dragged location moves to the closest point
+	 * on the axis to the destination point (optionally offset by the start click position relative the axis origin,
+	 * if bCustomDestinationAlignsAxisOrigin is true, to align the axis origin itself). Can be used, for example,
+	 * to align to items in the scene.
+	 */
+	TUniqueFunction<bool(const FCustomDestinationParams& WorldRay, FVector& OutputPoint)> CustomDestinationFunc =
+		[](const FCustomDestinationParams& Params, FVector& OutputPoint) { return false; };
+
+	/**
+	 * Only used when a custom destination is obtained from CustomDestinationFunc. When false, the custom destination
+	 * is simply projected back to the axis to get the resulting parameter. This is useful when trying to align the
+	 * dragged point on the gizmo to the destination point.
+	 * If true, the same projection is performed, but the final parameter is adjusted to make the axis origin align
+	 * to the destination instead, rather than the aligning the grabbed point (since the user probably grabbed the
+	 * gizmo some distance away from the axis origin).
+	 */
+	bool bCustomDestinationAlignsAxisOrigin = true;
 
 public:
 	/** If true, we are in an active click+drag interaction, otherwise we are not */

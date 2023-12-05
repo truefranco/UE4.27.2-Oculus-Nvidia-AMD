@@ -68,7 +68,7 @@ public:
 		}
 
 
-		FDynamicMesh3* Mesh = ParentComponent->GetMesh();
+		FDynamicMesh3* Mesh = ParentComponent->GetRenderMesh();
 		if (Mesh->HasAttributes() && Mesh->Attributes()->HasMaterialID() && NumMaterials > 1)
 		{
 			bIsSingleBuffer = false;
@@ -107,9 +107,10 @@ public:
 		// find suitable overlays
 		FDynamicMeshUVOverlay* UVOverlay = Mesh->Attributes()->PrimaryUV();
 		FDynamicMeshNormalOverlay* NormalOverlay = Mesh->Attributes()->PrimaryNormals();
+		FDynamicMeshColorOverlay* ColorOverlay = Mesh->Attributes()->PrimaryColors();
 
 		TFunction<void(int, int, int, FVector3f&, FVector3f&)> TangentsFunc = nullptr;
-		const FMeshTangentsf* Tangents = ParentComponent->GetTangents();
+		const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
 		if (Tangents != nullptr)
 		{
 			TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, FVector3f& TangentX, FVector3f& TangentY)
@@ -129,7 +130,7 @@ public:
 				RenderBuffers->Triangles = Triangles;
 				InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 					Triangles.Num(), Triangles,
-					UVOverlay, NormalOverlay, TangentsFunc);
+					UVOverlay, NormalOverlay, ColorOverlay, TangentsFunc);
 
 				ENQUEUE_RENDER_COMMAND(FSimpleDynamicMeshSceneProxyInitializeFromDecomposition)(
 					[RenderBuffers](FRHICommandListImmediate& RHICmdList)
@@ -157,6 +158,7 @@ public:
 		// find suitable overlays
 		FDynamicMeshUVOverlay* UVOverlay = nullptr;
 		FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
+		FDynamicMeshColorOverlay* ColorOverlay = nullptr;
 		if (Mesh->HasAttributes())
 		{
 			UVOverlay = Mesh->Attributes()->PrimaryUV();
@@ -164,7 +166,7 @@ public:
 		}
 
 		TFunction<void(int, int, int, FVector3f&, FVector3f&)> TangentsFunc = nullptr;
-		const FMeshTangentsf* Tangents = ParentComponent->GetTangents();
+		const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
 		if (Tangents != nullptr)
 		{
 			TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, FVector3f& TangentX, FVector3f& TangentY)
@@ -175,7 +177,7 @@ public:
 
 		InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 			Mesh->TriangleCount(), Mesh->TriangleIndicesItr(),
-			UVOverlay, NormalOverlay, TangentsFunc);
+			UVOverlay, NormalOverlay, ColorOverlay, TangentsFunc);
 
 		ENQUEUE_RENDER_COMMAND(FSimpleDynamicMeshSceneProxyInitializeSingle)(
 			[RenderBuffers](FRHICommandListImmediate& RHICmdList)
@@ -198,9 +200,10 @@ public:
 		FDynamicMeshUVOverlay* UVOverlay = Mesh->Attributes()->PrimaryUV();
 		FDynamicMeshNormalOverlay* NormalOverlay = Mesh->Attributes()->PrimaryNormals();
 		FDynamicMeshMaterialAttribute* MaterialID = Mesh->Attributes()->GetMaterialID();
+		FDynamicMeshColorOverlay* ColorOverlay = Mesh->Attributes()->PrimaryColors();
 
 		TFunction<void(int, int, int, FVector3f&, FVector3f&)> TangentsFunc = nullptr;
-		const FMeshTangentsf* Tangents = ParentComponent->GetTangents();
+		const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
 		if (Tangents != nullptr)
 		{
 			TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, FVector3f& TangentX, FVector3f& TangentY)
@@ -257,7 +260,7 @@ public:
 
 				InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 					Triangles.Num(), Triangles,
-					UVOverlay, NormalOverlay, TangentsFunc);
+					UVOverlay, NormalOverlay, ColorOverlay, TangentsFunc);
 
 				RenderBuffers->Triangles = Triangles;
 
@@ -294,7 +297,7 @@ public:
 			check(Mesh->HasAttributes());
 			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
 
-			const FMeshTangentsf* Tangents = ParentComponent->GetTangents();
+			const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
 			if (Tangents != nullptr)
 			{
 				TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY)
@@ -310,6 +313,12 @@ public:
 			UVOVerlay = Mesh->Attributes()->PrimaryUV();
 		}
 
+		FDynamicMeshColorOverlay* ColorOverlay = nullptr;
+		if (bColors && ensure(Mesh->HasAttributes()))
+		{
+			ColorOverlay = Mesh->Attributes()->PrimaryColors();
+		}
+
 		if (bIsSingleBuffer)
 		{
 			check(RenderBufferSets.Num() == 1);
@@ -318,7 +327,7 @@ public:
 			{
 				UpdateVertexBuffersFromOverlays(Buffers, Mesh,
 					Mesh->TriangleCount(), Mesh->TriangleIndicesItr(),
-					NormalOverlay, TangentsFunc,
+					NormalOverlay, ColorOverlay, TangentsFunc,
 					bPositions, bNormals, bColors);
 			}
 			if (bUVs)
@@ -348,7 +357,7 @@ public:
 				{
 					UpdateVertexBuffersFromOverlays(Buffers, Mesh,
 						Buffers->Triangles->Num(), Buffers->Triangles.GetValue(),
-						NormalOverlay, TangentsFunc,
+						NormalOverlay, ColorOverlay, TangentsFunc,
 						bPositions, bNormals, bColors);
 				}
 				if (bUVs)
@@ -387,7 +396,7 @@ public:
 			check(Mesh->HasAttributes());
 			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
 
-			const FMeshTangentsf* Tangents = ParentComponent->GetTangents();
+			const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
 			if (Tangents != nullptr)
 			{
 				TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY)
@@ -403,6 +412,12 @@ public:
 			UVOVerlay = Mesh->Attributes()->PrimaryUV();
 		}
 
+		FDynamicMeshColorOverlay* ColorOverlay = nullptr;
+		if (bColors && ensure(Mesh->HasAttributes()))
+		{
+			ColorOverlay = Mesh->Attributes()->PrimaryColors();
+		}
+
 		ParallelFor(WhichBuffers.Num(), [&](int idx)
 		{
 			int32 BufferIndex = WhichBuffers[idx];
@@ -416,7 +431,7 @@ public:
 			{
 				UpdateVertexBuffersFromOverlays(Buffers, Mesh,
 					Buffers->Triangles->Num(), Buffers->Triangles.GetValue(),
-					NormalOverlay, TangentsFunc,
+					NormalOverlay, ColorOverlay, TangentsFunc,
 					bPositions, bNormals, bColors);
 			}
 			if (bUVs)

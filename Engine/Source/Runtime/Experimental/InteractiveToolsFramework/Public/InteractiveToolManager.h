@@ -11,8 +11,6 @@
 #include "ToolContextInterfaces.h"
 #include "InteractiveToolManager.generated.h"
 
-
-
 /** A Tool can be activated on a particular input device, currently identified by a "side" */
 UENUM()
 enum class EToolSide
@@ -72,6 +70,12 @@ protected:
 
 	/** Shutdown the ToolManager. Called by UInteractiveToolsContext. */
 	virtual void Shutdown();
+
+	/** Called immediately after a tool is built. Broadcasts OnToolPostBuild. */
+	virtual void DoPostBuild(EToolSide Side, UInteractiveTool* InBuiltTool, UInteractiveToolBuilder* InToolBuilder, const FToolBuilderState& InBuilderState);
+
+	/** Called immediately after a tool's Setup is called. Broadcasts OnToolPostSetup. */
+	virtual void DoPostSetup(EToolSide Side, UInteractiveTool* InInteractiveTool, UInteractiveToolBuilder* InToolBuilder, const FToolBuilderState& InBuilderState);
 
 public:
 
@@ -226,6 +230,41 @@ public:
 	/** Let active Tools do their screen space drawing. Called by UInteractiveToolsContext. */
 	virtual void DrawHUD(FCanvas* Canvas, IToolsContextRenderAPI* RenderAPI);
 
+	/**
+	 * A Tool (or other code) can call this function to request that the Tool be deactivated.
+	 * The Tool must be active. By default, ::DeactivateTool() wil be called. However if some
+	 * external code has bound to the OnToolShutdownRequest delegate, the request will be
+	 * forwarded to that function first (::DeactivateTool() will still be called if it returns false)
+	 *
+	 * If this function is called during InteractiveTool::Setup(), the Tool invocation will be aborted,
+	 * ie the Tool will be immediately shutdown with EToolShutdownType::Cancel, and never become "Active"/etc.
+	 * Note also that in this case the shutdown request *will not* be forwarded to the OnToolShutdownRequest delegate.
+	 *
+	 * @param bShowUnexpectedShutdownMessage if this was an unexpected shutdown, passing true here, along with a non-empty UnexpectedShutdownMessage, will result in OnToolUnexpectedShutdownMessage being called
+	 * @param UnexpectedShutdownMessage message provided by the caller meant to explain why the Tool has unexpectedly been shut down
+	 */
+	virtual bool PostActiveToolShutdownRequest(
+		UInteractiveTool* Tool,
+		EToolShutdownType ShutdownType,
+		bool bShowUnexpectedShutdownMessage = false,
+		const FText& UnexpectedShutdownMessage = FText());
+
+	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnToolShutdownRequest, UInteractiveToolManager*, UInteractiveTool*, EToolShutdownType);
+	/**
+	 * If bound, OnToolShutdownRequest is called by PostActiveToolShutdownRequest to optionally handle
+	 * requests to shut down a Tool (which may be sent by the Tool itself). Return true to indicate
+	 * that the request will be handled, otherwise ::DeactivateTool() will be called
+	 */
+	FOnToolShutdownRequest OnToolShutdownRequest;
+
+	DECLARE_MULTICAST_DELEGATE_FourParams(FOnToolUnexpectedShutdownMessage, UInteractiveToolManager*, UInteractiveTool*, const FText& Message, bool bWasDuringToolSetup);
+
+	/**
+	 * PostActiveToolShutdownRequest() will broadcast this delegate with a Message if bShowUnexpectedShutdownMessage=true.
+	 * If the shutdown was during Tool Setup/startup, bWasDuringToolSetup will be passed as true
+	 */
+	FOnToolUnexpectedShutdownMessage OnToolUnexpectedShutdownMessage;
+
 
 	//
 	// access to APIs, etc
@@ -234,8 +273,15 @@ public:
 	/** @return current IToolsContextQueriesAPI */
 	virtual IToolsContextQueriesAPI* GetContextQueriesAPI() { return QueriesAPI; }
 
+	/** @return current IToolsContextTransactionsAPI */
+	virtual IToolsContextTransactionsAPI* GetContextTransactionsAPI() final { return TransactionsAPI; }
+
 	UInteractiveGizmoManager* GetPairedGizmoManager();
 
+	/**
+	 * @return the context object store from the owning tools context.
+	 */
+	UContextObjectStore* GetContextObjectStore() const;
 
 public:
 	/** Currently-active Left Tool, or null if no Tool is active */
@@ -253,6 +299,12 @@ public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FToolManagerToolStartedSignature, UInteractiveToolManager*, UInteractiveTool*);
 	FToolManagerToolStartedSignature OnToolStarted;
 
+	DECLARE_MULTICAST_DELEGATE_FiveParams(FToolManagerToolPostBuildSignature, UInteractiveToolManager*, EToolSide, UInteractiveTool*, UInteractiveToolBuilder*, const FToolBuilderState&);
+	FToolManagerToolPostBuildSignature OnToolPostBuild;
+
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FToolManagerToolPostSetupSignature, UInteractiveToolManager*, EToolSide, UInteractiveTool*);
+	FToolManagerToolPostSetupSignature OnToolPostSetup;
+
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FToolManagerToolEndedSignature, UInteractiveToolManager*, UInteractiveTool*);
 	FToolManagerToolEndedSignature OnToolEnded;
 
@@ -269,6 +321,11 @@ protected:
 	/** This flag is set to true on Initialize() and false on Shutdown(). */
 	bool bIsActive = false;
 
+	// This bool is for handling the case where a Tool posts a shutdown request during it's Setup() call.
+	// In that case we will terminate the Tool immediately
+	bool bInToolSetup = false;
+	bool bToolRequestedTerminationDuringSetup = false;
+
 	/** Current set of named ToolBuilders */
 	UPROPERTY()
 	TMap<FString, UInteractiveToolBuilder*> ToolBuilders;
@@ -284,7 +341,9 @@ protected:
 
 	FString ActiveLeftToolName;
 	FString ActiveRightToolName;
-
+	bool bInToolShutdown = false;
+    
+	bool bActiveToolMadeSelectionStoreRequest = false;
 
 	virtual bool ActivateToolInternal(EToolSide Side);
 	virtual void DeactivateToolInternal(EToolSide Side, EToolShutdownType ShutdownType);

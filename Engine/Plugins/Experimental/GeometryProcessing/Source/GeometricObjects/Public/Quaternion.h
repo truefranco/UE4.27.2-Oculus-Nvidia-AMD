@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Math/Quat.h"
 #include "VectorTypes.h"
 #include "MatrixTypes.h"
 #include "IndexTypes.h"
@@ -85,6 +86,24 @@ struct TQuaternion
 		Y = (RealType)Quat.Y;
 		Z = (RealType)Quat.Z;
 		W = (RealType)Quat.W;
+	}
+
+	explicit inline operator FRotator() const
+	{
+		return ((FQuat)*this).Rotator();
+	}
+	
+	explicit inline TQuaternion(const FRotator& Rotator)
+	{
+		FQuat Quat(Rotator);
+		X = (RealType)Quat.X;
+		Y = (RealType)Quat.Y;
+		Z = (RealType)Quat.Z;
+		W = (RealType)Quat.W;
+	}
+	explicit inline operator TVector4<RealType>() const
+	{
+		return TVector4<RealType>(X, Y, Z, W);
 	}
 
 };

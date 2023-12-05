@@ -11,8 +11,10 @@
 #include "ToolContextInterfaces.h"
 #include "InteractiveGizmoManager.generated.h"
 
+class FTransformGizmoActorFactory;
 class UTransformGizmo;
 class UTransformGizmoBuilder;
+class UContextObjectStore;
 
 USTRUCT()
 struct FActiveGizmo
@@ -159,7 +161,6 @@ public:
 	 */
 	virtual void EmitObjectChange(UObject* TargetObject, TUniquePtr<FToolCommandChange> Change, const FText& Description );
 
-
 	//
 	// State control  (@todo: have the Context call these? not safe for anyone to call)
 	//
@@ -180,8 +181,10 @@ public:
 	/** @return current IToolsContextQueriesAPI */
 	virtual IToolsContextQueriesAPI* GetContextQueriesAPI() { return QueriesAPI; }
 
-
-
+	/**
+	 * @return the context object store from the owning tools context.
+	 */
+	UContextObjectStore* GetContextObjectStore() const;
 
 public:
 	//
@@ -210,6 +213,7 @@ public:
 	 */
 	virtual UTransformGizmo* CreateCustomTransformGizmo(ETransformGizmoSubElements Elements, void* Owner = nullptr, const FString& InstanceIdentifier = FString());
 
+	virtual UTransformGizmo* CreateCustomRepositionableTransformGizmo(ETransformGizmoSubElements Elements, void* Owner = nullptr, const FString& InstanceIdentifier = FString());
 
 public:
 	// builder identifiers for default gizmo types. Perhaps should have an API for this...
@@ -218,7 +222,7 @@ public:
 	static FString DefaultAxisAngleBuilderIdentifier;
 	static FString DefaultThreeAxisTransformBuilderIdentifier;
 	static const FString CustomThreeAxisTransformBuilderIdentifier;
-
+	static const FString CustomRepositionableThreeAxisTransformBuilderIdentifier;
 
 protected:
 	/** set of Currently-active Gizmos */
@@ -240,5 +244,5 @@ protected:
 	TMap<FString, UInteractiveGizmoBuilder*> GizmoBuilders;
 
 	bool bDefaultGizmosRegistered = false;
-	UTransformGizmoBuilder* CustomThreeAxisBuilder = nullptr;
+	TSharedPtr<FTransformGizmoActorFactory> GizmoActorBuilder;
 };

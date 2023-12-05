@@ -174,6 +174,9 @@ void URemoveOccludedTrianglesTool::SetupPreviews()
 	auto EnterProgressFrame = [](float Progress) {};
 #endif
 
+	// create a "magic pink" secondary material to mark occluded faces (to be used if we are setting a new triangle group instead of removing faces)
+	UMaterialInterface* OccludedMaterial = ToolSetupUtil::GetSelectionMaterial(FLinearColor(0.9f, 0.1f, 0.9f), GetToolManager());
+
 	OriginalDynamicMeshes.SetNum(NumPreviews);
 	PreviewToCopyIdx.Reset(); PreviewToCopyIdx.SetNum(NumPreviews);
 	for (int32 TargetIdx = 0; TargetIdx < NumTargets; TargetIdx++)
@@ -206,6 +209,9 @@ void URemoveOccludedTrianglesTool::SetupPreviews()
 			Preview->PreviewMesh->SetTransform(ComponentTargets[TargetIdx]->GetWorldTransform());
 			Preview->PreviewMesh->UpdatePreview(OriginalDynamicMeshes[PreviewIdx].Get());
 			Preview->SetVisibility(true);
+
+			// configure secondary render material
+			Preview->SecondaryMaterial = OccludedMaterial;
 		}
 		else
 		{
@@ -352,10 +358,12 @@ void URemoveOccludedTrianglesTool::OnTick(float DeltaTime)
 			if (bIsWorking)
 			{		
 				PreviewCopies[CopyIdx]->SetOverrideRenderMaterial(Preview->WorkingMaterial);
+				PreviewCopies[CopyIdx]->ClearSecondaryRenderMaterial();
 			}
 			else
 			{
 				PreviewCopies[CopyIdx]->ClearOverrideRenderMaterial();
+				PreviewCopies[CopyIdx]->SetSecondaryRenderMaterial(Preview->SecondaryMaterial);
 			}
 		}
 	}

@@ -123,7 +123,7 @@ public:
 
 
 
-void FMeshDescriptionToDynamicMesh::Convert(const FMeshDescription* MeshIn, FDynamicMesh3& MeshOut)
+void FMeshDescriptionToDynamicMesh::Convert(const FMeshDescription* MeshIn, FDynamicMesh3& MeshOut, bool bCopyTangents)
 {
 	// look up vertex positions
 	const FVertexArray& VertexIDs = MeshIn->Vertices();

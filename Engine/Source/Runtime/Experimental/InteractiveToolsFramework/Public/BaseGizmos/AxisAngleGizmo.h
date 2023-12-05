@@ -9,7 +9,13 @@
 #include "BaseGizmos/GizmoComponents.h"
 #include "AxisAngleGizmo.generated.h"
 
-
+class IGizmoAxisSource;
+class IGizmoClickTarget;
+class IGizmoFloatParameterSource;
+class IGizmoStateTarget;
+class UClickDragInputBehavior;
+class UObject;
+struct FToolBuilderState;
 
 
 UCLASS()
@@ -64,6 +70,35 @@ public:
 
 	UPROPERTY()
 	TScriptInterface<IGizmoStateTarget> StateTarget;
+
+	/** The mouse click behavior of the gizmo is accessible so that it can be modified to use different mouse keys. */
+	UPROPERTY()
+	UClickDragInputBehavior* MouseBehavior;
+
+	/**
+	 * This gets checked to see if we should use the custom ray caster to get a destination point for the gizmo, rather
+	 * than grabbing the intersection with the gizmo plane.
+	 */
+	TUniqueFunction<bool()> ShouldUseCustomDestinationFunc = []() {return false; };
+
+	struct FCustomDestinationParams
+	{
+		// Right now we use the custom destination function for aligning to items in the scene, which
+		// we just need the world ray for. If we want to use functions that use other inputs as the
+		// basis for the destination, we would add those parameters here and would make sure that the
+		// gizmo passes them in.
+		const FRay* WorldRay = nullptr;
+	};
+
+	/**
+	 * If ShouldUseCustomDestinationFunc() returns true, this function is used to get a destination point, and
+	 * the output parameter is picked in such a way that the closest axis in the plane of the gizmo (the positive or
+	 * negative x or y, if we're rotating around z, for instance) moves to the closest point in the plane to the
+	 * destination point.
+	 * Used, for instance, for aligning to items in the scene.
+	 */
+	TUniqueFunction<bool(const FCustomDestinationParams& WorldRay, FVector& OutputPoint)> CustomDestinationFunc =
+		[](const FCustomDestinationParams& Params, FVector& OutputPoint) { return false; };
 
 public:
 	UPROPERTY()

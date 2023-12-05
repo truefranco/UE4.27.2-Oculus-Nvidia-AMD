@@ -69,13 +69,21 @@ protected:
 enum class EBackgroundComputeTaskStatus
 {
 	/** Computation of a result has finished and is waiting to be returned */
-	NewResultAvailable = 0,
+	ValidResultAvailable,
+
+	/**
+	 * We have a result available, but a recompute has been requested. The status is not yet
+	 * InProgress only because there is a delay of CancelActiveOpDelaySeconds between the
+	 * request and operation restart, and we have not yet restarted.
+	 */
+	DirtyResultAvailable,
+
 	/** Last active computation was canceled and nothing new has happend yet*/
-	Aborted = 1,
+	Aborted,
 	/** Computation is currently running */
-	InProgress = 2,
+	InProgress,
 	/** Not running active computation, and last result has already been returned, so no new results to report */
-	NotComputing = 3
+	NotComputing
 };
 
 
@@ -129,6 +137,7 @@ protected:
 
 	double AccumTime = 0;
 	double LastStartTime = 0;
+	mutable double LastEndTime = 0;
 	double LastInvalidateTime = 0;
 
 	void StartNewCompute();
@@ -159,10 +168,21 @@ public:
 	 */
 	void NotifyActiveComputeInvalidated();
 
+	struct FStatus
+	{
+		EBackgroundComputeTaskStatus TaskStatus = EBackgroundComputeTaskStatus::NotComputing;
+
+		// if TaskStatus == ValidResultAvailable then this is the time spent computing the (valid) result
+		// if TaskStatus == DirtyResultAvailable then this is the time spent computing the (dirty) result
+		// if TaskStatus == Aborted              then this is the time spent computing the result before the task was aborted
+		// if TaskStatus == InProgress           then this is the time spent computing the result so far
+		// if TaskStatus == NotComputing         then this is the time spent not computing anything
+		double ElapsedTime = -1;
+	};
 	/**
 	 * Return status of the active background computation.
 	 */
-	EBackgroundComputeTaskStatus CheckStatus() const;
+	FStatus CheckStatus() const;
 
 	/**
 	 * @return The last computed Operator. This may only be called once, the caller then owns the Operator.
@@ -172,7 +192,14 @@ public:
 	/**
 	 * @return duration in seconds of current computation
 	 */
-	double GetElapsedComputeTime() const { return (AccumTime - LastInvalidateTime); }
+	double GetElapsedComputeTime() const {
+		FStatus Status = CheckStatus();
+		if (Status.TaskStatus == EBackgroundComputeTaskStatus::InProgress)
+		{
+			return Status.ElapsedTime;
+		}
+		return 0.;
+	}
 
 public:
 	/** Default wait delay for cancel/restart cycle */
@@ -233,11 +260,10 @@ void TBackgroundModelingComputeSource<OpType, OpTypeFactory>::StartNewCompute()
 template<typename OpType, typename OpTypeFactory>
 void TBackgroundModelingComputeSource<OpType, OpTypeFactory>::NotifyActiveComputeInvalidated()
 {
-	LastInvalidateTime = AccumTime;
-
 	// switch to waiting-to-cancel state
 	if (TaskState == EBackgroundComputeTaskState::ComputingResult)
 	{
+		LastInvalidateTime = AccumTime;
 		TaskState = EBackgroundComputeTaskState::WaitingToCancel;
 	}
 
@@ -253,24 +279,41 @@ void TBackgroundModelingComputeSource<OpType, OpTypeFactory>::NotifyActiveComput
 
 
 template<typename OpType, typename OpTypeFactory>
-EBackgroundComputeTaskStatus TBackgroundModelingComputeSource<OpType, OpTypeFactory>::CheckStatus() const
+typename TBackgroundModelingComputeSource<OpType, OpTypeFactory>::FStatus
+TBackgroundModelingComputeSource<OpType, OpTypeFactory>::CheckStatus() const
 {
-	if (ActiveBackgroundTask != nullptr)
+	FStatus Status;
+
+	if (ActiveBackgroundTask == nullptr)
 	{
-		if (ActiveBackgroundTask->IsDone())
-		{
-			return ActiveBackgroundTask->GetTask().IsAborted() ?
-				EBackgroundComputeTaskStatus::Aborted : EBackgroundComputeTaskStatus::NewResultAvailable;
-		}
-		else
-		{
-			return EBackgroundComputeTaskStatus::InProgress;
-		}
+		Status.TaskStatus = EBackgroundComputeTaskStatus::NotComputing;
+		Status.ElapsedTime = AccumTime - LastInvalidateTime;
+	}
+	else if (!ActiveBackgroundTask->IsDone())
+	{
+		Status.TaskStatus = EBackgroundComputeTaskStatus::InProgress;
+		Status.ElapsedTime = AccumTime - LastStartTime;
+	}
+	else if (ActiveBackgroundTask->GetTask().IsAborted())
+	{
+		Status.TaskStatus = EBackgroundComputeTaskStatus::Aborted;
+		Status.ElapsedTime = LastInvalidateTime - LastStartTime;
 	}
 	else
 	{
-		return EBackgroundComputeTaskStatus::NotComputing;
+		if (TaskState == EBackgroundComputeTaskState::ComputingResult)
+		{
+			LastEndTime = AccumTime;
+		}
+
+		// Task is done and not aborted, but we may be waiting to start a new one
+		Status.TaskStatus = (TaskState == EBackgroundComputeTaskState::WaitingToCancel ?
+			EBackgroundComputeTaskStatus::DirtyResultAvailable :
+			EBackgroundComputeTaskStatus::ValidResultAvailable);
+		Status.ElapsedTime = LastEndTime - LastStartTime;
 	}
+
+	return Status;
 }
 
 

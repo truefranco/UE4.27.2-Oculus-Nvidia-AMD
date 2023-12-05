@@ -12,6 +12,7 @@
 #include "MeshSelectionTool.h"
 #include "TransformMeshesTool.h"
 #include "PlaneCutTool.h"
+#include "CubeGridTool.h"
 #include "EditMeshPolygonsTool.h"
 #include "DrawAndRevolveTool.h"
 
@@ -85,6 +86,7 @@ void FModelingToolActionCommands::RegisterAllToolActions()
 	FTransformToolActionCommands::Register();
 	FMeshSelectionToolActionCommands::Register();
 	FMeshPlaneCutToolActionCommands::Register();
+	FCubeGridToolActionCommands::Register();
 	FEditMeshPolygonsToolActionCommands::Register();
 	FDrawAndRevolveToolActionCommands::Register();
 }
@@ -98,6 +100,7 @@ void FModelingToolActionCommands::UnregisterAllToolActions()
 	FTransformToolActionCommands::Unregister();
 	FMeshSelectionToolActionCommands::Unregister();
 	FMeshPlaneCutToolActionCommands::Unregister();
+	FCubeGridToolActionCommands::Unregister();
 	FEditMeshPolygonsToolActionCommands::Unregister();
 	FDrawAndRevolveToolActionCommands::Unregister();
 }
@@ -132,6 +135,10 @@ void FModelingToolActionCommands::UpdateToolCommandBinding(UInteractiveTool* Too
 	else if (Cast<UPlaneCutTool>(Tool) != nullptr)
 	{
 		UPDATE_BINDING(FMeshPlaneCutToolActionCommands);
+	}
+	else if (Cast<UCubeGridTool>(Tool) != nullptr)
+	{
+		UPDATE_BINDING(FCubeGridToolActionCommands);
 	}
 	else if (Cast<UEditMeshPolygonsTool>(Tool) != nullptr)
 	{
@@ -168,6 +175,7 @@ DEFINE_TOOL_ACTION_COMMANDS(FTransformToolActionCommands, "ModelingToolsTransfor
 DEFINE_TOOL_ACTION_COMMANDS(FDrawPolygonToolActionCommands, "ModelingToolsDrawPolygonTool", "Modeling Tools - Draw Polygon Tool", UDrawPolygonTool);
 DEFINE_TOOL_ACTION_COMMANDS(FMeshSelectionToolActionCommands, "ModelingToolsMeshSelectionTool", "Modeling Tools - Mesh Selection Tool", UMeshSelectionTool);
 DEFINE_TOOL_ACTION_COMMANDS(FMeshPlaneCutToolActionCommands, "ModelingToolsMeshPlaneCutTool", "Modeling Tools - Mesh Plane Cut Tool", UPlaneCutTool);
+DEFINE_TOOL_ACTION_COMMANDS(FCubeGridToolActionCommands, "ModelingToolsCubeGridTool", "Modeling Tools - Cube Grid Tool", UCubeGridTool);
 DEFINE_TOOL_ACTION_COMMANDS(FEditMeshPolygonsToolActionCommands, "ModelingToolsEditMeshPolygonsTool", "Modeling Tools - Edit Mesh Polygons Tool", UEditMeshPolygonsTool);
 DEFINE_TOOL_ACTION_COMMANDS(FDrawAndRevolveToolActionCommands, "ModelingToolsDrawAndRevolveTool", "Modeling Tools - Draw-and-Revolve Tool", UDrawAndRevolveTool);
 

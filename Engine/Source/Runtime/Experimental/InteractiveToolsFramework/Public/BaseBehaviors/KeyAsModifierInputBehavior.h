@@ -34,7 +34,7 @@ public:
 	 * @param ModifierKey the key that will be used as the modifier toggle
 	 */
 	virtual void Initialize(IModifierToggleBehaviorTarget* Target, int ModifierID, const FKey& ModifierKey);
-
+	void Initialize(IModifierToggleBehaviorTarget* TargetIn, int ModifierID, TFunction<bool(const FInputDeviceState&)> ModifierCheckFunction);
 	/**
 	 * WantsCapture() will only return capture request if this function returns true (or is null)
 	 * Intended to be used for alt/ctrl/cmd/shift modifiers on the main ModifierKey

@@ -54,20 +54,44 @@ public:
 	public:
 		using FValueGetter = TFunction<PropType(void)>;
 		using FChangedCallback = TFunction<void(const PropType&)>;
+		using FNotEqualTestFunction = TFunction<bool(const PropType&, const PropType&)>;
 
 		TPropertyWatcher(const PropType& Property,
 						 FChangedCallback OnChangedIn)
-			: GetValue([&Property](){return Property;}),
-			  OnChanged(MoveTemp(OnChangedIn))
+			: Cached(),
+			GetValue([&Property](){return Property;}),
+			OnChanged(MoveTemp(OnChangedIn)),
+			NotEqual([](const PropType& A, const PropType& B) { return A != B; })
 		{}
 		TPropertyWatcher(FValueGetter GetValueIn,
 						 FChangedCallback OnChangedIn)
-			: GetValue(MoveTemp(GetValueIn)), OnChanged(MoveTemp(OnChangedIn))
+			: Cached(),
+			GetValue(MoveTemp(GetValueIn)), 
+			OnChanged(MoveTemp(OnChangedIn)),
+			NotEqual([](const PropType& A, const PropType& B) { return A != B; })
 		{}
+		TPropertyWatcher(const PropType& Property,
+			FChangedCallback OnChangedIn,
+			FNotEqualTestFunction NotEqualIn)
+			: Cached(),
+			GetValue([&Property]() {return Property; }),
+			OnChanged(MoveTemp(OnChangedIn)),
+			NotEqual(MoveTemp(NotEqualIn))
+		{}
+
+		TPropertyWatcher(FValueGetter GetValueIn,
+			FChangedCallback OnChangedIn,
+			FNotEqualTestFunction NotEqualIn)
+			: Cached(),
+			GetValue(MoveTemp(GetValueIn)),
+			OnChanged(MoveTemp(OnChangedIn)),
+			NotEqual(MoveTemp(NotEqualIn))
+		{}
+
 		void CheckAndUpdate() final
 		{
 			PropType Value = GetValue();
-			if ((!Cached.IsSet()) || (Cached.GetValue() != Value))
+			if ((!Cached.IsSet()) || NotEqual(Cached.GetValue(), Value))
 			{
 				Cached = Value;
 				OnChanged(Cached.GetValue());
@@ -81,6 +105,7 @@ public:
 		TOptional<PropType> Cached;
 		FValueGetter GetValue;
 		FChangedCallback OnChanged;
+		FNotEqualTestFunction NotEqual;
 	};
 
 	FWatchablePropertySet() = default;
@@ -101,18 +126,44 @@ public:
 			PropWatcher->SilentUpdate();
 		}
 	}
+	/**
+	 * Silently updates just a single watcher, using an index gotten from WatchProperty.
+	 * Useful when you want watching to still work for other properties changed in the
+	 * same tick.
+	 */
+	void SilentUpdateWatcherAtIndex(int32 i)
+	{
+		check(i >= 0 && i < PropertyWatchers.Num());
+		PropertyWatchers[i]->SilentUpdate();
+	}
 
 	template <typename PropType>
-	void WatchProperty(const PropType& ValueIn,
+	int32 WatchProperty(const PropType& ValueIn,
 					   typename TPropertyWatcher<PropType>::FChangedCallback OnChangedIn)
 	{
-		PropertyWatchers.Emplace(MakeUnique<TPropertyWatcher<PropType>>(ValueIn, OnChangedIn));
+		return PropertyWatchers.Emplace(MakeUnique<TPropertyWatcher<PropType>>(ValueIn, OnChangedIn));
 	}
 	template <typename PropType>
-	void WatchProperty(typename TPropertyWatcher<PropType>::FValueGetter GetValueIn,
+	int32 WatchProperty(typename TPropertyWatcher<PropType>::FValueGetter GetValueIn,
 					   typename TPropertyWatcher<PropType>::FChangedCallback OnChangedIn)
 	{
-		PropertyWatchers.Emplace(MakeUnique<TPropertyWatcher<PropType>>(GetValueIn, OnChangedIn));
+		return PropertyWatchers.Emplace(MakeUnique<TPropertyWatcher<PropType>>(GetValueIn, OnChangedIn));
+	}
+	/** @return Index of the watcher, which can be used in SilentUpdateWatcherAtIndex */
+	template <typename PropType>
+	int32 WatchProperty(const PropType& ValueIn,
+		typename TPropertyWatcher<PropType>::FChangedCallback OnChangedIn,
+		typename TPropertyWatcher<PropType>::FNotEqualTestFunction NotEqualsIn)
+	{
+		return PropertyWatchers.Emplace(MakeUnique<TPropertyWatcher<PropType>>(ValueIn, OnChangedIn, NotEqualsIn));
+	}
+	/** @return Index of the watcher, which can be used in SilentUpdateWatcherAtIndex */
+	template <typename PropType>
+	int32 WatchProperty(typename TPropertyWatcher<PropType>::FValueGetter GetValueIn,
+		typename TPropertyWatcher<PropType>::FChangedCallback OnChangedIn,
+		typename TPropertyWatcher<PropType>::FNotEqualTestFunction NotEqualsIn)
+	{
+		return PropertyWatchers.Emplace(MakeUnique<TPropertyWatcher<PropType>>(GetValueIn, OnChangedIn, NotEqualsIn));
 	}
 private:
 	TArray<TUniquePtr<FPropertyWatcher>> PropertyWatchers;
@@ -167,12 +218,12 @@ public:
 	 * dynamic type of the specified property set subclass which may be used as a place to save/restore these properties
 	 * by customized Save/Restore functions
 	 */
-	virtual void SaveProperties(UInteractiveTool* SaveFromTool);
-	virtual void RestoreProperties(UInteractiveTool* RestoreToTool);
+	virtual void SaveProperties(UInteractiveTool* SaveFromTool, const FString& CacheIdentifier = TEXT(""));
+	virtual void RestoreProperties(UInteractiveTool* RestoreToTool, const FString& CacheIdentifier = TEXT(""));
 private:
 
 	// Utility func used to implement the default Save/RestoreProperties funcs
-	void SaveRestoreProperties(UInteractiveTool* RestoreToTool, bool bSaving);
+	void SaveRestoreProperties(UInteractiveTool* RestoreToTool, const FString& CacheIdentifier, bool bSaving);
 protected:
 	/**
 	 * GetPropertyCache returns a class-internal object that subclasses can use to save/restore properties.
@@ -311,7 +362,9 @@ public:
 	 * Add an input behavior for this Tool
 	 * @param Behavior behavior to add
 	 */
-	virtual void AddInputBehavior(UInputBehavior* Behavior);
+	
+
+	virtual void AddInputBehavior(UInputBehavior* Behavior, void* Source = nullptr);
 
 	/**
 	 * @return Current input behavior set.
@@ -335,6 +388,17 @@ public:
 	OnInteractiveToolPropertySetsModified OnPropertySetsModified;
 
 	/**
+	 * OnPropertyModifiedDirectlyByTool is broadcast whenever the ToolPropertyObjects array stays the same, but a property
+	 * inside of one of the objects is changed internally by the tool. This allows any external display of such properties
+	 * to properly update. In a DetailsViewPanel, for instance, it refreshes certain cached states such as edit condition
+	 * states for other properties.
+	 *
+	 * This should only broadcast when the tool itself is responsible for the change, so it typically isn't broadcast
+	 * from the tool's OnPropertyModified function.
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(OnInteractiveToolPropertyInternallyModified, UObject*);
+	OnInteractiveToolPropertyInternallyModified OnPropertyModifiedDirectlyByTool;
+	/**
 	 * Automatically called by UInteractiveToolPropertySet.OnModified delegate to notify Tool of child property set changes
 	 * @param PropertySet which UInteractiveToolPropertySet was modified
 	 * @param Property which FProperty in the set was modified
@@ -347,11 +411,11 @@ public:
 protected:
 
 	/** The current set of InputBehaviors provided by this Tool */
-	UPROPERTY()
+	UPROPERTY(Transient, DuplicateTransient, NonTransactional, SkipSerialization)
 	UInputBehaviorSet* InputBehaviors;
 
 	/** The current set of Property UObjects provided by this Tool. May contain pointer to itself. */
-	UPROPERTY()
+	UPROPERTY(Transient, DuplicateTransient, NonTransactional, SkipSerialization)
 	TArray<UObject*> ToolPropertyObjects;
 
 	/**
@@ -390,6 +454,19 @@ protected:
 	 */
 	virtual bool SetToolPropertySourceEnabled(UInteractiveToolPropertySet* PropertySet, bool bEnabled);
 
+	/**
+	 * Call after changing a propertyset internally in the tool to allow external views of the property
+	 * set to update properly. This is meant as an outward notification mechanism, not a way to to
+	 * pass along notifications, so don't call this if the property is changed externally (i.e., this
+	 * should not usually be called from OnPropertyModified unless the tool adds changes of its own).
+	 */
+	virtual void NotifyOfPropertyChangeByTool(UInteractiveToolPropertySet* PropertySet) const;
+
+	enum EAcceptWarning
+	{
+		NoWarning,
+		EmptyForbidden
+	};
 
 	//
 	// Action support/system
@@ -399,6 +476,19 @@ protected:
 	// find out what Actions your Tool supports, and ExecuteAction() to run those actions.
 	//
 
+	/**
+	 * Helper function to update a standard warning when we need to explain why "Accept" is disabled
+	 * Note that calling this base implementation will clear any unrelated warnings.
+	 * Note that this function is not automatically called by the base class.
+	 *
+	 * @param Warning Reason that tool cannot be accepted (or EAcceptWarning::NoWarning if no warning need be displayed)
+	 */
+	virtual void UpdateAcceptWarnings(EAcceptWarning Warning);
+
+private:
+	// Tracks whether the UpdateAcceptWarnings function showed a warning the last time it was called.
+	// Used to avoid clearing the tool display message in cases where it was not set by this function.
+	bool bLastShowedAcceptWarning = false;
 private:
 	/**
 	 * Allow the Tool to do any necessary processing on Tick

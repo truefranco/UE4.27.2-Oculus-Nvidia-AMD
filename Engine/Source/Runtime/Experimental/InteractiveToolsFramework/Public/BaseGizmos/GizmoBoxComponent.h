@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "BaseGizmos/GizmoBaseComponent.h"
+#include "BaseGizmos/TransformGizmo.h"
 #include "GizmoBoxComponent.generated.h"
 
 /**
@@ -35,6 +36,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = Options)
 	bool bEnableAxisFlip = true;
 
+	void SetGizmoViewContext(UGizmoViewContext* GizmoViewContextIn)
+	{
+		GizmoViewContext = GizmoViewContextIn;
+		bIsViewDependent = (GizmoViewContext != nullptr);
+	}
+
 private:
 	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
@@ -53,5 +60,20 @@ private:
 
 	// gizmo visibility
 	bool bRenderVisibility = true;
+
+protected:
+
+	// hover state
+	bool bHovering = false;
+
+	// world/local coordinates state
+	bool bWorld = false;
+
+	UPROPERTY()
+	UGizmoViewContext* GizmoViewContext = nullptr;
+
+	// True when GizmoViewContext is not null. Here as a boolean so it
+	// can be pointed to by the proxy to see what it should do.
+	bool bIsViewDependent = false;
 
 };

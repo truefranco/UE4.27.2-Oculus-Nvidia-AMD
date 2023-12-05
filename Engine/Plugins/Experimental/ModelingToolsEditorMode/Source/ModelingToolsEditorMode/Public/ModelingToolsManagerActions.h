@@ -36,6 +36,7 @@ public:
 	TSharedPtr<FUICommandInfo> BeginShapeSprayTool;
 
 	TSharedPtr<FUICommandInfo> BeginSculptMeshTool;
+	TSharedPtr<FUICommandInfo> BeginCubeGridTool;
 	TSharedPtr<FUICommandInfo> BeginPolyEditTool;
 	TSharedPtr<FUICommandInfo> BeginGroupEdgeInsertionTool;
 	TSharedPtr<FUICommandInfo> BeginEdgeLoopInsertionTool;
@@ -51,6 +52,7 @@ public:
 	TSharedPtr<FUICommandInfo> BeginCombineMeshesTool;
 	TSharedPtr<FUICommandInfo> BeginDuplicateMeshesTool;
 	TSharedPtr<FUICommandInfo> BeginAlignObjectsTool;
+	TSharedPtr<FUICommandInfo> BeginPatternTool;
 
 	TSharedPtr<FUICommandInfo> BeginRemeshSculptMeshTool;
 	TSharedPtr<FUICommandInfo> BeginRemeshMeshTool;

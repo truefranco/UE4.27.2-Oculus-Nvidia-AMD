@@ -76,15 +76,17 @@ public:
 		// find suitable overlays
 		FDynamicMeshUVOverlay* UVOverlay = nullptr;
 		FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
+		FDynamicMeshColorOverlay* ColorOverlay = nullptr;
 		if (Mesh->HasAttributes())
 		{
 			UVOverlay = Mesh->Attributes()->PrimaryUV();
 			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
+			ColorOverlay = Mesh->Attributes()->PrimaryColors();
 		}
 
 		InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 			Mesh->TriangleCount(), Mesh->TriangleIndicesItr(),
-			UVOverlay, NormalOverlay);
+			UVOverlay, NormalOverlay, ColorOverlay );
 
 		ENQUEUE_RENDER_COMMAND(FOctreeDynamicMeshSceneProxyInitializeSingle)(
 			[this, RenderBuffers](FRHICommandListImmediate& RHICmdList)
@@ -105,10 +107,12 @@ public:
 		// find suitable overlays
 		FDynamicMeshUVOverlay* UVOverlay = nullptr;
 		FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
+		FDynamicMeshColorOverlay* ColorOverlay = nullptr;
 		if (Mesh->HasAttributes())
 		{
 			UVOverlay = Mesh->Attributes()->PrimaryUV();
 			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
+			ColorOverlay = Mesh->Attributes()->PrimaryColors();
 		}
 
 		const TArray<int32>& SetIDs = Decomposition.GetIndexSetIDs();
@@ -121,7 +125,7 @@ public:
 
 			InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 				Tris.Num(), Tris,
-				UVOverlay, NormalOverlay);
+				UVOverlay, NormalOverlay, ColorOverlay);
 
 			ENQUEUE_RENDER_COMMAND(FOctreeDynamicMeshSceneProxyInitializeFromDecomposition)(
 				[this, SetID, RenderBuffers](FRHICommandListImmediate& RHICmdList)
@@ -162,10 +166,12 @@ public:
 		// find suitable overlays
 		FDynamicMeshUVOverlay* UVOverlay = nullptr;
 		FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
+		FDynamicMeshColorOverlay* ColorOverlay = nullptr;
 		if (Mesh->HasAttributes())
 		{
 			UVOverlay = Mesh->Attributes()->PrimaryUV();
 			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
+			ColorOverlay = Mesh->Attributes()->PrimaryColors();
 		}
 
 		{
@@ -181,7 +187,7 @@ public:
 
 				InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 					Tris.Num(), Tris,
-					UVOverlay, NormalOverlay);
+					UVOverlay, NormalOverlay, ColorOverlay);
 
 				ENQUEUE_RENDER_COMMAND(FOctreeDynamicMeshSceneProxyUpdateAddOne)(
 					[this, SetID, RenderBuffers](FRHICommandListImmediate& RHICmdList)

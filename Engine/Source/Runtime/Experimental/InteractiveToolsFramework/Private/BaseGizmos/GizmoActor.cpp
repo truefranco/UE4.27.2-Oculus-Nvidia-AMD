@@ -7,6 +7,7 @@
 #include "BaseGizmos/GizmoCircleComponent.h"
 #include "BaseGizmos/GizmoBoxComponent.h"
 #include "BaseGizmos/GizmoLineHandleComponent.h"
+#include "BaseGizmos/TransformGizmo.h"
 
 #include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
@@ -85,6 +86,25 @@ UGizmoBoxComponent* AGizmoActor::AddDefaultBoxComponent(
 	UGizmoBoxComponent* NewBox = NewObject<UGizmoBoxComponent>(Actor);
 	Actor->AddInstanceComponent(NewBox);
 	NewBox->AttachToComponent(Actor->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	NewBox->Origin = Origin;
+	NewBox->Color = Color;
+	NewBox->Dimensions = Dimensions;
+	NewBox->RegisterComponent();
+	return NewBox;
+}
+
+UGizmoBoxComponent* AGizmoActor::AddDefaultBoxComponent(
+	UWorld* World, AActor* Actor, UGizmoViewContext* GizmoViewContext,
+	const FLinearColor& Color, const FVector& Origin,
+	const FVector& Dimensions
+)
+{
+	ensure(GizmoViewContext);
+
+	UGizmoBoxComponent* NewBox = NewObject<UGizmoBoxComponent>(Actor);
+	Actor->AddInstanceComponent(NewBox);
+	NewBox->AttachToComponent(Actor->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	NewBox->SetGizmoViewContext(GizmoViewContext);
 	NewBox->Origin = Origin;
 	NewBox->Color = Color;
 	NewBox->Dimensions = Dimensions;

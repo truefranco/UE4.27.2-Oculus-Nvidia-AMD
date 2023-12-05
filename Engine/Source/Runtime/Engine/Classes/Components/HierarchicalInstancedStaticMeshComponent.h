@@ -206,7 +206,7 @@ public:
 #endif
 
 	// UInstancedStaticMesh interface
-	virtual int32 AddInstance(const FTransform& InstanceTransform) override;
+	virtual int32 AddInstance(const FTransform& InstanceTransform, bool bWorldSpace = false) override;
 	virtual TArray<int32> AddInstances(const TArray<FTransform>& InstanceTransforms, bool bShouldReturnIndices) override;
 	virtual bool RemoveInstance(int32 InstanceIndex) override;
 	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace, bool bMarkRenderStateDirty = false, bool bTeleport = false) override;

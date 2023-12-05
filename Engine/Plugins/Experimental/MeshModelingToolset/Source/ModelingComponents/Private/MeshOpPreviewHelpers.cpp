@@ -2,19 +2,40 @@
 
 #include "MeshOpPreviewHelpers.h"
 
-
-void UMeshOpPreviewWithBackgroundCompute::Setup(UWorld* InWorld, IDynamicMeshOperatorFactory* OpGenerator)
+void UMeshOpPreviewWithBackgroundCompute::Setup(UWorld* InWorld)
 {
 	PreviewMesh = NewObject<UPreviewMesh>(this, TEXT("PreviewMesh"));
 	PreviewMesh->CreateInWorld(InWorld, FTransform::Identity);
+	PreviewWorld = InWorld;
+	bResultValid = false;
+	bMeshInitialized = false;
+}
 
+void UMeshOpPreviewWithBackgroundCompute::Setup(UWorld* InWorld, IDynamicMeshOperatorFactory* OpGenerator)
+{
+	Setup(InWorld);
+	BackgroundCompute = MakeUnique<FBackgroundDynamicMeshComputeSource>(OpGenerator);
+}
+
+void UMeshOpPreviewWithBackgroundCompute::ChangeOpFactory(IDynamicMeshOperatorFactory* OpGenerator)
+{
+	CancelCompute();
 	BackgroundCompute = MakeUnique<FBackgroundDynamicMeshComputeSource>(OpGenerator);
 	bResultValid = false;
+	bMeshInitialized = false;
+}
+
+void UMeshOpPreviewWithBackgroundCompute::ClearOpFactory()
+{
+	CancelCompute();
+	BackgroundCompute = nullptr;
+	bResultValid = false;
+	bMeshInitialized = false;
 }
 
 FDynamicMeshOpResult UMeshOpPreviewWithBackgroundCompute::Shutdown()
 {
-	BackgroundCompute->CancelActiveCompute();
+	CancelCompute();
 
 
 	FDynamicMeshOpResult Result{};
@@ -25,13 +46,22 @@ FDynamicMeshOpResult UMeshOpPreviewWithBackgroundCompute::Shutdown()
 	PreviewMesh->Disconnect();
 	PreviewMesh = nullptr;
 
+	PreviewWorld = nullptr;
+
 	return Result;
 }
 
+void UMeshOpPreviewWithBackgroundCompute::CancelCompute()
+{
+	if (BackgroundCompute)
+	{
+		BackgroundCompute->CancelActiveCompute();
+	}
+}
 
 void UMeshOpPreviewWithBackgroundCompute::Cancel()
 {
-	BackgroundCompute->CancelActiveCompute();
+	CancelCompute();
 
 	PreviewMesh->SetVisible(false);
 	PreviewMesh->Disconnect();
@@ -44,11 +74,11 @@ void UMeshOpPreviewWithBackgroundCompute::Tick(float DeltaTime)
 	if (BackgroundCompute)
 	{
 		BackgroundCompute->Tick(DeltaTime);
+		UpdateResults();
 	}
 
-	UpdateResults();
-
-	if (!IsUsingWorkingMaterial())
+	
+    if (!IsUsingWorkingMaterial())
 	{
 		if (OverrideMaterial != nullptr)
 		{
@@ -58,27 +88,53 @@ void UMeshOpPreviewWithBackgroundCompute::Tick(float DeltaTime)
 		{
 			PreviewMesh->ClearOverrideRenderMaterial();
 		}
+		if (SecondaryMaterial != nullptr)
+		{
+			PreviewMesh->SetSecondaryRenderMaterial(SecondaryMaterial);
+		}
+		else
+		{
+			PreviewMesh->ClearSecondaryRenderMaterial();
+		}
 	}
 	else
 	{
 		PreviewMesh->SetOverrideRenderMaterial(WorkingMaterial);
+		PreviewMesh->ClearSecondaryRenderMaterial();
 	}
 }
 
 
 void UMeshOpPreviewWithBackgroundCompute::UpdateResults()
 {
-	EBackgroundComputeTaskStatus Status = BackgroundCompute->CheckStatus();
-	if (Status == EBackgroundComputeTaskStatus::NewResultAvailable)
+	if (BackgroundCompute == nullptr)
+	{
+		LastComputeStatus = EBackgroundComputeTaskStatus::NotComputing;
+		return;
+	}
+
+	FBackgroundDynamicMeshComputeSource::FStatus Status = BackgroundCompute->CheckStatus();
+	LastComputeStatus = Status.TaskStatus;
+
+	if (LastComputeStatus == EBackgroundComputeTaskStatus::ValidResultAvailable
+		|| (bAllowDirtyResultUpdates && LastComputeStatus == EBackgroundComputeTaskStatus::DirtyResultAvailable))
 	{
 		TUniquePtr<FDynamicMeshOperator> MeshOp = BackgroundCompute->ExtractResult();
 		OnOpCompleted.Broadcast(MeshOp.Get());
 
 		TUniquePtr<FDynamicMesh3> ResultMesh = MeshOp->ExtractResult();
 		PreviewMesh->SetTransform((FTransform)MeshOp->GetResultTransform());
-		PreviewMesh->UpdatePreview(ResultMesh.Get());  // copies the mesh @todo we could just give ownership to the Preview!
+
+		UPreviewMesh::ERenderUpdateMode UpdateType = (bMeshTopologyIsConstant && bMeshInitialized) ?
+			UPreviewMesh::ERenderUpdateMode::FastUpdate
+			: UPreviewMesh::ERenderUpdateMode::FullUpdate;
+
+		PreviewMesh->UpdatePreview(MoveTemp(*ResultMesh), UpdateType, ChangingAttributeFlags);
+		bMeshInitialized = true;
+
 		PreviewMesh->SetVisible(bVisible);
-		bResultValid = true;
+		bResultValid = (LastComputeStatus == EBackgroundComputeTaskStatus::ValidResultAvailable);
+		ValidResultComputeTimeSeconds = Status.ElapsedTime;
 
 		OnMeshUpdated.Broadcast(this);
 	}
@@ -87,16 +143,32 @@ void UMeshOpPreviewWithBackgroundCompute::UpdateResults()
 
 void UMeshOpPreviewWithBackgroundCompute::InvalidateResult()
 {
-	BackgroundCompute->NotifyActiveComputeInvalidated();
+	if (BackgroundCompute)
+	{
+		BackgroundCompute->NotifyActiveComputeInvalidated();
+	}
 	bResultValid = false;
 }
 
 
 bool UMeshOpPreviewWithBackgroundCompute::GetCurrentResultCopy(FDynamicMesh3& MeshOut, bool bOnlyIfValid)
 {
-	if ( HaveValidResult() || bOnlyIfValid == false)
+	if (HaveValidResult() || bOnlyIfValid == false)
 	{
-		MeshOut.Copy( *PreviewMesh->GetMesh() );
+		PreviewMesh->ProcessMesh([&](const FDynamicMesh3& ReadMesh)
+			{
+				MeshOut = ReadMesh;
+			});
+		return true;
+	}
+	return false;
+}
+
+bool UMeshOpPreviewWithBackgroundCompute::ProcessCurrentMesh(TFunctionRef<void(const FDynamicMesh3&)> ProcessFunc, bool bOnlyIfValid)
+{
+	if (HaveValidResult() || bOnlyIfValid == false)
+	{
+		PreviewMesh->ProcessMesh(ProcessFunc);
 		return true;
 	}
 	return false;
@@ -111,15 +183,33 @@ void UMeshOpPreviewWithBackgroundCompute::ConfigureMaterials(UMaterialInterface*
 }
 
 
-void UMeshOpPreviewWithBackgroundCompute::ConfigureMaterials(TArray<UMaterialInterface*> StandardMaterialsIn, UMaterialInterface* WorkingMaterialIn)
+void UMeshOpPreviewWithBackgroundCompute::ConfigureMaterials(
+	TArray<UMaterialInterface*> StandardMaterialsIn, 
+	UMaterialInterface* WorkingMaterialIn,
+	UMaterialInterface* SecondaryMaterialIn)
 {
 	this->StandardMaterials = StandardMaterialsIn;
 	this->WorkingMaterial = WorkingMaterialIn;
+	this->SecondaryMaterial = SecondaryMaterialIn;
 
 	if (PreviewMesh != nullptr)
 	{
 		PreviewMesh->SetMaterials(this->StandardMaterials);
 	}
+}
+
+void UMeshOpPreviewWithBackgroundCompute::ConfigurePreviewMaterials(
+	UMaterialInterface* InProgressMaterialIn,
+	UMaterialInterface* SecondaryMaterialIn)
+{
+	this->WorkingMaterial = InProgressMaterialIn;
+	this->SecondaryMaterial = SecondaryMaterialIn;
+}
+
+void UMeshOpPreviewWithBackgroundCompute::DisablePreviewMaterials()
+{
+	this->WorkingMaterial = nullptr;
+	this->SecondaryMaterial = nullptr;
 }
 
 
@@ -129,6 +219,11 @@ void UMeshOpPreviewWithBackgroundCompute::SetVisibility(bool bVisibleIn)
 	PreviewMesh->SetVisible(bVisible);
 }
 
+void UMeshOpPreviewWithBackgroundCompute::SetIsMeshTopologyConstant(bool bOn, EMeshRenderAttributeFlags ChangingAttributesIn)
+{
+	bMeshTopologyIsConstant = bOn;
+	ChangingAttributeFlags = ChangingAttributesIn;
+}
 
 bool UMeshOpPreviewWithBackgroundCompute::IsUsingWorkingMaterial()
 {

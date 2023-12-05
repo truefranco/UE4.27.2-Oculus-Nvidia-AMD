@@ -31,6 +31,13 @@ class INTERACTIVETOOLSFRAMEWORK_API UGizmoAxisTranslationParameterSource : publi
 public:
 
 	/**
+	 * Optional axis delta constraint function. This can be used to snap/constrain the "parameter delta" value,
+	 * for example to snap it to fixed increments along the axis.
+	 * @return true if constrained delta was found and should be used, false to ignore
+	 */
+	TUniqueFunction<bool(double AxisDelta, double& SnappedDelta)> AxisDeltaConstraintFunction = [](double, double&) { return false; };
+
+	/**
 	 * Optional position constraint function. Called during interaction with the new transform origin.
 	 * To snap the transform to a new position, return as second value, and return true from your lambda.
 	 * Note that returned snap point will be projected onto the current translation origin/axis.
@@ -148,6 +155,15 @@ class INTERACTIVETOOLSFRAMEWORK_API UGizmoPlaneTranslationParameterSource : publ
 {
 	GENERATED_BODY()
 public:
+
+	/**
+	 * Optional axis delta constraint function. This can be used to snap/constrain the "parameter delta" value,
+	 * for example to snap it to fixed increments along the axis.
+	 * The AxisDeltaConstraintFunction is used separately for the X and Y axes of the plane translation
+	 * @return true if constrained delta was found and should be used, false to ignore
+	 */
+	TUniqueFunction<bool(double AxisDelta, double& SnappedDelta)> AxisXDeltaConstraintFunction = [](double, double&) { return false; };
+	TUniqueFunction<bool(double AxisDelta, double& SnappedDelta)> AxisYDeltaConstraintFunction = [](double, double&) { return false; };
 
 	/**
 	 * Optional position constraint function. Called during interaction with the new transform origin.
@@ -278,6 +294,14 @@ class INTERACTIVETOOLSFRAMEWORK_API UGizmoAxisRotationParameterSource : public U
 {
 	GENERATED_BODY()
 public:
+
+	/**
+	 * Optional axis-delta-angle constraint function. This can be used to snap/constrain the "angle delta" value,
+	 * for example to snap it to fixed angle steps around the axis.
+	 * @return true if constrained angle was found and should be used, false to ignore
+	 */
+	TUniqueFunction<bool(double AngleDelta, double& SnappedAngleDelta)> AngleDeltaConstraintFunction = [](double, double&) { return false; };
+
 	/**
 	 * Optional rotation constraint function. Called during interaction with the rotation delta
 	 * To snap the rotation delta, return the snapped quat
@@ -616,6 +640,9 @@ public:
 	UPROPERTY()
 	float ScaleMultiplier = 0.05f;
 
+	/** If true, the minimal output scale will be zero. */
+	UPROPERTY()
+	bool bClampToZero = false;
 
 public:
 	/** Parameter is the line-equation parameter that this FloatParameterSource provides */
@@ -744,6 +771,14 @@ public:
 	/** Coordinate delta is multiplied by this amount */
 	UPROPERTY()
 	float ScaleMultiplier = 0.05f;
+
+	/** If true, the scaling will be done an equal amount in each axis, using the minimal value */
+	UPROPERTY()
+	bool bUseEqualScaling = false;
+
+	/** If true, the minimal output scale will be zero. */
+	UPROPERTY()
+	bool bClampToZero = false;
 
 public:
 	/** Parameter is the two line-equation parameters that this Vec2ParameterSource provides */

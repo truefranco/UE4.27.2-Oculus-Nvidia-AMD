@@ -62,17 +62,58 @@ class MESHMODELINGTOOLS_API URevolveProperties : public UInteractiveToolProperty
 
 public:
 
-	/** Revolution extent. */
-	UPROPERTY(EditAnywhere, Category = RevolveSettings, meta = (UIMin = "0", UIMax = "360", ClampMin = "0", ClampMax = "360"))
-	double RevolutionDegrees = 360;
+	URevolveProperties()
+	{
+		// We want the revolution degrees to be clamped to 360 when there is no offset along axis, and extendable
+		// beyond 360 when there is one (to make springs, etc). There's not currently a way to have a conditional
+		// clamp value, so instead, we swap the variables that we make visible to the user (RevolveDegrees and
+		// RevolveDegreesClamped). However, we have to do some work to keep the values consistent so that they
+		// do not jump when they are swapped.
+		ClampedRevolutionDegreesWatcherIndex = WatchProperty(RevolveDegreesClamped,
+			[this](const double& NewClamped)
+			{
+				RevolveDegrees = NewClamped;
+				SilentUpdateWatcherAtIndex(RevolutionDegreesWatcherIndex); //avoid triggering that watcher
+			});
 
-	/** The angle by which to shift the profile curve around the axis before beginning the revolve */
-	UPROPERTY(EditAnywhere, Category = RevolveSettings, meta = (UIMin = "-360", UIMax = "360", ClampMin = "-36000", ClampMax = "36000"), AdvancedDisplay)
-	double RevolutionDegreesOffset = 0;
+		RevolutionDegreesWatcherIndex = WatchProperty(RevolveDegrees,
+			[this](const double& NewNonClamped)
+			{
+				RevolveDegreesClamped = FMath::Min(RevolveDegrees, 360.0);
+				SilentUpdateWatcherAtIndex(ClampedRevolutionDegreesWatcherIndex); //avoid triggering that watcher
+			});
+	}
 
-	/** Number of steps to take while revolving. */
-	UPROPERTY(EditAnywhere, Category = RevolveSettings, meta = (UIMin = "1", ClampMin = "1", UIMax = "100", ClampMax = "5000"))
-	int Steps = 24;
+	/** Revolution extent in degrees. Clamped to a maximum of 360 if Height Offset Per Degree is set to 0. */
+	UPROPERTY(EditAnywhere, Category = RevolveSettings, meta = (DisplayName = "Degrees", UIMin = "0", UIMax = "360", ClampMin = "0", ClampMax = "360",
+		EditCondition = "HeightOffsetPerDegree == 0", EditConditionHides))
+	double RevolveDegreesClamped = 360;
+
+	/** Revolution extent in degrees. Clamped to a maximum of 360 if Height Offset Per Degree is set to 0. */
+	UPROPERTY(EditAnywhere, Category = Revolve, meta = (DisplayName = "Degrees", UIMin = "0", UIMax = "3600", ClampMin = "0", ClampMax = "360000",
+		EditCondition = "HeightOffsetPerDegree != 0", EditConditionHides))
+	double RevolveDegrees = 360;
+
+	/** The angle by which to rotate the path around the axis before beginning the revolve. */
+	UPROPERTY(EditAnywhere, Category = Revolve, meta = (DisplayName = "Degrees Offset", UIMin = "-360", UIMax = "360", ClampMin = "-36000", ClampMax = "36000"))
+	double RevolveDegreesOffset = 0;
+
+	/** Implicitly defines the number of steps in the revolution such that each step moves the revolution no more than the given number of degrees. This is only available if Explicit Steps is disabled. */
+	UPROPERTY(EditAnywhere, Category = Revolve, meta = (UIMin = "1", ClampMin = "1", UIMax = "120", ClampMax = "180", EditCondition = "!bExplicitSteps"))
+	double StepsMaxDegrees = 15;
+
+	/** Number of steps in the revolution. This is only available if Explicit Steps is enabled. */
+	UPROPERTY(EditAnywhere, Category = Revolve, meta = (DisplayName = "Steps", UIMin = "1", ClampMin = "1", UIMax = "100", ClampMax = "5000",
+		EditCondition = "bExplicitSteps"))
+	int NumExplicitSteps = 24;
+
+	/** How far to move each step along the revolution axis per degree. Non-zero values are useful for creating spirals. */
+	UPROPERTY(EditAnywhere, Category = Revolve, meta = (DisplayName = "Height Offset", UIMin = "-10", UIMax = "10", ClampMin = "-100000", ClampMax = "100000"))
+	double HeightOffsetPerDegree = 0;
+
+	/** If true, the number of steps can be specified explicitly via Steps. If false, the number of steps is adjusted automatically based on Steps Max Degrees. */
+	UPROPERTY(EditAnywhere, Category = Revolve)
+	bool bExplicitSteps = false;
 
 	/** By default, revolution is done counterclockwise if looking down the revolution axis. This reverses the direction.*/
 	UPROPERTY(EditAnywhere, Category = RevolveSettings)
@@ -106,8 +147,8 @@ public:
 
 	/** Determines how caps are created if the revolution is partial. Not relevant if the
 	  revolution is full and welded. */
-	UPROPERTY(EditAnywhere, Category = RevolveSettings, AdvancedDisplay)
-	ERevolvePropertiesCapFillMode CapFillMode = ERevolvePropertiesCapFillMode::Delaunay;
+	//UPROPERTY(EditAnywhere, Category = RevolveSettings, AdvancedDisplay)
+	//ERevolvePropertiesCapFillMode CapFillMode = ERevolvePropertiesCapFillMode::Delaunay;
 
 	/** If true, the ends of a fully revolved profile are welded together, rather than duplicating
 	  vertices at the seam. Not relevant if the revolution is not full. */
@@ -152,4 +193,13 @@ public:
 	void ApplyToCurveSweepOp(const UNewMeshMaterialProperties& MaterialProperties,
 		const FVector3d& RevolutionAxisOrigin, const FVector3d& RevolutionAxisDirection,
 		FCurveSweepOp& CurveSweepOpOut) const;
+
+	protected:
+		virtual ERevolvePropertiesCapFillMode GetCapFillMode() const
+		{
+			return ERevolvePropertiesCapFillMode::Delaunay;
+		}
+
+		int32 ClampedRevolutionDegreesWatcherIndex;
+		int32 RevolutionDegreesWatcherIndex;
 };

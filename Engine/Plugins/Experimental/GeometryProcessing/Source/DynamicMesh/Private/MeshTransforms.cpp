@@ -112,7 +112,7 @@ void MeshTransforms::FrameCoordsToWorld(FDynamicMesh3& Mesh, const FFrame3d& Fra
 
 
 
-void MeshTransforms::ApplyTransform(FDynamicMesh3& Mesh, const FTransform3d& Transform)
+void MeshTransforms::ApplyTransform(FDynamicMesh3& Mesh, const FTransform3d& Transform, bool bReverseOrientationIfNeeded)
 {
 	bool bVertexNormals = Mesh.HasVertexNormals();
 
@@ -143,7 +143,7 @@ void MeshTransforms::ApplyTransform(FDynamicMesh3& Mesh, const FTransform3d& Tra
 
 
 
-void MeshTransforms::ApplyTransformInverse(FDynamicMesh3& Mesh, const FTransform3d& Transform)
+void MeshTransforms::ApplyTransformInverse(FDynamicMesh3& Mesh, const FTransform3d& Transform, bool bReverseOrientationIfNeeded)
 {
 	bool bVertexNormals = Mesh.HasVertexNormals();
 
@@ -182,9 +182,19 @@ void MeshTransforms::ApplyTransformInverse(FDynamicMesh3& Mesh, const FTransform
 			});
 		}
 	}
+	if (bReverseOrientationIfNeeded && Transform.GetDeterminant() < 0)
+	{
+		Mesh.ReverseOrientation(false);
+	}
 }
 
-
+void MeshTransforms::ReverseOrientationIfNeeded(FDynamicMesh3& Mesh, const FTransform3d& Transform)
+{
+	if (Transform.GetDeterminant() < 0)
+	{
+		Mesh.ReverseOrientation(false);
+	}
+}
 
 void MeshTransforms::ApplyTransform(FDynamicMesh3& Mesh,
 	TFunctionRef<FVector3d(const FVector3d&)> PositionTransform,

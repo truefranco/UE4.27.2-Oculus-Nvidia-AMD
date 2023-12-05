@@ -4,12 +4,15 @@
 #include "InteractiveTool.h"
 #include "ModelingToolsEditorModeToolkit.h"
 #include "Toolkits/ToolkitManager.h"
+#include "ToolTargetManager.h"
+#include "ToolTargets/StaticMeshComponentToolTarget.h"
+#include "ToolTargets/DynamicMeshComponentToolTarget.h"
+#include "EditorModelingObjectsCreationAPI.h"
 #include "Framework/Commands/UICommandList.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "EditorViewportClient.h"
 #include "EngineAnalytics.h"
-
 //#include "SingleClickTool.h"
 //#include "MeshSurfacePointTool.h"
 //#include "MeshVertexDragTool.h"
@@ -22,6 +25,7 @@
 #include "ConvertToPolygonsTool.h"
 #include "AddPrimitiveTool.h"
 #include "AddPatchTool.h"
+#include "CubeGridTool.h"
 #include "RevolveBoundaryTool.h"
 #include "SmoothMeshTool.h"
 #include "OffsetMeshTool.h"
@@ -68,6 +72,8 @@
 #include "MeshTangentsTool.h"
 #include "ProjectToTargetTool.h"
 #include "SeamSculptTool.h"
+#include "PatternTool.h"
+#include "Snapping/ModelingSceneSnappingManager.h"
 
 #include "Physics/PhysicsInspectorTool.h"
 #include "Physics/SetCollisionGeometryTool.h"
@@ -442,8 +448,60 @@ void FModelingToolsEditorMode::Enter()
 		this->OnToolWarningMessage.Broadcast(Message);
 	});
 
+	// Register builders for tool targets that the mode uses.
+	GetToolsContext()->TargetManager->AddTargetFactory(NewObject<UStaticMeshComponentToolTargetFactory>(GetToolManager()));
+	//GetToolsContext()->TargetManager->AddTargetFactory(NewObject<UVolumeComponentToolTargetFactory>(GetToolManager()));
+	GetToolsContext()->TargetManager->AddTargetFactory(NewObject<UDynamicMeshComponentToolTargetFactory>(GetToolManager()));
+
+	// register gizmo helper
+	UE::TransformGizmoUtil::RegisterTransformGizmoContextObject(GetToolsContext());
+
+	UE::Geometry::RegisterSceneSnappingManager(GetToolsContext());
+	SceneSnappingManager = UE::Geometry::FindModelingSceneSnappingManager(GetToolManager());
 	// register stylus event handler
 	StylusStateTracker = MakeUnique<FStylusStateTracker>();
+
+	// register object creation api
+	UEditorModelingObjectsCreationAPI* ModelCreationAPI = UEditorModelingObjectsCreationAPI::Register(GetToolsContext());
+	if (ModelCreationAPI)
+	{
+		ModelCreationAPI->GetNewAssetPathNameCallback.BindLambda([](const FString& BaseName, const UWorld* TargetWorld, FString SuggestedFolder)
+			{
+				return UE::Modeling::GetNewAssetPathName(BaseName, TargetWorld, SuggestedFolder);
+			});
+		MeshCreatedEventHandle = ModelCreationAPI->OnModelingMeshCreated.AddLambda([this](const FCreateMeshObjectResult& CreatedInfo)
+			{
+				if (CreatedInfo.NewAsset != nullptr)
+				{
+					//UE::Modeling::OnNewAssetCreated(CreatedInfo.NewAsset);
+					// If we are creating a new asset or component, it should be initially unlocked in the Selection system.
+					// Currently have no generic way to do this, the Selection Manager does not necessarily support Static Meshes
+					// or Brush Components. So doing it here...
+					if (UStaticMesh* StaticMesh = Cast<UStaticMesh>(CreatedInfo.NewAsset))
+					{
+						//FStaticMeshSelector::SetAssetUnlockedOnCreation(StaticMesh);
+					}
+				}
+				//if (UBrushComponent* BrushComponent = Cast<UBrushComponent>(CreatedInfo.NewComponent))
+				//{
+					//FVolumeSelector::SetComponentUnlockedOnCreation(BrushComponent);
+				//}
+			});
+		TextureCreatedEventHandle = ModelCreationAPI->OnModelingTextureCreated.AddLambda([](const FCreateTextureObjectResult& CreatedInfo)
+			{
+				if (CreatedInfo.NewAsset != nullptr)
+				{
+					//UE::Modeling::OnNewAssetCreated(CreatedInfo.NewAsset);
+				}
+			});
+		MaterialCreatedEventHandle = ModelCreationAPI->OnModelingMaterialCreated.AddLambda([](const FCreateMaterialObjectResult& CreatedInfo)
+			{
+				if (CreatedInfo.NewAsset != nullptr)
+				{
+					//UE::Modeling::OnNewAssetCreated(CreatedInfo.NewAsset);
+				}
+			});
+	}
 
 	if (!Toolkit.IsValid() && UsesToolkits())
 	{
@@ -576,8 +634,11 @@ void FModelingToolsEditorMode::Enter()
 	DrawPolyPathToolBuilder->AssetAPI = ToolsContext->GetAssetAPI();
 	RegisterToolFunc(ToolManagerCommands.BeginDrawPolyPathTool, TEXT("DrawPolyPath"), DrawPolyPathToolBuilder);
 
+	auto CubeGridToolBuilder = NewObject<UCubeGridToolBuilder>();
+	CubeGridToolBuilder->AssetAPI = ToolsContext->GetAssetAPI();
+	RegisterToolFunc(ToolManagerCommands.BeginCubeGridTool, TEXT("BeginCubeGridTool"), CubeGridToolBuilder);
+
 	auto DrawAndRevolveToolBuilder = NewObject<UDrawAndRevolveToolBuilder>();
-	DrawAndRevolveToolBuilder->AssetAPI = ToolsContext->GetAssetAPI();
 	RegisterToolFunc(ToolManagerCommands.BeginDrawAndRevolveTool, TEXT("RevolveTool"), DrawAndRevolveToolBuilder);
 
 	auto ShapeSprayToolBuilder = NewObject<UShapeSprayToolBuilder>();
@@ -607,6 +668,11 @@ void FModelingToolsEditorMode::Enter()
 	RegisterToolFunc(ToolManagerCommands.BeginAlignObjectsTool, TEXT("AlignObjects"), NewObject<UAlignObjectsToolBuilder>());
 	RegisterToolFunc(ToolManagerCommands.BeginBakeTransformTool, TEXT("BakeTransformTool"), NewObject<UBakeTransformToolBuilder>());
 	RegisterToolFunc(ToolManagerCommands.BeginTransformUVIslandsTool, TEXT("EditUVIslands"), NewObject<UEditUVIslandsToolBuilder>());
+
+	UPatternToolBuilder* PatternToolBuilder = NewObject<UPatternToolBuilder>();
+	//PatternToolBuilder->AssetAPI = ToolsContext->GetAssetAPI();
+	PatternToolBuilder->bEnableCreateISMCs = true;
+	RegisterToolFunc(ToolManagerCommands.BeginPatternTool, TEXT("BeginPatternTool"), PatternToolBuilder);
 
 	UCombineMeshesToolBuilder* CombineMeshesToolBuilder = NewObject<UCombineMeshesToolBuilder>();
 	CombineMeshesToolBuilder->AssetAPI = ToolsContext->GetAssetAPI();
@@ -950,7 +1016,5 @@ void FModelingToolsEditorMode::ConfigureRealTimeViewportsOverride(bool bEnable)
 		}
 	}
 }
-
-
 
 #undef LOCTEXT_NAMESPACE

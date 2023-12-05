@@ -23,6 +23,13 @@ public:
 	UPROPERTY(EditAnywhere, Category = Options)
 	FVector DirectionY = FVector(0, 1, 0);
 
+	// When true, instead of using the provided DirectionY, the component will
+	// use a direction orthogonal to the camera direction and DirectionX. This
+	// keeps the rectangle pinned along DirectionX but spun to be flatter
+	// relative the camera.
+	UPROPERTY(EditAnywhere, Category = Options)
+	bool bOrientYAccordingToCamera = false;
+
 	UPROPERTY(EditAnywhere, Category = Options)
 	float OffsetX = 0.0f;
 

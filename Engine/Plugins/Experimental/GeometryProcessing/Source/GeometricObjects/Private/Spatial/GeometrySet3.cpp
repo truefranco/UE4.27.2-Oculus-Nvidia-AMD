@@ -139,17 +139,17 @@ bool FGeometrySet3::CollectPointsNearRay(const FRay3d& Ray, TArray<FNearest>& Re
 
 	// To avoid locking in the ParallelFor below, we let all curves have space for their
 	// own output even if their point turns out not to be within tolerance.
+	int NumPoints = Points.Num();
 	TArray<FNearest> NonCompactResults;
-	NonCompactResults.AddUninitialized(Curves.Num());
+	NonCompactResults.AddUninitialized(NumPoints);
 	TArray<bool> WithinTolerance;
-	WithinTolerance.AddZeroed(Curves.Num());
+	WithinTolerance.AddZeroed(NumPoints);
 
 	// Check distances to points in parallel
-	int NumPoints = Points.Num();
 	ParallelFor(NumPoints, [&](int pi)
 	{
 		const FPoint& Point = Points[pi];
-		double RayT = Ray.Project(Point.Position);
+		double RayT = Ray.GetParameter(Point.Position);
 		FVector3d RayPt = Ray.NearestPoint(Point.Position);
 		if (PointWithinToleranceTest(RayPt, Point.Position))
 		{

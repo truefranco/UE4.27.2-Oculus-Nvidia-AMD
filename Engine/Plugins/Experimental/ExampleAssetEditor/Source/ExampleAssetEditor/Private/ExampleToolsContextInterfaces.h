@@ -22,7 +22,8 @@ public:
 	virtual bool ExecuteSceneSnapQuery(const FSceneSnapQueryRequest& Request, TArray<FSceneSnapQueryResult>& Results) const override;
 	virtual UMaterialInterface* GetStandardMaterial(EStandardToolContextMaterials MaterialType) const override;
 	virtual HHitProxy* GetHitProxy(int32 X, int32 Y) const override;
-
+	virtual UWorld* GetCurrentEditingWorld() const override;
+	
 protected:
 	UInteractiveToolsContext* ToolsContext;
 	FEditorViewportClient* ViewportClient;

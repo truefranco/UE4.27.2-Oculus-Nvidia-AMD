@@ -5,7 +5,6 @@
 #include "InteractiveToolsContext.h"
 
 
-
 #define LOCTEXT_NAMESPACE "UInteractiveToolManager"
 
 
@@ -53,7 +52,17 @@ void UInteractiveToolManager::Shutdown()
 	bIsActive = false;
 }
 
+void UInteractiveToolManager::DoPostBuild(EToolSide Side, UInteractiveTool* InBuiltTool, UInteractiveToolBuilder* InToolBuilder, const FToolBuilderState& InBuilderState)
+{
+	InToolBuilder->PostBuildTool(InBuiltTool, InBuilderState);
+	OnToolPostBuild.Broadcast(this, Side, InBuiltTool, InToolBuilder, InBuilderState);
+}
 
+void UInteractiveToolManager::DoPostSetup(EToolSide Side, UInteractiveTool* InInteractiveTool, UInteractiveToolBuilder* InToolBuilder, const FToolBuilderState& InBuilderState)
+{
+	InToolBuilder->PostSetupTool(InInteractiveTool, InBuilderState);
+	OnToolPostSetup.Broadcast(this, Side, InInteractiveTool);
+}
 
 void UInteractiveToolManager::RegisterToolType(const FString& Identifier, UInteractiveToolBuilder* Builder)
 {
@@ -164,9 +173,22 @@ bool UInteractiveToolManager::ActivateToolInternal(EToolSide Side)
 		return false;
 	}
 	ActiveLeftToolName = ActiveLeftBuilderName;
+	DoPostBuild(Side, ActiveLeftTool, ActiveLeftBuilder, InputState);
 
+	bInToolSetup = true;
 	ActiveLeftTool->Setup();
+	bInToolSetup = false;
 
+	if (bToolRequestedTerminationDuringSetup)
+	{
+		bToolRequestedTerminationDuringSetup = false;
+		ActiveLeftTool->Shutdown(EToolShutdownType::Cancel);		// need to give Tool a chance to clean up...
+		ActiveLeftTool = nullptr;
+		ActiveLeftToolName.Empty();
+		return false;
+	}
+
+	DoPostSetup(Side, ActiveLeftTool, ActiveLeftBuilder, InputState);
 	// register new active input behaviors
 	InputRouter->RegisterSource(ActiveLeftTool);
 
@@ -323,6 +345,11 @@ UInteractiveGizmoManager* UInteractiveToolManager::GetPairedGizmoManager()
 	return Cast<UInteractiveToolsContext>(GetOuter())->GizmoManager;
 }
 
+UContextObjectStore* UInteractiveToolManager::GetContextObjectStore() const
+{
+	return Cast<UInteractiveToolsContext>(GetOuter())->ContextObjectStore;
+}
+
 void UInteractiveToolManager::DisplayMessage(const FText& Message, EToolMessageLevel Level)
 {
 	TransactionsAPI->DisplayMessage(Message, Level);
@@ -364,7 +391,62 @@ bool UInteractiveToolManager::RequestSelectionChange(const FSelectedOjectsChange
 }
 
 
+bool UInteractiveToolManager::PostActiveToolShutdownRequest(UInteractiveTool* Tool, EToolShutdownType ShutdownType,
+	bool bShowUnexpectedShutdownMessage, const FText& UnexpectedShutdownMessage)
+{
+	if (bShowUnexpectedShutdownMessage)
+	{
+		if (OnToolUnexpectedShutdownMessage.IsBound() == false)
+		{
+			if (UnexpectedShutdownMessage.IsEmpty())
+			{
+				FString ToolName = (Tool != nullptr) ? Tool->GetToolInfo().ToolDisplayName.ToString() : FString(TEXT("(Null Tool)"));
+				if (bInToolSetup)
+				{
+					UE_LOG(LogTemp, Error, TEXT("[InteractiveToolManager] Tool %s Could not be Initialized"), *ToolName);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Error, TEXT("[InteractiveToolManager] Tool %s was Shut Down Automatically, no message provided"), *ToolName);
+				}
+			}
+			else
+			{
+				UE_LOG(LogTemp, Error, TEXT("[InteractiveToolManager] %s"), *UnexpectedShutdownMessage.ToString());
+			}
+		}
+		else
+		{
+			OnToolUnexpectedShutdownMessage.Broadcast(this, Tool, UnexpectedShutdownMessage, bInToolSetup);
+		}
+	}
 
+	// if Tool calls this function from it's Setup() function, then we need to do some special-case handling because
+	// the code below can't be run yet
+	if (bInToolSetup)
+	{
+		bToolRequestedTerminationDuringSetup = true;
+		return true;
+	}
+
+	bool bIsActiveTool = (Tool != nullptr) && (ActiveLeftTool == Tool || ActiveRightTool == Tool);
+	if (!bIsActiveTool)
+	{
+		return false;
+	}
+
+	bool bHandled = false;
+	if (OnToolShutdownRequest.IsBound())
+	{
+		bHandled = OnToolShutdownRequest.Execute(this, Tool, ShutdownType);
+	}
+	if (!bHandled)
+	{
+		EToolSide WhichSide = (ActiveLeftTool == Tool) ? EToolSide::Left : EToolSide::Right;
+		DeactivateTool(WhichSide, ShutdownType);
+	}
+	return true;
+}
 
 
 

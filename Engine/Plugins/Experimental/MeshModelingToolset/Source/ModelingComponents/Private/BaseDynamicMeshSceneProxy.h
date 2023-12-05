@@ -301,7 +301,26 @@ public:
 	 */
 	TFunction<FColor(const FDynamicMesh3*, int)> PerTriangleColorFunc = nullptr;
 
+	/**
+	 * If true, VertexColorRemappingFunc is called on Vertex Colors provided from Mesh to remap them to a different color
+	 */
+	bool bApplyVertexColorRemapping = false;
 
+	/**
+	 * Vertex color remapping function. Only called if bApplyVertexColorRemapping == true, for mesh vertex colors
+	 */
+	TUniqueFunction<void(FVector4f&)> VertexColorRemappingFunc = nullptr;
+
+	/**
+	 * Color Space Transform/Conversion applied to Vertex Colors provided from Mesh Color Overlay Attribute
+	 * Color Space Conversion is applied after any Vertex Color Remapping.
+	 */
+	EDynamicMeshVertexColorTransformMode ColorSpaceTransformMode = EDynamicMeshVertexColorTransformMode::NoTransform;
+
+	/**
+	* If true, a facet normals are used instead of mesh normals
+	*/
+	bool bUsePerTriangleNormals = false;
 	/**
 	 * If true, populate secondary buffers using SecondaryTriFilterFunc
 	 */
@@ -402,6 +421,7 @@ public:
 		int NumTriangles, TriangleEnumerable Enumerable,
 		FDynamicMeshUVOverlay* UVOverlay,
 		FDynamicMeshNormalOverlay* NormalOverlay,
+		FDynamicMeshColorOverlay* ColorOverlay,
 		TFunction<void(int, int, int, FVector3f&, FVector3f&)> TangentsFunc = nullptr,
 		bool bTrackTriangles = false)
 	{
@@ -490,6 +510,30 @@ public:
 		}
 	}
 
+	FColor GetOverlayColorAsFColor(
+		const FDynamicMeshColorOverlay* ColorOverlay,
+		int32 ElementID)
+	{
+		checkSlow(ColorOverlay);
+		FVector4f UseColor = ColorOverlay->GetElement(ElementID);
+
+		if (bApplyVertexColorRemapping)
+		{
+			VertexColorRemappingFunc(UseColor);
+		}
+
+		if (ColorSpaceTransformMode == EDynamicMeshVertexColorTransformMode::SRGBToLinear)
+		{
+			// is there a better way to do this? 
+			FColor QuantizedSRGBColor = ((FLinearColor)UseColor).ToFColor(false);
+			return FLinearColor(QuantizedSRGBColor).ToFColor(false);
+		}
+		else
+		{
+			bool bConvertToSRGB = (ColorSpaceTransformMode == EDynamicMeshVertexColorTransformMode::LinearToSRGB);
+			return ((FLinearColor)UseColor).ToFColor(bConvertToSRGB);
+		}
+	}
 
 	/**
 	 * Filter the triangles in a FMeshRenderBufferSet into the SecondaryIndexBuffer.
@@ -589,6 +633,7 @@ public:
 		const FDynamicMesh3* Mesh,
 		int NumTriangles, TriangleEnumerable Enumerable,
 		FDynamicMeshNormalOverlay* NormalOverlay,
+		FDynamicMeshColorOverlay* ColorOverlay,
 		TFunctionRef<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc,
 		bool bUpdatePositions = true,
 		bool bUpdateNormals = false,
@@ -867,10 +912,13 @@ public:
 		Collector.AddMesh(ViewIndex, Mesh);
 	}
 
-
-
-
-
+	/**
+	 * Set whether or not to validate mesh batch materials against the component materials.
+	 */
+	void SetVerifyUsedMaterials(const bool bState)
+	{
+		bVerifyUsedMaterials = bState;
+	}
 
 
 };

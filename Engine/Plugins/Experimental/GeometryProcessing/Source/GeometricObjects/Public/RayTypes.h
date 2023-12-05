@@ -61,6 +61,11 @@ public:
 		return (LineParam < 0) ? 0 : LineParam;
 	}
 
+	RealType GetParameter(const FVector3<RealType>& Point) const
+	{
+		return FVector3<RealType>(Point - Origin).Dot(Direction);
+	}
+
 	/**
 	 * @return smallest squared distance from ray to QueryPoint
 	 */

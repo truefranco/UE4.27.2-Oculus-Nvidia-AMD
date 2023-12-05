@@ -441,7 +441,10 @@ struct TAxisAlignedBox3
 		}
 		return (RealType)0.25 * (delta_x * delta_x + delta_y * delta_y + delta_z * delta_z);
 	}
-
+	RealType Dimension(int32 Index) const
+	{
+		return TMathUtil<RealType>::Max(Max[Index] - Min[Index], (RealType)0);
+	}
 	RealType Width() const
 	{
 		return TMathUtil<RealType>::Max(Max.X - Min.X, (RealType)0);

@@ -45,6 +45,10 @@ enum class EActorUpdateOverlapsMethod : uint8
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogActor, Log, Warning);
 
+// By default, debug and development builds (even cooked) will keep actor labels. Manually define this if you want to make a local build
+// that keep actor labels for Test or Shipping builds.
+#define ACTOR_HAS_LABELS (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT || WITH_PROFILEGPU)
+
 // Delegate signatures
 DECLARE_DYNAMIC_MULTICAST_SPARSE_DELEGATE_FiveParams( FTakeAnyDamageSignature, AActor, OnTakeAnyDamage, AActor*, DamagedActor, float, Damage, const class UDamageType*, DamageType, class AController*, InstigatedBy, AActor*, DamageCauser );
 DECLARE_DYNAMIC_MULTICAST_SPARSE_DELEGATE_NineParams( FTakePointDamageSignature, AActor, OnTakePointDamage, AActor*, DamagedActor, float, Damage, class AController*, InstigatedBy, FVector, HitLocation, class UPrimitiveComponent*, FHitComponent, FName, BoneName, FVector, ShotFromDirection, const class UDamageType*, DamageType, AActor*, DamageCauser );
@@ -759,6 +763,21 @@ private:
 	UPROPERTY()
 	mutable FString ActorLabel;
 
+#if !WITH_EDITORONLY_DATA && ACTOR_HAS_LABELS
+	FString ActorLabel;
+#endif
+
+public:
+	const FString GetActorNameOrLabel() const
+	{
+#if WITH_EDITORONLY_DATA || (!WITH_EDITOR && ACTOR_HAS_LABELS)
+		if (!ActorLabel.IsEmpty())
+		{
+			return ActorLabel;
+		}
+#endif
+		return GetName();
+	}
 	/** The folder path of this actor in the world (empty=root, / separated)*/
 	UPROPERTY()
 	FName FolderPath;
@@ -2937,6 +2956,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Actor", meta = (ComponentClass = "ActorComponent"), meta = (DeterminesOutputType = "ComponentClass"))
 	UActorComponent* GetComponentByClass(TSubclassOf<UActorComponent> ComponentClass) const;
 
+	/** Templated version of GetComponentByClass */
+	template<class T>
+	T* GetComponentByClass() const
+	{
+		return FindComponentByClass<T>();
+	}
+
 	/**
 	 * Gets all the components that inherit from the given class.
 	 * Currently returns an array of UActorComponent which must be cast to the correct type.
@@ -2960,6 +2986,24 @@ public:
 		static_assert(TPointerIsConvertibleFromTo<T, const UActorComponent>::Value, "'T' template parameter to FindComponentByClass must be derived from UActorComponent");
 
 		return (T*)FindComponentByClass(T::StaticClass());
+	}
+
+	/** Templatized version of FindComponentByTag that handles casting for you */
+	template<class T>
+	T* FindComponentByTag(const FName& Tag) const
+	{
+		static_assert(TPointerIsConvertibleFromTo<T, const UActorComponent>::Value, "'T' template parameter to FindComponentByTag must be derived from UActorComponent");
+
+		return (T*)FindComponentByTag(T::StaticClass(), Tag);
+	}
+
+	/** Templatized version of FindComponentByInterface that handles casting for you */
+	template<class T>
+	T* FindComponentByInterface() const
+	{
+		static_assert(TPointerIsConvertibleFromTo<T, const UInterface>::Value, "'T' template parameter to FindComponentByInterface must be derived from UInterface");
+
+		return (T*)FindComponentByInterface(T::StaticClass());
 	}
 
 private:

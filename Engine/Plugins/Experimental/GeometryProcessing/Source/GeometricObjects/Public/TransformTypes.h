@@ -3,7 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Math/Ray.h"
 #include "VectorTypes.h"
+#include "RayTypes.h"
 #include "Quaternion.h"
 
 /**
@@ -119,9 +121,19 @@ public:
 		Scale3D = ScaleIn;
 	}
 
-	RealType GetDeterminant()
+	RealType GetDeterminant() const
 	{
 		return Scale3D.X * Scale3D.Y * Scale3D.Z;
+	}
+
+	/**
+	 * @return true if scale is nonuniform, within tolerance
+	 */
+	bool HasNonUniformScale(RealType Tolerance = TMathUtil<RealType>::ZeroTolerance) const
+	{
+		return (TMathUtil<RealType>::Abs(Scale3D.X - Scale3D.Y) > Tolerance)
+			|| (TMathUtil<RealType>::Abs(Scale3D.X - Scale3D.Z) > Tolerance)
+			|| (TMathUtil<RealType>::Abs(Scale3D.Y - Scale3D.Z) > Tolerance);
 	}
 
 	/**
@@ -211,7 +223,20 @@ public:
 	{
 		return InverseTransformVectorNoScale( (Scale3D*Normal).Normalized() );
 	}
+	TRay3<RealType> TransformRay(const TRay3<RealType>& Ray) const
+	{
+		FVector3<RealType> Origin = TransformPosition(Ray.Origin);
+		FVector3<RealType> Direction = TransformVector(Ray.Direction).Normalized();
+		return TRay3<RealType>(Origin, Direction);
+	}
 
+
+	TRay3<RealType> InverseTransformRay(const TRay3<RealType>& Ray) const
+	{
+		FVector3<RealType> InvOrigin = InverseTransformPosition(Ray.Origin);
+		FVector3<RealType> InvDirection = InverseTransformVector(Ray.Direction).Normalized();
+		return TRay3<RealType>(InvOrigin, InvDirection);
+	}
 
 
 	/**
@@ -318,3 +343,179 @@ public:
 };
 typedef TTransform3<float> FTransform3f;
 typedef TTransform3<double> FTransform3d;
+
+
+
+/**
+ * TTransformSequence3 represents a sequence of 3D transforms.
+ */
+template<typename RealType>
+class TTransformSequence3
+{
+protected:
+	TArray<TTransform3<RealType>, TInlineAllocator<2>> Transforms;
+
+public:
+
+	/**
+	 * Add Transform to the end of the sequence, ie Seq(P) becomes NewTransform * Seq(P)
+	 */
+	void Append(const TTransform3<RealType>& Transform)
+	{
+		Transforms.Add(Transform);
+	}
+
+	/**
+	 * Add Transform to the end of the sequence, ie Seq(P) becomes NewTransform * Seq(P)
+	 */
+	void Append(const FTransform& Transform)
+	{
+		Transforms.Add(TTransform3<RealType>(Transform));
+	}
+
+	/**
+	 * Add all transforms in given sequence to the end of this sequence, ie Seq(P) becomes SequenceToAppend * Seq(P)
+	 */
+	void Append(const TTransformSequence3<RealType>& SequenceToAppend)
+	{
+		for (const TTransform3<RealType>& Transform : SequenceToAppend.Transforms)
+		{
+			Append(Transform);
+		}
+	}
+
+	/**
+	 * @return number of transforms in the sequence
+	 */
+	int32 Num() const { return Transforms.Num(); }
+
+	/**
+	 * @return transforms in the sequence
+	 */
+	const TArray<TTransform3<RealType>, TInlineAllocator<2>>& GetTransforms() const { return Transforms; }
+
+
+	/**
+	 * @return true if any transform in the sequence has nonuniform scaling
+	 */
+	bool HasNonUniformScale(RealType Tolerance = TMathUtil<RealType>::ZeroTolerance) const
+	{
+		for (const TTransform3<RealType>& Transform : Transforms)
+		{
+			if (Transform.HasNonUniformScale(Tolerance))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @return Cumulative scale across Transforms.
+	 */
+	FVector3<RealType> GetAccumulatedScale() const
+	{
+		FVector3<RealType> FinalScale = FVector3<RealType>::One();
+		for (const TTransform3<RealType>& Transform : Transforms)
+		{
+			FinalScale = FinalScale * Transform.GetScale();
+		}
+		return FinalScale;
+	}
+
+	/**
+	 * @return Whether the sequence will invert a shape (by negative scaling) when applied
+	 */
+	bool WillInvert() const
+	{
+		RealType Det = 1;
+		for (const TTransform3<RealType>& Transform : Transforms)
+		{
+			Det *= Transform.GetDeterminant();
+		}
+		return Det < 0;
+	}
+
+	/**
+	 * Set scales of all transforms to (1,1,1)
+	 */
+	void ClearScales()
+	{
+		for (TTransform3<RealType>& Transform : Transforms)
+		{
+			Transform.SetScale(FVector3<RealType>::One());
+		}
+	}
+
+	/**
+	 * @return point P with transform sequence applied
+	 */
+	FVector3<RealType> TransformPosition(FVector3<RealType> P) const
+	{
+		for (const TTransform3<RealType>& Transform : Transforms)
+		{
+			P = Transform.TransformPosition(P);
+		}
+		return P;
+	}
+
+	/**
+	 * @return point P with inverse transform sequence applied
+	 */
+	FVector3<RealType> InverseTransformPosition(FVector3<RealType> P) const
+	{
+		int32 N = Transforms.Num();
+		for (int32 k = N - 1; k >= 0; k--)
+		{
+			P = Transforms[k].InverseTransformPosition(P);
+		}
+		return P;
+	}
+
+	/**
+	 * @return Vector V with transform sequence applied
+	 */
+	FVector3<RealType> TransformVector(FVector3<RealType> V) const
+	{
+		for (const TTransform3<RealType>& Transform : Transforms)
+		{
+			V = Transform.TransformVector(V);
+		}
+		return V;
+	}
+
+
+	/**
+	 * @return Normal with transform sequence applied
+	 */
+	FVector3<RealType> TransformNormal(FVector3<RealType> Normal) const
+	{
+		for (const TTransform3<RealType>& Transform : Transforms)
+		{
+			Normal = Transform.TransformNormal(Normal);
+		}
+		return Normal;
+	}
+
+	/**
+	 * @return true if each Transform in this sequence is equivalent to each transform of another sequence under the given test
+	 */
+	template<typename TransformsEquivalentFunc>
+	bool IsEquivalent(const TTransformSequence3<RealType>& OtherSeq, TransformsEquivalentFunc TransformsTest) const
+	{
+		int32 N = Transforms.Num();
+		if (N == OtherSeq.Transforms.Num())
+		{
+			bool bAllTransformsEqual = true;
+			for (int32 k = 0; k < N && bAllTransformsEqual; ++k)
+			{
+				bAllTransformsEqual = bAllTransformsEqual && TransformsTest(Transforms[k], OtherSeq.Transforms[k]);
+			}
+			return bAllTransformsEqual;
+		}
+		return false;
+	}
+};
+
+typedef TTransformSequence3<float> FTransformSequence3f;
+typedef TTransformSequence3<double> FTransformSequence3d;

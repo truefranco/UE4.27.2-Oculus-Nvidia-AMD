@@ -71,6 +71,7 @@ void UCurveControlPointsMechanic::Setup(UInteractiveTool* ParentToolIn)
 	SelectedColor = FColor::Yellow;
 	PreviewColor = HoverColor;
 	SnapLineColor = FColor::Yellow;
+	HighlightColor = FColor::Yellow;
 	DepthBias = 1.0f;
 
 	GeometrySetToleranceTest = [this](const FVector3d& Position1, const FVector3d& Position2) {
@@ -232,6 +233,14 @@ void UCurveControlPointsMechanic::Render(IToolsContextRenderAPI* RenderAPI)
 					SnapLineColor, SDPG_Foreground, 0.5 * PDIScale, 0.0f, true);
 			}
 		}
+	}
+	if (SnapEngine.HaveActiveSnap() && (SnapEngine.GetActiveSnapTargetID() == FirstPointSnapID || SnapEngine.GetActiveSnapTargetID() == LastPointSnapID))
+	{
+		DrawnControlSegments->SetAllLinesColor(HighlightColor);
+	}
+	else
+	{
+		DrawnControlSegments->SetAllLinesColor(CurrentSegmentsColor);
 	}
 }
 
@@ -929,17 +938,25 @@ bool UCurveControlPointsMechanic::OnUpdateHover(const FInputDeviceRay& DevicePos
 		}
 		else
 		{
+			FColor LastSegmentColor = PreviewColor;
 			// Snap the hitpoint if applicable
 			if (bInteractiveInitializationMode || (bSnappingEnabled ^ bSnapToggle))
 			{
 				SnapEngine.UpdateSnappedPoint(HitPoint);
 				if (SnapEngine.HaveActiveSnap())
 				{
+					// whether the next click would complete the path
+					bool bEndingInitMode = (ControlPoints.Num() >= MinPointsForLoop && SnapEngine.GetActiveSnapTargetID() == FirstPointSnapID)
+						                || (ControlPoints.Num() >= MinPointsForNonLoop && SnapEngine.GetActiveSnapTargetID() == LastPointSnapID);
+
+					if (bEndingInitMode)
+					{
+						LastSegmentColor = HighlightColor;
+					}
+
 					// We always snap to the start/end points because that's how we get out of initialization mode, and we don't want to
 					// risk the user not knowing what to do if they set snapping to be disabled.
-					if ((bSnappingEnabled ^ bSnapToggle) 
-						|| (ControlPoints.Num() >= MinPointsForLoop && SnapEngine.GetActiveSnapTargetID() == FirstPointSnapID)
-						|| (ControlPoints.Num() >= MinPointsForNonLoop && SnapEngine.GetActiveSnapTargetID() == LastPointSnapID))
+					if ((bSnappingEnabled ^ bSnapToggle) || bEndingInitMode)
 					{
 						HitPoint = SnapEngine.GetActiveSnapToPoint();
 					}

@@ -114,5 +114,6 @@ namespace GizmoMath
 	 * Round Value to nearest step of Increment
 	 * @return snapped/rounded value
 	 */
-	INTERACTIVETOOLSFRAMEWORK_API float SnapToIncrement(float Value, float Increment);
+	template <typename RealType>
+	INTERACTIVETOOLSFRAMEWORK_API RealType SnapToIncrement(RealType Value, RealType Increment);
 }

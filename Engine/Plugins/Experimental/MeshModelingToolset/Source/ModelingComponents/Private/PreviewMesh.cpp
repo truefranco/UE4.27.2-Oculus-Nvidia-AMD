@@ -1,7 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "PreviewMesh.h"
-
+#include "ComponentSourceInterfaces.h"
 #include "Containers/StaticArray.h"
 #include "Engine/Classes/Materials/Material.h"
 
@@ -35,6 +35,14 @@ void UPreviewMesh::CreateInWorld(UWorld* World, const FTransform& WithTransform)
 	TemporaryParentActor = World->SpawnActor<APreviewMeshActor>(FVector::ZeroVector, Rotation, SpawnInfo);
 
 	DynamicMeshComponent = NewObject<USimpleDynamicMeshComponent>(TemporaryParentActor);
+
+	// Disable VerifyUsedMaterials on the DynamicMeshSceneProxy. Material verification is prone
+	// to data races when materials are subject to change at a high frequency. Since the
+	// preview mesh material usage (override render materials) is particularly prone to these
+	// races and we are certain the component materials are updated appropriately, we disable
+	// used material verification.
+	DynamicMeshComponent->SetSceneProxyVerifyUsedMaterials(false);
+
 	TemporaryParentActor->SetRootComponent(DynamicMeshComponent);
 	//DynamicMeshComponent->SetupAttachment(TemporaryParentActor->GetRootComponent());
 	DynamicMeshComponent->RegisterComponent();
@@ -73,6 +81,11 @@ void UPreviewMesh::SetMaterial(int MaterialIndex, UMaterialInterface* Material)
 
 	// force rebuild because we can't change materials yet - surprisingly complicated
 	DynamicMeshComponent->NotifyMeshUpdated();
+	// if we change materials we have to force a decomposition update because it decomposes by material
+	if (bDecompositionEnabled)
+	{
+		UpdateRenderMeshDecomposition();
+	}
 }
 
 void UPreviewMesh::SetMaterials(const TArray<UMaterialInterface*>& Materials)
@@ -85,6 +98,12 @@ void UPreviewMesh::SetMaterials(const TArray<UMaterialInterface*>& Materials)
 
 	// force rebuild because we can't change materials yet - surprisingly complicated
 	DynamicMeshComponent->NotifyMeshUpdated();
+
+	// if we change materials we have to force a decomposition update because it decomposes by material
+	if (bDecompositionEnabled)
+	{
+		UpdateRenderMeshDecomposition();
+	}
 }
 
 int32 UPreviewMesh::GetNumMaterials() const
@@ -159,12 +178,76 @@ void UPreviewMesh::DisableSecondaryTriangleBuffers()
 void UPreviewMesh::SetTangentsMode(EDynamicMeshTangentCalcType TangentsType)
 {
 	check(DynamicMeshComponent);
-	DynamicMeshComponent->TangentsType = TangentsType;
+	DynamicMeshComponent->SetTangentsType(TangentsType);
+}
+
+bool UPreviewMesh::CalculateTangents()
+{
+	check(DynamicMeshComponent);
+
+	UDynamicMesh* const DynamicMesh = DynamicMeshComponent->GetDynamicMesh();
+	FDynamicMesh3* const Mesh = DynamicMesh ? DynamicMesh->GetMeshPtr() : nullptr;
+
+	if (Mesh)
+	{
+		// Holds temporary tangents in case we don't have access to existing tangents and need to compute them within this function.
+		FMeshTangentsf TempTangents;
+
+		const FMeshTangentsf* Tangents = [this, Mesh, &TempTangents]() -> const FMeshTangentsf*
+			{
+				if (DynamicMeshComponent->GetTangentsType() == EDynamicMeshTangentCalcType::AutoCalculated)
+				{
+					if (const FMeshTangentsf* AutoCalculatedTangents = DynamicMeshComponent->GetAutoCalculatedTangents())
+					{
+						return AutoCalculatedTangents;
+					}
+				}
+
+				const FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
+				const FDynamicMeshUVOverlay* UVOverlay = nullptr;
+
+				if (const FDynamicMeshAttributeSet* Attributes = Mesh->Attributes())
+				{
+					if (Attributes->NumNormalLayers() > 0)
+					{
+						NormalOverlay = Attributes->GetNormalLayer(0);
+					}
+
+					if (Attributes->NumUVLayers() > 0)
+					{
+						UVOverlay = Attributes->GetUVLayer(0);
+					}
+				}
+
+				if (NormalOverlay && UVOverlay)
+				{
+					TempTangents.ComputeTriVertexTangents(NormalOverlay, UVOverlay, {});
+
+					return &TempTangents;
+				}
+
+				return nullptr;
+			}();
+
+			if (Tangents)
+			{
+				Mesh->Attributes()->EnableTangents();
+				if (Tangents->CopyToOverlays(*Mesh))
+				{
+					DynamicMeshComponent->FastNotifyVertexAttributesUpdated(true, false, false);
+					NotifyWorldPathTracedOutputInvalidated();
+
+					return true;
+				}
+			}
+	}
+
+	return false;
 }
 
 const TMeshTangents<float>* UPreviewMesh::GetTangents() const
 {
-	return DynamicMeshComponent->GetTangents();
+	return DynamicMeshComponent->GetAutoCalculatedTangents();
 }
 
 void UPreviewMesh::EnableWireframe(bool bEnable)
@@ -172,7 +255,11 @@ void UPreviewMesh::EnableWireframe(bool bEnable)
 	check(DynamicMeshComponent);
 	DynamicMeshComponent->bExplicitShowWireframe = bEnable;
 }
-
+void UPreviewMesh::SetShadowsEnabled(bool bEnable)
+{
+	check(DynamicMeshComponent);
+	DynamicMeshComponent->SetShadowsEnabled(bEnable);
+}
 
 FTransform UPreviewMesh::GetTransform() const
 {
@@ -223,31 +310,20 @@ void UPreviewMesh::ClearPreview()
 	}
 }
 
-
-void UPreviewMesh::UpdatePreview(const FDynamicMesh3* Mesh)
+void UPreviewMesh::UpdatePreview(const FDynamicMesh3* Mesh, ERenderUpdateMode UpdateMode,
+	EMeshRenderAttributeFlags ModifiedAttribs)
 {
-	DynamicMeshComponent->SetDrawOnTop(this->bDrawOnTop);
-
 	DynamicMeshComponent->GetMesh()->Copy(*Mesh);
-	DynamicMeshComponent->NotifyMeshUpdated();
 
-	if (bBuildSpatialDataStructure)
-	{
-		MeshAABBTree.SetMesh(DynamicMeshComponent->GetMesh(), true);
-	}
+	NotifyDeferredEditCompleted(UpdateMode, ModifiedAttribs, bBuildSpatialDataStructure);
 }
 
-void UPreviewMesh::UpdatePreview(FDynamicMesh3&& Mesh)
+void UPreviewMesh::UpdatePreview(FDynamicMesh3&& Mesh, ERenderUpdateMode UpdateMode,
+	EMeshRenderAttributeFlags ModifiedAttribs)
 {
-	DynamicMeshComponent->SetDrawOnTop(this->bDrawOnTop);
-
 	*(DynamicMeshComponent->GetMesh()) = MoveTemp(Mesh);
-	DynamicMeshComponent->NotifyMeshUpdated();
 
-	if (bBuildSpatialDataStructure)
-	{
-		MeshAABBTree.SetMesh(DynamicMeshComponent->GetMesh(), true);
-	}
+	NotifyDeferredEditCompleted(UpdateMode, ModifiedAttribs, bBuildSpatialDataStructure);
 }
 
 
@@ -258,6 +334,14 @@ const FDynamicMesh3* UPreviewMesh::GetMesh() const
 		return DynamicMeshComponent->GetMesh();
 	}
 	return nullptr;
+}
+
+void UPreviewMesh::ProcessMesh(TFunctionRef<void(const FDynamicMesh3&)> ProcessFunc) const
+{
+	if (ensure(DynamicMeshComponent))
+	{
+		DynamicMeshComponent->ProcessMesh(ProcessFunc);
+	}
 }
 
 FDynamicMeshAABBTree3* UPreviewMesh::GetSpatial()
@@ -279,7 +363,7 @@ TUniquePtr<FDynamicMesh3> UPreviewMesh::ExtractPreviewMesh() const
 {
 	if (DynamicMeshComponent != nullptr)
 	{
-		return DynamicMeshComponent->ExtractMesh(true);
+		return DynamicMeshComponent->GetDynamicMesh()->ExtractMesh();
 	}
 	return nullptr;
 }
@@ -361,18 +445,25 @@ void UPreviewMesh::InitializeMesh(FMeshDescription* MeshDescription)
 	}
 }
 
+void UPreviewMesh::ReplaceMesh(const FDynamicMesh3& NewMesh)
+{
+	ReplaceMesh(FDynamicMesh3(NewMesh));
+}
 
 void UPreviewMesh::ReplaceMesh(FDynamicMesh3&& NewMesh)
 {
-	FDynamicMesh3* Mesh = DynamicMeshComponent->GetMesh();
-	*Mesh = MoveTemp(NewMesh);
-
-	DynamicMeshComponent->NotifyMeshUpdated();
+	DynamicMeshComponent->SetMesh(MoveTemp(NewMesh));
 
 	if (bBuildSpatialDataStructure)
 	{
 		MeshAABBTree.SetMesh(DynamicMeshComponent->GetMesh(), true);
 	}
+	if (bDecompositionEnabled)
+	{
+		UpdateRenderMeshDecomposition();
+	}
+
+	NotifyWorldPathTracedOutputInvalidated();
 }
 
 
@@ -454,6 +545,10 @@ TUniquePtr<FMeshChange> UPreviewMesh::TrackedEditMesh(TFunctionRef<void(FDynamic
 	{
 		MeshAABBTree.SetMesh(DynamicMeshComponent->GetMesh(), true);
 	}
+	if (bDecompositionEnabled)
+	{
+		UpdateRenderMeshDecomposition();
+	}
 
 	return MoveTemp(Change);
 }
@@ -476,6 +571,10 @@ void UPreviewMesh::ApplyChange(const FMeshChange* Change, bool bRevert)
 	{
 		MeshAABBTree.SetMesh(DynamicMeshComponent->GetMesh(), true);
 	}
+	if (bDecompositionEnabled)
+	{
+		UpdateRenderMeshDecomposition();
+	}
 }
 void UPreviewMesh::ApplyChange(const FMeshReplacementChange* Change, bool bRevert)
 {
@@ -484,6 +583,10 @@ void UPreviewMesh::ApplyChange(const FMeshReplacementChange* Change, bool bRever
 	if (bBuildSpatialDataStructure)
 	{
 		MeshAABBTree.SetMesh(DynamicMeshComponent->GetMesh(), true);
+	}
+	if (bDecompositionEnabled)
+	{
+		UpdateRenderMeshDecomposition();
 	}
 }
 
@@ -513,6 +616,23 @@ void UPreviewMesh::SetTriangleColorFunction(TFunction<FColor(const FDynamicMesh3
 	}
 }
 
+void UPreviewMesh::SetEnableRenderMeshDecomposition(bool bEnable)
+{
+	if (bDecompositionEnabled != bEnable)
+	{
+		bDecompositionEnabled = bEnable;
+
+		if (bDecompositionEnabled)
+		{
+			UpdateRenderMeshDecomposition();
+		}
+		else
+		{
+			DynamicMeshComponent->SetExternalDecomposition(nullptr);
+		}
+	}
+}
+
 void UPreviewMesh::ClearTriangleColorFunction(ERenderUpdateMode UpdateMode)
 {
 	if (DynamicMeshComponent->TriangleColorFunc)
@@ -527,4 +647,30 @@ void UPreviewMesh::ClearTriangleColorFunction(ERenderUpdateMode UpdateMode)
 			DynamicMeshComponent->NotifyMeshUpdated();
 		}
 	}
+}
+
+void UPreviewMesh::NotifyWorldPathTracedOutputInvalidated()
+{
+	if (TemporaryParentActor != nullptr)
+	{
+		UWorld* World = TemporaryParentActor->GetWorld();
+		if (World && World->Scene && FApp::CanEverRender())
+		{
+			
+		}
+	}
+}
+
+void UPreviewMesh::UpdateRenderMeshDecomposition()
+{
+	check(bDecompositionEnabled);
+
+	FDynamicMesh3* Mesh = DynamicMeshComponent->GetMesh();
+	FComponentMaterialSet MaterialSet;
+	GetMaterials(MaterialSet.Materials);
+
+	TUniquePtr<FMeshRenderDecomposition> Decomp = MakeUnique<FMeshRenderDecomposition>();
+	FMeshRenderDecomposition::BuildChunkedDecomposition(Mesh, &MaterialSet, *Decomp);
+	Decomp->BuildAssociations(Mesh);
+	DynamicMeshComponent->SetExternalDecomposition(MoveTemp(Decomp));
 }

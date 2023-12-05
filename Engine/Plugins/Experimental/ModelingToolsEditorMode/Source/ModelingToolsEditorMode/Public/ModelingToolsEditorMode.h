@@ -15,7 +15,7 @@ class FEditorComponentSourceFactory;
 class FEditorToolAssetAPI;
 class FUICommandList;
 class FStylusStateTracker;		// for stylus events
-
+class UModelingSceneSnappingManager;
 class FModelingToolsEditorMode : public FEdMode
 {
 public:
@@ -154,6 +154,7 @@ public:
 	}
 
 protected:
+	UModelingSceneSnappingManager* SceneSnappingManager;
 
 	UEdModeInteractiveToolsContext* ToolsContext;
 
@@ -166,6 +167,13 @@ protected:
 	void FocusCameraAtCursorHotkey();
 
 	void ConfigureRealTimeViewportsOverride(bool bEnable);
+
+	FDelegateHandle MeshCreatedEventHandle;
+	FDelegateHandle TextureCreatedEventHandle;
+	FDelegateHandle MaterialCreatedEventHandle;
+	FDelegateHandle SelectionModifiedEventHandle;
+
+	FDelegateHandle EditorClosedEventHandle;
 
 	// analytics tracking
 	static FDateTime LastModeStartTimestamp;

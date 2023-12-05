@@ -2,11 +2,13 @@
 
 
 #include "ToolSetupUtil.h"
+#include "ModelingComponentsSettings.h"
 #include "InteractiveTool.h"
 #include "InteractiveToolManager.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"
-
+#include "BaseDynamicMeshComponent.h"
+#include "PreviewMesh.h"
 
 UMaterialInterface* ToolSetupUtil::GetDefaultMaterial()
 {
@@ -202,4 +204,45 @@ UMaterialInterface* ToolSetupUtil::GetDefaultLineComponentMaterial(UInteractiveT
 		return ToolManager->GetContextQueriesAPI()->GetStandardMaterial(EStandardToolContextMaterials::VertexColorMaterial);
 	}
 	return Material;
+}
+
+UCurveFloat* ToolSetupUtil::GetContrastAdjustmentCurve(UInteractiveToolManager * ToolManager)
+{
+		// This curve would currently be shared across any tools that need such a curve. We'll probably want to revisit this
+		// once it is used in multiple tools.
+		UCurveFloat* Curve = LoadObject<UCurveFloat>(nullptr, TEXT("/MeshModelingToolsetExp/Curves/ContrastAdjustmentCurve"));
+
+		// Create a transient duplicate of the curve, as we are going to expose this curve to the user, and we
+		// do not want them editing the default Asset.
+		UCurveFloat* CurveCopy = DuplicateObject<UCurveFloat>(Curve, GetTransientPackage());
+
+		return CurveCopy;
+}
+
+void ToolSetupUtil::ApplyRenderingConfigurationToPreview(UBaseDynamicMeshComponent* Component, UToolTarget* SourceTarget)
+{
+	UModelingComponentsSettings* Settings = GetMutableDefault<UModelingComponentsSettings>();
+	bool bEnableRaytracingSupport = (Settings != nullptr) ? Settings->bEnableRayTracingWhileEditing : false;
+
+
+	if (bEnableRaytracingSupport)
+	{
+		Component->SetEnableRaytracing(bEnableRaytracingSupport);
+	}
+}
+
+void ToolSetupUtil::ApplyRenderingConfigurationToPreview(UPreviewMesh* PreviewMesh, UToolTarget* SourceTarget)
+{
+	UBaseDynamicMeshComponent* Component = Cast<UBaseDynamicMeshComponent>(PreviewMesh->GetRootComponent());
+	if (!Component)
+	{
+		return;
+	}
+	
+	ApplyRenderingConfigurationToPreview(Component, SourceTarget);
+}
+
+UMaterialInterface* ToolSetupUtil::GetDefaultEditVolumeMaterial()
+{
+	return LoadObject<UMaterial>(nullptr, TEXT("/MeshModelingToolsetExp/Materials/VolumeEditMaterial"));
 }

@@ -6,7 +6,7 @@
 #include "DynamicMeshOverlay.h"
 #include "MeshDescriptionBuilder.h"
 #include "MeshTangents.h"
-
+#include "Util/ColorConstants.h"
 
 
 
@@ -42,7 +42,7 @@ namespace DynamicMeshToMeshDescriptionConversionHelper
 }
 
 
-void FDynamicMeshToMeshDescription::Update(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bUpdateNormals, bool bUpdateUVs)
+void FDynamicMeshToMeshDescription::Update(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bUpdateNormals, bool bUpdateTangents, bool bUpdateUVs)
 {
 	FMeshDescriptionBuilder Builder;
 	Builder.SetMeshDescription(&MeshOut);
@@ -62,7 +62,7 @@ void FDynamicMeshToMeshDescription::Update(const FDynamicMesh3* MeshIn, FMeshDes
 
 
 
-void FDynamicMeshToMeshDescription::UpdateAttributes(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bUpdateNormals, bool bUpdateUVs)
+void FDynamicMeshToMeshDescription::UpdateAttributes(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bUpdateNormals, bool bUpdateTangents, bool bUpdateUVs)
 {
 	check(MeshIn->IsCompactV());
 
@@ -162,9 +162,104 @@ void FDynamicMeshToMeshDescription::UpdateTangents(const FDynamicMesh3* MeshIn, 
 	}
 }
 
+void FDynamicMeshToMeshDescription::UpdateTangents(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut)
+{
+	if (!ensureMsgf(MeshIn->IsCompactT(), TEXT("Trying to update MeshDescription Tangents from a non-compact DynamicMesh"))) return;
+	if (!ensureMsgf(MeshIn->TriangleCount() == MeshOut.Triangles().Num(), TEXT("Trying to update MeshDescription Tangents from Mesh that does not have same triangle count"))) return;
+	if (!ensureMsgf(MeshIn->HasAttributes(), TEXT("Trying to update MeshDescription Tangents from a DynamicMesh that has no attributes, e.g. normals"))) return;
+
+	// src
+	const FDynamicMeshNormalOverlay* NormalOverlay = MeshIn->Attributes()->PrimaryNormals();
+	const FDynamicMeshNormalOverlay* TangentOverlay = MeshIn->Attributes()->PrimaryTangents();
+	const FDynamicMeshNormalOverlay* BiTangentOverlay = MeshIn->Attributes()->PrimaryBiTangents();
+
+	const bool bHasValidSrc = NormalOverlay && TangentOverlay && BiTangentOverlay;
+	ensureMsgf(bHasValidSrc, TEXT("Trying to update MeshDescription Tangents from a DynamicMesh that does not have all three tangent space attributes"));
+	if (!bHasValidSrc)
+	{
+		return;
+	}
+
+	// dst
+	FStaticMeshAttributes Attributes(MeshOut);
+	const TVertexInstanceAttributesRef<FVector> TangentAttrib = Attributes.GetVertexInstanceTangents();
+	const TVertexInstanceAttributesRef<float> BiTangentSignAttrib = Attributes.GetVertexInstanceBinormalSigns();
+
+	if (!ensureMsgf(TangentAttrib.IsValid(), TEXT("Trying to update Tangents on a MeshDescription that has no Tangent Vertex Instance attribute"))) return;
+	if (!ensureMsgf(BiTangentSignAttrib.IsValid(), TEXT("Trying to update Tangents on a MeshDescription that has no BinormalSign Vertex Instance attribute"))) return;
+
+	const int32 NumTriangles = MeshIn->TriangleCount();
+	for (int32 t = 0; t < NumTriangles; ++t)
+	{
+		const bool bTriHasTangentSpace = NormalOverlay->IsSetTriangle(t) && TangentOverlay->IsSetTriangle(t) && BiTangentOverlay->IsSetTriangle(t);
+
+		if (!bTriHasTangentSpace) continue;
+
+		// get data from dynamic mesh overlays
+		FVector3f TriNormals[3];
+		NormalOverlay->GetTriElements(t, TriNormals[0], TriNormals[1], TriNormals[2]);
 
 
-void FDynamicMeshToMeshDescription::Convert(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut)
+		FVector3f TriTangents[3];
+		TangentOverlay->GetTriElements(t, TriTangents[0], TriTangents[1], TriTangents[2]);
+
+
+		FVector3f TriBiTangents[3];
+		BiTangentOverlay->GetTriElements(t, TriBiTangents[0], TriBiTangents[1], TriBiTangents[2]);
+
+		// set data in the mesh description per-vertex attributes
+		TArrayView<const FVertexInstanceID> TriInstances = MeshOut.GetTriangleVertexInstances(FTriangleID(t));
+		for (int32 i = 0; i < 3; ++i)
+		{
+			const float BiTangentSign = VectorUtil::BitangentSign(TriNormals[i], TriTangents[i], TriBiTangents[i]);
+
+			TangentAttrib.Set(TriInstances[i], (FVector)TriTangents[i]);
+			BiTangentSignAttrib.Set(TriInstances[i], BiTangentSign);
+		}
+	}
+}
+
+
+void FDynamicMeshToMeshDescription::UpdateVertexColors(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut)
+{
+
+	FStaticMeshAttributes Attributes(MeshOut);
+	TVertexInstanceAttributesRef<FVector4> InstanceColorsAttrib = Attributes.GetVertexInstanceColors();
+
+	if (!ensureMsgf(MeshIn->IsCompactT(), TEXT("Trying to update MeshDescription Colors from a non-compact DynamicMesh"))) return;
+	if (!ensureMsgf(MeshIn->TriangleCount() == MeshOut.Triangles().Num(), TEXT("Trying to update MeshDescription Colors from Mesh that does not have same triangle count"))) return;
+	if (!ensureMsgf(MeshIn->HasAttributes() && MeshIn->Attributes()->HasPrimaryColors(), TEXT("Trying to update MeshDescription Colors from a DynamicMesh that has no attribute set at all or has no color data in its attribute set"))) return;
+	if (!ensureMsgf(InstanceColorsAttrib.IsValid(), TEXT("Trying to update colors on a MeshDescription that has no color attributes"))) return;
+
+	const FDynamicMeshColorOverlay* ColorOverlay = MeshIn->Attributes()->PrimaryColors();
+
+	const int32 NumTriangles = MeshIn->TriangleCount();
+	for (int32 t = 0; t < NumTriangles; ++t)
+	{
+		if (!ColorOverlay->IsSetTriangle(t))
+		{
+			continue;
+		}
+
+		FVector4f TriColors[3];
+		ColorOverlay->GetTriElements(t, TriColors[0], TriColors[1], TriColors[2]);
+
+		ApplyVertexColorTransform(TriColors[0]);
+		ApplyVertexColorTransform(TriColors[1]);
+		ApplyVertexColorTransform(TriColors[2]);
+
+		TArrayView<const FVertexInstanceID> InstanceIDs = MeshOut.GetTriangleVertexInstances(FTriangleID(t));
+		for (int32 i = 0; i < 3; ++i)
+		{
+			FVector4 InstanceColor4(TriColors[i].X, TriColors[i].Y, TriColors[i].Z, TriColors[i].W);
+			InstanceColorsAttrib.Set(InstanceIDs[i], 0, InstanceColor4);
+		}
+
+	}
+}
+
+
+void FDynamicMeshToMeshDescription::Convert(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bCopyTangents)
 {
 	if (MeshIn->HasAttributes())
 	{
@@ -177,6 +272,31 @@ void FDynamicMeshToMeshDescription::Convert(const FDynamicMesh3* MeshIn, FMeshDe
 	}
 }
 
+void FDynamicMeshToMeshDescription::UpdateUsingConversionOptions(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut)
+{
+	// See if we can do a buffer update without having to alter triangles.
+	if (HaveMatchingElementCounts(MeshIn, &MeshOut))
+	{
+		if (ConversionOptions.bUpdatePositions)
+		{
+			Update(MeshIn, MeshOut, ConversionOptions.bUpdateNormals, ConversionOptions.bUpdateTangents, ConversionOptions.bUpdateUVs);
+		}
+		else if (ConversionOptions.bUpdateNormals || ConversionOptions.bUpdateTangents || ConversionOptions.bUpdateUVs)
+		{
+			UpdateAttributes(MeshIn, MeshOut, ConversionOptions.bUpdateNormals, ConversionOptions.bUpdateTangents, ConversionOptions.bUpdateUVs);
+		}
+
+		if (ConversionOptions.bUpdateVtxColors)
+		{
+			//UpdateVertexColors(MeshIn, MeshOut);
+		}
+	}
+	else
+	{
+		// Do a full conversion.
+		Convert(MeshIn, MeshOut);
+	}
+}
 
 void FDynamicMeshToMeshDescription::Convert_NoAttributes(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut)
 {
@@ -517,5 +637,25 @@ void FDynamicMeshToMeshDescription::Convert_NoSharedInstances(const FDynamicMesh
 		{
 			Builder.SetPolyGroupID(NewPolygonID, MeshIn->GetTriangleGroup(TriID));
 		}
+	}
+}
+
+void FDynamicMeshToMeshDescription::ApplyVertexColorTransform(FVector4f& Color) const
+{
+	// There is inconsistency in how vertex colors are intended to be consumed in
+	// our shaders. Some shaders consume it as linear (ex. MeshPaint), others as SRGB which
+	// manually convert to linear in the shader.
+	//
+	// All StaticMeshes store vertex colors as an 8-bit FColor. In order to ensure a good
+	// distribution of float values across the 8-bit range, the StaticMesh build always
+	// encodes FColors as SRGB.
+	//
+	// Until there is some defined gamma space convention for vertex colors in our shaders,
+	// we provide this option to pre-transform our linear float colors with an SRGBToLinear
+	// conversion to counteract the StaticMesh build LinearToSRGB conversion. This is how
+	// MeshPaint ensures linear vertex colors in the shaders.
+	if (ConversionOptions.bTransformVtxColorsSRGBToLinear)
+	{
+		LinearColors::SRGBToLinear(Color);
 	}
 }

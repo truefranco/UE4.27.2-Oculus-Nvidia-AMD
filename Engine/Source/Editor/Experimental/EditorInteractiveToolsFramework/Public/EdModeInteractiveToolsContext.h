@@ -4,6 +4,7 @@
 
 #include "InteractiveTool.h"
 #include "InteractiveToolsContext.h"
+#include "BaseGizmos/TransformGizmo.h"
 #include "Delegates/Delegate.h"
 #include "InputCoreTypes.h"
 #include "Engine/EngineBaseTypes.h"
@@ -15,6 +16,7 @@ class FEditorModeTools;
 class FEditorViewportClient;
 class FSceneView;
 class FViewport;
+class UGizmoViewContext;
 class UMaterialInterface;
 class FPrimitiveDrawInterface;
 class FViewportClient;
@@ -61,6 +63,15 @@ public:
 	virtual void Tick(FEditorViewportClient* ViewportClient, float DeltaTime);
 	virtual void Render(const FSceneView* View, FViewport* Viewport, FPrimitiveDrawInterface* PDI);
 	virtual void DrawHUD(FViewportClient* ViewportClient,FViewport* Viewport,const FSceneView* View, FCanvas* Canvas);
+
+	// These delegates can be used to hook into the Render() / DrawHUD() / Tick() calls above. In particular, non-legacy UEdMode's
+	// don't normally receive Render() and DrawHUD() calls from the mode manager, but can attach to these.
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnRender, IToolsContextRenderAPI* RenderAPI);
+	FOnRender OnRender;
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnDrawHUD, FCanvas* Canvas, IToolsContextRenderAPI* RenderAPI);
+	FOnDrawHUD OnDrawHUD;
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTick, float DeltaTime);
+	FOnTick OnTick;
 
 	virtual bool ProcessEditDelete();
 
@@ -127,6 +138,11 @@ protected:
 	// current invalidation timestamp, incremented by invalidation calls
 	int32 InvalidationTimestamp = 0;
 
+	// An object in which we save the current scene view information that gizmos can use on the game thread
+	// to figure out how big the gizmo is for hit testing. Lives in the context store, but we keep a pointer here
+	// to avoid having to look for it.
+	UGizmoViewContext* GizmoViewContext = nullptr;
+
 	/** Input event instance used to keep track of various button states, etc, that we cannot directly query on-demand */
 	FInputDeviceState CurrentMouseState;
 
@@ -141,6 +157,9 @@ protected:
 	// Currently disabling anti-aliasing during active Tools because it causes PDI flickering
 	void SetEditorStateForTool();
 	void RestoreEditorState();
+
+	void OnToolEnded(UInteractiveToolManager* InToolManager, UInteractiveTool* InEndedTool);
+	void OnToolPostBuild(UInteractiveToolManager* InToolManager, EToolSide InSide, UInteractiveTool* InBuiltTool, UInteractiveToolBuilder* InToolBuilder, const FToolBuilderState& ToolState);
 
 	TOptional<FString> PendingToolToStart = {};
 	TOptional<EToolShutdownType> PendingToolShutdownType = {};

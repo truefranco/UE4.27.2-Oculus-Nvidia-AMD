@@ -18,6 +18,12 @@ public:
 	FFloat16 B;
 	FFloat16 A;
 
+	/* Get as a pointer to four half floats */
+	uint16* GetFourHalves() { return (uint16*)this; }
+	const uint16* GetFourHalves() const { return (const uint16*)this; }
+
+	const FLinearColor GetFloats() const;
+
 	/** Default constructor */
 	FFloat16Color();
 
@@ -53,13 +59,18 @@ FORCEINLINE FFloat16Color::FFloat16Color(const FFloat16Color& Src)
 	A = Src.A;
 }
 
+FORCEINLINE FFloat16Color::FFloat16Color(const FLinearColor& Src)
+{
+	FPlatformMath::VectorStoreHalf(GetFourHalves(), (const float*)&Src);
+}
 
-FORCEINLINE FFloat16Color::FFloat16Color(const FLinearColor& Src) :
-	R(Src.R),
-	G(Src.G),
-	B(Src.B),
-	A(Src.A)
-{ }
+
+FORCEINLINE const FLinearColor FFloat16Color::GetFloats() const
+{
+	FLinearColor Ret;
+	FPlatformMath::VectorLoadHalf((float*)&Ret, GetFourHalves());
+	return Ret;
+}
 
 
 FORCEINLINE FFloat16Color& FFloat16Color::operator=(const FFloat16Color& Src)

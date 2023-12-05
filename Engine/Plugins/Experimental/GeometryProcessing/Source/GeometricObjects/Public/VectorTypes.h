@@ -1061,6 +1061,12 @@ inline TVector4<RealType> operator*(RealType Scalar, const TVector4<RealType>& V
 	return TVector4<RealType>(Scalar * V.X, Scalar * V.Y, Scalar * V.Z, Scalar * V.W);
 }
 
+template<typename RealType>
+inline TVector4<RealType> ToVector4(const FLinearColor& Color)
+{
+	return TVector4<RealType>((RealType)Color.R, (RealType)Color.G, (RealType)Color.B, (RealType)Color.A);
+}
+
 // allow float*Vector4<double> and double*Vector4<float>
 template <typename RealType, typename RealType2>
 inline TVector4<RealType> operator*(RealType2 Scalar, const TVector4<RealType>& V)

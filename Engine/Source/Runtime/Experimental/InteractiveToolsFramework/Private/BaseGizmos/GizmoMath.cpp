@@ -217,21 +217,29 @@ FVector GizmoMath::ProjectPointOntoPlane(
 	return Point - NormalDot * PlaneNormal;
 }
 
-
-
-float GizmoMath::SnapToIncrement(float Value, float Increment)
+template <typename RealType>
+RealType GizmoMath::SnapToIncrement(RealType Value, RealType Increment)
 {
 	if (!FMath::IsFinite(Value))
 	{
 		return 0;
 	}
-	float Sign = FMath::Sign(Value);
+	RealType Sign = FMath::Sign(Value);
 	Value = FMath::Abs(Value);
 	int IntIncrement = (int)(Value / Increment);
-	float Remainder = (float)fmod(Value, Increment);
+	RealType Remainder = (RealType)fmod(Value, Increment);
 	if (Remainder > IntIncrement / 2)
 	{
 		++IntIncrement;
 	}
-	return Sign * (float)IntIncrement * Increment;
+	return Sign * (RealType)IntIncrement * Increment;
+}
+
+namespace GizmoMath
+{
+template
+double INTERACTIVETOOLSFRAMEWORK_API GizmoMath::SnapToIncrement(double Value, double Increment);
+
+template
+float INTERACTIVETOOLSFRAMEWORK_API GizmoMath::SnapToIncrement(float Value, float Increment);
 }

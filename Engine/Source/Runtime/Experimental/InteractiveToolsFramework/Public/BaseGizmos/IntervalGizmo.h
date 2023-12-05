@@ -19,7 +19,7 @@ class IGizmoStateTarget;
 class UGizmoComponentAxisSource;
 class IGizmoFloatParameterSource;
 class UGizmoLocalFloatParameterSource;
-
+class UGizmoViewContext;
 
 /**
  *  AIntervalGizmoActor is an Actor type intended to be used with UIntervalGizmo,
@@ -74,7 +74,10 @@ public:
 class INTERACTIVETOOLSFRAMEWORK_API FIntervalGizmoActorFactory
 {
 public:
-
+	FIntervalGizmoActorFactory(UGizmoViewContext* GizmoViewContextIn)
+		: GizmoViewContext(GizmoViewContextIn)
+	{
+	}
 	/**
 	 * @param World the UWorld to create the new Actor in
 	 * @return new ATransformGizmoActor instance with members initialized with Components suitable for a transformation Gizmo
@@ -83,6 +86,13 @@ public:
 	{
 		return AIntervalGizmoActor::ConstructDefaultIntervalGizmo(World);
 	}
+
+protected:
+	/**
+	 * Needs to be set (and kept alive elsewhere) so that created handle gizmos can
+	 * adjust their length according to view (when not using world-scaling).
+	 */
+	UGizmoViewContext* GizmoViewContext = nullptr;
 };
 
 
@@ -147,6 +157,16 @@ public:
 	virtual void SetActiveTarget(UTransformProxy* TransformTargetIn, UGizmoLocalFloatParameterSource* UpInterval, UGizmoLocalFloatParameterSource* DownInterval, UGizmoLocalFloatParameterSource* ForwardInterval,
 		                         IToolContextTransactionProvider* TransactionProvider = nullptr);
 
+	/** Sets functions that allow the endpoints of the intervals to be snapped to world geometry when ShouldAlignDestination is true */
+	virtual void SetWorldAlignmentFunctions(
+		TUniqueFunction<bool()>&& ShouldAlignDestination,
+		TUniqueFunction<bool(const FRay&, FVector&)>&& DestinationAlignmentRayCaster
+	);
+
+	/** Notifies listeners that a sequence of edits to the gizmo is beginning/ending (at the start/end of a drag). */
+	virtual void BeginEditSequence() { OnBeginIntervalGizmoEdit.Broadcast(this); }
+	virtual void EndEditSequence() { OnEndIntervalGizmoEdit.Broadcast(this); }
+
 	/**
 	* Clear the parameter sources for this gizmo
 	*/
@@ -157,10 +177,29 @@ public:
 	 */
 	virtual void ClearActiveTarget();
 
+	/**
+	 * Gets the location and orientation of the interval gizmo.
+	 */
+	virtual FTransform GetGizmoTransform() const;
+
 	/** State target is shared across gizmos, and created internally during SetActiveTarget() */
 	UPROPERTY()
 	UGizmoTransformChangeStateTarget* StateTarget = nullptr;
 
+	/**
+	 * Called when an interval is changed. The delegate gives a pointer to the gizmo, the direction of the interval in
+	 * gizmo space, and the new parameter value.
+	 */
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnIntervalChanged, UIntervalGizmo*, const FVector&, float);
+	FOnIntervalChanged OnIntervalChanged;
+
+	/** Called when the gizmo is notified about the start of a sequence of interval changes. */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnBeginIntervalEdit, UIntervalGizmo*);
+	FOnBeginIntervalEdit OnBeginIntervalGizmoEdit;
+
+	/** Called when the gizmo is notified about the end of a sequence of interval changes. */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnEndIntervalEdit, UIntervalGizmo*);
+	FOnEndIntervalEdit OnEndIntervalGizmoEdit;
 
 protected:
 
@@ -207,6 +246,8 @@ protected:
 	// of this function via the ToolBuilder
 	TFunction<void(UPrimitiveComponent*, EToolContextCoordinateSystem)> UpdateCoordSystemFunction;
 
+	TUniqueFunction<bool()> ShouldAlignDestination = []() { return false; };
+	TUniqueFunction<bool(const FRay&, FVector&)> DestinationAlignmentRayCaster = [](const FRay&, FVector&) {return false; };
 protected:
 
 	/** @return a new instance of the standard axis-handle Gizmo */

@@ -25,13 +25,19 @@ void URevolveProperties::ApplyToCurveSweepOp(const UNewMeshMaterialProperties& M
 		}
 	}
 
-	double DegreesOffset = RevolutionDegreesOffset;
-	double DegreesPerStep = RevolutionDegrees / Steps;
+	const double TotalRevolutionDegrees = (HeightOffsetPerDegree == 0) ? RevolveDegreesClamped : RevolveDegrees;
+
+	const int32 Steps = bExplicitSteps ? NumExplicitSteps : FMath::CeilToInt(TotalRevolutionDegrees / StepsMaxDegrees);
+
+	double DegreesPerStep = TotalRevolutionDegrees / Steps;
+	double DegreesOffset = RevolveDegreesOffset;
 	if (bReverseRevolutionDirection)
 	{
 		DegreesPerStep *= -1;
 		DegreesOffset *= -1;
 	}
+
+	const double DownAxisOffsetPerStep = TotalRevolutionDegrees * HeightOffsetPerDegree / Steps;
 
 	if (bProfileIsCrossSectionOfSide && DegreesPerStep != 0 && abs(DegreesPerStep) < 180)
 	{
@@ -39,7 +45,7 @@ void URevolveProperties::ApplyToCurveSweepOp(const UNewMeshMaterialProperties& M
 	}
 
 	// Generate the sweep curve
-	CurveSweepOpOut.bSweepCurveIsClosed = bWeldFullRevolution && RevolutionDegrees == 360;
+	CurveSweepOpOut.bSweepCurveIsClosed = bWeldFullRevolution && HeightOffsetPerDegree == 0 && TotalRevolutionDegrees == 360;
 	int32 NumSweepFrames = CurveSweepOpOut.bSweepCurveIsClosed ? Steps : Steps + 1; // If closed, last sweep frame is also first
 	CurveSweepOpOut.SweepCurve.Reserve(NumSweepFrames);
 	RevolveUtil::GenerateSweepCurve(RevolutionAxisOrigin, RevolutionAxisDirection, DegreesOffset,
@@ -88,7 +94,7 @@ void URevolveProperties::ApplyToCurveSweepOp(const UNewMeshMaterialProperties& M
 		CurveSweepOpOut.QuadSplitMode = EProfileSweepQuadSplit::Uniform;
 		break;
 	}
-	switch (CapFillMode)
+	switch (GetCapFillMode())
 	{
 	case ERevolvePropertiesCapFillMode::None:
 		CurveSweepOpOut.CapFillMode = FCurveSweepOp::ECapFillMode::None;

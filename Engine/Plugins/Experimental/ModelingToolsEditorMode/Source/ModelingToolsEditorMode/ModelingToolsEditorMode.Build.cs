@@ -52,10 +52,11 @@ public class ModelingToolsEditorMode : ModuleRules
                 "InteractiveToolsFramework",
 				"EditorInteractiveToolsFramework",
 				"ModelingComponents",
+				"ModelingComponentsEditorOnly",
 				"MeshModelingTools",
 				"MeshModelingToolsEditorOnly",
-
-                "ViewportInteraction",
+				"DeveloperSettings",
+				"ViewportInteraction",
 
 				"StylusInput"
 

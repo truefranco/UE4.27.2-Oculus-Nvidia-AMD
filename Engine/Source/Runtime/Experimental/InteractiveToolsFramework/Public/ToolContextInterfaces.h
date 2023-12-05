@@ -2,10 +2,21 @@
 
 #pragma once
 
+
+#include "ComponentSourceInterfaces.h"
+
 #include "CoreMinimal.h"
+#include "UObject/Object.h"
 #include "UObject/Interface.h"
 #include "ComponentSourceInterfaces.h"
 #include "UObject/ObjectMacros.h"
+#include "Containers/Array.h"
+#include "Templates/Casts.h"
+#include "UObject/UObjectGlobals.h"
+#include "Engine/EngineTypes.h"
+
+#include "ToolContextInterfaces.generated.h"
+
 
 
 // predeclarations so we don't have to include these in all tools
@@ -13,17 +24,73 @@ class UWorld;
 class AActor;
 class UActorComponent;
 class FToolCommandChange;
+class UPrimitiveComponent;
 class UPackage;
 class FPrimitiveDrawInterface;
 class FSceneView;
 class UInteractiveToolManager;
 class UInteractiveGizmoManager;
-struct FMeshDescription;
 class UTexture2D;
+class UToolTargetManager;
+class UObject;
+class UClass;
+struct FMeshDescription;
+struct FSceneHitQueryRequest;
+
 
 #if WITH_EDITOR
 class HHitProxy;
 #endif
+
+struct INTERACTIVETOOLSFRAMEWORK_API FSceneQueryVisibilityFilter
+{
+	/** Optional: components to consider invisible even if they aren't. */
+	const TArray<const UPrimitiveComponent*>* ComponentsToIgnore = nullptr;
+
+	/** Optional: components to consider visible even if they aren't. */
+	const TArray<const UPrimitiveComponent*>* InvisibleComponentsToInclude = nullptr;
+
+	/** @return true if the Component is currently configured as visible (does not consider ComponentsToIgnore or InvisibleComponentsToInclude lists) */
+	 bool IsVisible(const UPrimitiveComponent* Component) const;
+};
+
+/**
+* Configuration variables for a USceneSnappingManager hit query request.
+*/
+struct INTERACTIVETOOLSFRAMEWORK_API FSceneHitQueryRequest
+{
+	/** scene query ray */
+	FRay WorldRay;
+
+	bool bWantHitGeometryInfo = false;
+
+	FSceneQueryVisibilityFilter VisibilityFilter;
+};
+
+/**
+* Computed result of a USceneSnappingManager hit query request
+*/
+struct INTERACTIVETOOLSFRAMEWORK_API FSceneHitQueryResult
+{
+	/** Actor that owns hit target */
+	AActor* TargetActor = nullptr;
+	/** Component that owns hit target */
+	UPrimitiveComponent* TargetComponent = nullptr;
+
+	/** hit position*/
+	FVector Position = FVector::ZeroVector;
+	/** hit normal */
+	FVector Normal = FVector::ZAxisVector;
+
+	/** integer ID of triangle that was hit */
+	int HitTriIndex = -1;
+	/** Vertices of triangle that was hit (for debugging, may not be set) */
+	FVector TriVertices[3];
+
+	FHitResult HitResult;
+
+	void InitializeHitResult(const FSceneHitQueryRequest& FromRequest);
+};
 
 /**
  * FToolBuilderState is a bucket of state information that a ToolBuilder might need
@@ -36,6 +103,8 @@ struct INTERACTIVETOOLSFRAMEWORK_API FToolBuilderState
 	UWorld* World = nullptr;
 	/** The current ToolManager */
 	UInteractiveToolManager* ToolManager = nullptr;
+	/** The current TargetManager */
+	UToolTargetManager* TargetManager = nullptr;
 	/** The current GizmoManager */
 	UInteractiveGizmoManager* GizmoManager = nullptr;
 
@@ -43,6 +112,14 @@ struct INTERACTIVETOOLSFRAMEWORK_API FToolBuilderState
 	TArray<AActor*> SelectedActors;
 	/** Current selected Components. May be empty or nullptr. */
 	TArray<UActorComponent*> SelectedComponents;
+
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	FToolBuilderState() = default;
+	FToolBuilderState(FToolBuilderState&&) = default;
+	FToolBuilderState(const FToolBuilderState&) = default;
+	FToolBuilderState& operator=(FToolBuilderState&&) = default;
+	FToolBuilderState& operator=(const FToolBuilderState&) = default;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 };
 
 
@@ -126,9 +203,12 @@ struct INTERACTIVETOOLSFRAMEWORK_API FSceneSnapQueryRequest
 	TOptional<FRotator> RotGridSize{};
 
 	/** Snap input position */
-	FVector Position;
-	/** Another position must deviate less than this number of degrees (in visual angle) to be considered an acceptable snap position */
-	float VisualAngleThresholdDegrees;
+	FVector Position = FVector::ZeroVector;
+	/**
+	 *  When considering if one point is close enough to another point for snapping purposes, they
+	 *  must deviate less than this number of degrees (in visual angle) to be considered an acceptable snap position.
+	 */
+	float VisualAngleThresholdDegrees = 15.0;
 
 	/** Snap input direction */
 	FVector Direction;
@@ -136,7 +216,13 @@ struct INTERACTIVETOOLSFRAMEWORK_API FSceneSnapQueryRequest
 	float DirectionAngleThresholdDegrees;
 
 	/** Snap input rotation delta */
-	FQuat DeltaRotation;
+	FQuat DeltaRotation = FQuat(EForceInit::ForceInitToZero);
+
+	/** Optional: components to consider invisible even if they aren't. */
+	const TArray<const UPrimitiveComponent*>* ComponentsToIgnore = nullptr;
+	/** Optional: components to consider visible even if they aren't. */
+	const TArray<const UPrimitiveComponent*>* InvisibleComponentsToInclude = nullptr;
+
 };
 
 
@@ -187,6 +273,46 @@ enum class EToolContextCoordinateSystem
 	Local = 1
 };
 
+/**
+ * High-level configuration options for a standard 3D translate/rotate/scale Gizmo, like is commonly used in 3D DCC tools, game editors, etc
+ * This is meant to be used to convey UI-level settings to Tools/Gizmos, eg like the W/E/R toggles for Rranslate/Rotate/Scale in Maya or UE Editor.
+ * More granular control over precise gizmo elements is available through other mechanisms, eg the ETransformGizmoSubElements flags in UCombinedTransformGizmo
+ */
+UENUM()
+enum class EToolContextTransformGizmoMode : uint8
+{
+	/** Hide all Gizmo sub-elements */
+	NoGizmo = 0,
+	/** Only Show Translation sub-elements */
+	Translation = 1,
+	/** Only Show Rotation sub-elements */
+	Rotation = 2,
+	/** Only Show Scale sub-elements */
+	Scale = 3,
+	/** Show all available Gizmo sub-elements */
+	Combined = 8
+};
+
+
+
+/**
+ * Snapping configuration settings/state
+ */
+struct FToolContextSnappingConfiguration
+{
+	/** Specify whether position snapping should be applied */
+	bool bEnablePositionGridSnapping = false;
+	/** Specify position grid spacing or cell dimensions */
+	FVector PositionGridDimensions = FVector::ZeroVector;
+
+	/** Specify whether rotation snapping should be applied */
+	bool bEnableRotationGridSnapping = false;
+	/** Specify rotation snapping step size */
+	FRotator RotationGridAngles = FRotator::ZeroRotator;
+
+	/** Specify whether Position snapping in World Coordinate System should be Absolute or Relative */
+	bool bEnableAbsoluteWorldSnapping = false;
+};
 
 /**
  * Users of the Tools Framework need to implement IToolsContextQueriesAPI to provide
@@ -196,6 +322,11 @@ class IToolsContextQueriesAPI
 {
 public:
 	virtual ~IToolsContextQueriesAPI() {}
+
+	/**
+	 * @return the UWorld currently being targetted by the ToolsContext, default location for new Actors/etc
+	 */
+	virtual UWorld* GetCurrentEditingWorld() const = 0;
 
 	/**
 	 * Collect up current-selection information for the current scene state (ie what is selected in Editor, etc)
@@ -216,7 +347,15 @@ public:
 	 */
 	virtual EToolContextCoordinateSystem GetCurrentCoordinateSystem() const = 0;	
 
+	/**
+	 * Request current external Gizmo Mode setting. Defaulting this to Combined gizmo as this was the default behavior before UE-5.2.
+	 */
+	virtual EToolContextTransformGizmoMode GetCurrentTransformGizmoMode() const { return EToolContextTransformGizmoMode::Combined; }
 
+	/**
+	 * Request current external snapping settings. Defaults to no snapping.
+	 */
+	virtual FToolContextSnappingConfiguration GetCurrentSnappingSettings() const { return FToolContextSnappingConfiguration(); }
 	/**
 	 * Try to find Snap Targets in the scene that satisfy the Snap Query.
 	 * @param Request snap query configuration
@@ -225,7 +364,6 @@ public:
 	 * @warning implementations are not required (and may not be able) to support snapping
 	 */
 	virtual bool ExecuteSceneSnapQuery(const FSceneSnapQueryRequest& Request, TArray<FSceneSnapQueryResult>& Results ) const = 0;
-
 
 	/**
 	 * Many tools need standard types of materials that the user should provide (eg a vertex-color material, etc)
@@ -381,7 +519,7 @@ public:
  * provide the underlying mesh, materials, and configuration settings. Note that all implementations
  * may not use/respect all settings.
  */
-struct FGeneratedStaticMeshAssetConfig
+struct  FGeneratedStaticMeshAssetConfig
 {
 	INTERACTIVETOOLSFRAMEWORK_API ~FGeneratedStaticMeshAssetConfig();
 
@@ -472,3 +610,121 @@ public:
 	}
 };
 
+UCLASS()
+class INTERACTIVETOOLSFRAMEWORK_API USceneSnappingManager : public UObject
+{
+	GENERATED_BODY()
+public:
+
+	/**
+	* Try to find a Hit Object in the scene that satisfies the Hit Query
+	* @param Request hit query configuration
+	* @param Results hit query result
+	* @return true if any valid hit target was found
+	* @warning implementations are not required (and may not be able) to support hit testing
+	*/
+	virtual bool ExecuteSceneHitQuery(const FSceneHitQueryRequest& Request, FSceneHitQueryResult& ResultOut) const
+	{
+		return false;
+	}
+
+	/**
+	* Try to find Snap Targets/Results in the scene that satisfy the Snap Query.
+	* @param Request snap query configuration
+	* @param Results list of potential snap results
+	* @return true if any valid snap target/result was found
+	* @warning implementations are not required (and may not be able) to support snapping
+	*/
+	virtual bool ExecuteSceneSnapQuery(const FSceneSnapQueryRequest& Request, TArray<FSceneSnapQueryResult>& ResultsOut) const
+	{
+		return false;
+	}
+
+public:
+	/**
+	 * @return existing USceneSnappingManager registered in context store via the ToolManager, or nullptr if not found
+	 */
+	static USceneSnappingManager* Find(UInteractiveToolManager* ToolManager);
+
+	/**
+	 * @return existing USceneSnappingManager registered in context store via the ToolManager, or nullptr if not found
+	 */
+	static USceneSnappingManager* Find(UInteractiveGizmoManager* GizmoManager);
+
+};
+
+/**
+ * A context object store allows tools to get access to arbitrary objects which expose data or APIs to enable additional functionality.
+  * Some example use cases of context objects:
+  *   - A tool builder may disallow a particular tool if a needed API object is not present in the context store.
+  *   - A tool may allow extra actions if it has access to a particular API object in the context store.
+  *   - A tool may choose to initialize itself differently based on the presence of a selection-holding data object in the context store.
+ */
+UCLASS(Transient)
+class INTERACTIVETOOLSFRAMEWORK_API UContextObjectStore : public UObject
+{
+	GENERATED_BODY()
+
+public:
+	/**
+	 * Finds the first the context object of the given type. Can return a subclass of the given type.
+	 * @returns the found context object, casted to the given type, or nullptr if none matches.
+	 */
+	template <typename TObjectType>
+	TObjectType* FindContext() const
+	{
+		for (UObject* ContextObject : ContextObjects)
+		{
+			if (TObjectType* CastedObject = Cast<TObjectType>(ContextObject))
+			{
+				return CastedObject;
+			}
+		}
+
+		if (UContextObjectStore* ParentStore = Cast<UContextObjectStore>(GetOuter()))
+		{
+			return ParentStore->FindContext<TObjectType>();
+		}
+
+		return nullptr;
+	}
+
+	/**
+	 * Finds the first context object that derives from the given class.
+	 * @returns the found context object, or nullptr if none matches.
+	 */
+	UObject* FindContextByClass(UClass* InClass) const;
+
+	/**
+	 * Adds a data object to the tool manager's set of shared data objects.
+	 * @returns true if the addition is successful.
+	 */
+	bool AddContextObject(UObject* InContextObject);
+
+	/**
+	 * Removes a data object from the tool manager's set of shared data objects.
+	 * @returns true if the removal is successful.
+	 */
+	bool RemoveContextObject(UObject* InContextObject);
+
+	/**
+	 * Removes any data objects from the tool manager's set of shared data objects that are of type @param InClass
+	 * @returns true if any objects are removed.
+	 */
+	bool RemoveContextObjectsOfType(const UClass* InClass);
+
+	template <class TObjectType>
+	bool RemoveContextObjectsOfType()
+	{
+		return RemoveContextObjectsOfType(TObjectType::StaticClass());
+	}
+
+	/**
+	 * Shuts down the context object store, releasing hold on any stored content objects.
+	 */
+	void Shutdown();
+
+protected:
+	UPROPERTY()
+	TArray<UObject*> ContextObjects;
+};

@@ -7,10 +7,13 @@
 #include "ToolDataVisualizer.h"
 #include "FrameTypes.h"
 #include "InteractiveGizmo.h"
+#include "Mechanics/DragAlignmentMechanic.h"
 #include "BaseGizmos/TransformGizmo.h"
 #include "InteractiveGizmoManager.h"
 #include "MultiTransformer.generated.h"
 
+class UTransformGizmo;
+class UTransformProxy;
 
 UENUM()
 enum class EMultiTransformerMode
@@ -52,7 +55,16 @@ public:
 
 	virtual void SetEnabledGizmoSubElements(ETransformGizmoSubElements EnabledSubElements);
 
+	virtual void SetGizmoRepositionable(bool bOn);
+
+	virtual EToolContextCoordinateSystem GetGizmoCoordinateSystem();
+
 	void SetSnapToWorldGridSourceFunc(TUniqueFunction<bool()> EnableSnapFunc);
+	void SetIsNonUniformScaleAllowedFunction(TFunction<bool()> IsNonUniformScaleAllowedIn);
+
+	void SetDisallowNegativeScaling(bool bDisallow);
+
+	void AddAlignmentMechanic(UDragAlignmentMechanic* AlignmentMechanic);
 
 public:
 	DECLARE_MULTICAST_DELEGATE(FMultiTransformerEvent);
@@ -65,6 +77,9 @@ public:
 
 	/** This delegate is fired when the drag is completed */
 	FMultiTransformerEvent OnTransformCompleted;
+
+	/** This delegate is fired when a repositioning drag is completed */
+	FMultiTransformerEvent OnEndPivotEdit;
 
 
 public:
@@ -84,13 +99,23 @@ public:
 	FFrame3d ActiveGizmoFrame;
 	FVector3d ActiveGizmoScale;
 
+	bool bRepositionableGizmo = false;
+
+	bool bDisallowNegativeScaling = false;
+
 	UPROPERTY()
 	UTransformGizmo* TransformGizmo;
 
 	UPROPERTY()
 	UTransformProxy* TransformProxy;
 
+	// We have to hold on to the mechanic only because the MultiTransformer has the capacity to delete and
+	// recreate its gizmo, in which case we'll need to attach the alignment mechanic again.
+	UPROPERTY()
+	UDragAlignmentMechanic* DragAlignmentMechanic = nullptr;
+
 	TUniqueFunction<bool()> EnableSnapToWorldGridFunc;
+	TFunction<bool()> IsNonUniformScaleAllowed;
 
 	// called on PlaneTransformProxy.OnTransformChanged
 	void OnProxyTransformChanged(UTransformProxy* Proxy, FTransform Transform);

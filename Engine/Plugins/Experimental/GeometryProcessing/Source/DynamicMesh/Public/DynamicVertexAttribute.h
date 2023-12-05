@@ -51,6 +51,10 @@ protected:
 	/** List of per-vertex attribute values */
 	TDynamicVector<AttribValueType> AttribValues;
 
+	using Super = TDynamicAttributeBase<ParentType>;
+
+	friend class FDynamicMeshAttributeSet;
+
 public:
 	/** Create an empty overlay */
 	TDynamicVertexAttribute() : Parent(nullptr)

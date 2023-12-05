@@ -3,6 +3,7 @@
 #pragma once
 
 #include "InteractiveTool.h"
+#include "ToolTargets/ToolTarget.h"
 #include "ComponentSourceInterfaces.h"
 #include "MultiSelectionTool.generated.h"
 
@@ -15,17 +16,34 @@ public:
     {
 		ComponentTargets = MoveTemp(ComponentTargetsIn);
 	}
+	void SetTargets(TArray<UToolTarget*> TargetsIn)
+	{
+		Targets = MoveTemp(TargetsIn);
+	}
 
 	/**
 	 * @return true if all ComponentTargets of this tool are still valid
 	 */
 	virtual bool AreAllTargetsValid() const
 	{
-		for (const TUniquePtr<FPrimitiveComponentTarget>& Target : ComponentTargets)
+		if (!ComponentTargets.IsEmpty())
 		{
-			if (Target->IsValid() == false)
+			for (const TUniquePtr<FPrimitiveComponentTarget>& Target : ComponentTargets)
 			{
-				return false;
+				if (Target->IsValid() == false)
+				{
+					return false;
+				}
+			}
+		}
+		if (!Targets.IsEmpty())
+		{
+			for (const UToolTarget* Target : Targets)
+			{
+				if (Target->IsValid() == false)
+				{
+					return false;
+				}
 			}
 		}
 		return true;
@@ -40,7 +58,8 @@ public:
 
 protected:
 	TArray<TUniquePtr<FPrimitiveComponentTarget>> ComponentTargets{};
-
+	
+	TArray<UToolTarget*> Targets{};
 	/**
 	 * Helper to find which component targets share source data
 	 *

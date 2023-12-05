@@ -34,6 +34,7 @@ public class MeshModelingToolsEditorOnly : ModuleRules
 				"MeshConversion",
 				"MeshModelingTools",
 				"ModelingComponents",
+				"ModelingComponentsEditorOnly",
 				"ModelingOperators",
 				"ModelingOperatorsEditorOnly",
                 "ProxyLODMeshReduction", // currently required to be public due to IVoxelBasedCSG API

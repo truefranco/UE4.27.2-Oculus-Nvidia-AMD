@@ -171,9 +171,15 @@ public:
 		CachedViewState.bIsVR = false;
 	}
 
+	virtual UWorld* GetCurrentEditingWorld() const override
+	{
+		return EditorModeManager->GetWorld();
+	}
+
 	virtual void GetCurrentSelectionState(FToolBuilderState& StateOut) const override
 	{
 		StateOut.ToolManager = ToolsContext->ToolManager;
+		StateOut.TargetManager = ToolsContext->TargetManager;
 		StateOut.GizmoManager = ToolsContext->GizmoManager;
 		StateOut.World = EditorModeManager->GetWorld();
 		EditorModeManager->GetSelectedActors()->GetSelectedObjects(StateOut.SelectedActors);
@@ -495,6 +501,8 @@ void UEdModeInteractiveToolsContext::Initialize(IToolsContextQueriesAPI* Queries
 {
 	UInteractiveToolsContext::Initialize(QueriesAPIIn, TransactionsAPIIn);
 
+	GizmoViewContext = ToolManager->GetContextObjectStore()->FindContext<UGizmoViewContext>();
+
 	BeginPIEDelegateHandle = FEditorDelegates::BeginPIE.AddLambda([this](bool bSimulating)
 	{
 		TerminateActiveToolsOnPIEStart();
@@ -672,6 +680,7 @@ void UEdModeInteractiveToolsContext::Tick(FEditorViewportClient* ViewportClient,
 	// tick our stuff
 	ToolManager->Tick(DeltaTime);
 	GizmoManager->Tick(DeltaTime);
+	//OnTick.Broadcast(DeltaTime);
 }
 
 

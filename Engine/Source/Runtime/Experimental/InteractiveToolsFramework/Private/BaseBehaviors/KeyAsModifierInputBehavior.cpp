@@ -17,6 +17,12 @@ void UKeyAsModifierInputBehavior::Initialize(IModifierToggleBehaviorTarget* Targ
 	});
 }
 
+void UKeyAsModifierInputBehavior::Initialize(IModifierToggleBehaviorTarget* TargetIn, int ModifierID, TFunction<bool(const FInputDeviceState&)> ModifierCheckFunction)
+{
+	this->Target = TargetIn;
+	Modifiers.RegisterModifier(ModifierID, ModifierCheckFunction);
+}
+
 FInputCaptureRequest UKeyAsModifierInputBehavior::WantsCapture(const FInputDeviceState& Input)
 {
 	if ((ModifierCheckFunc == nullptr || ModifierCheckFunc(Input)))

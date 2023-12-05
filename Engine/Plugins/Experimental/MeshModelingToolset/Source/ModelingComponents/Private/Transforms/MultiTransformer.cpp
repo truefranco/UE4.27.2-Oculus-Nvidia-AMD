@@ -24,6 +24,13 @@ void UMultiTransformer::Setup(UInteractiveGizmoManager* GizmoManagerIn, IToolCon
 	TransformProxy->OnTransformChanged.AddUObject(this, &UMultiTransformer::OnProxyTransformChanged);
 	TransformProxy->OnBeginTransformEdit.AddUObject(this, &UMultiTransformer::OnBeginProxyTransformEdit);
 	TransformProxy->OnEndTransformEdit.AddUObject(this, &UMultiTransformer::OnEndProxyTransformEdit);
+	TransformProxy->OnPivotChanged.AddWeakLambda(this, [this](UTransformProxy* Proxy, FTransform Transform) {
+		ActiveGizmoFrame = FFrame3d(Transform);
+		ActiveGizmoScale = FVector3d(Transform.GetScale3D());
+		});
+	TransformProxy->OnEndPivotEdit.AddWeakLambda(this, [this](UTransformProxy* Proxy) {
+		OnEndPivotEdit.Broadcast();
+		});
 }
 
 
@@ -90,9 +97,54 @@ void UMultiTransformer::SetGizmoVisibility(bool bVisible)
 	}
 }
 
+void UMultiTransformer::SetGizmoRepositionable(bool bOn)
+{
+	if (bRepositionableGizmo != bOn)
+	{
+		bRepositionableGizmo = bOn;
+		if (TransformGizmo)
+		{
+			UpdateShowGizmoState(false);
+			UpdateShowGizmoState(true);
+		}
+	}
+}
+
+EToolContextCoordinateSystem UMultiTransformer::GetGizmoCoordinateSystem()
+{
+	return TransformGizmo ? TransformGizmo->CurrentCoordinateSystem : GizmoCoordSystem;
+}
+
 void UMultiTransformer::SetSnapToWorldGridSourceFunc(TUniqueFunction<bool()> EnableSnapFunc)
 {
 	EnableSnapToWorldGridFunc = MoveTemp(EnableSnapFunc);
+}
+
+void UMultiTransformer::SetIsNonUniformScaleAllowedFunction(TFunction<bool()> IsNonUniformScaleAllowedIn)
+{
+	IsNonUniformScaleAllowed = IsNonUniformScaleAllowedIn;
+	if (TransformGizmo != nullptr)
+	{
+		TransformGizmo->SetIsNonUniformScaleAllowedFunction(IsNonUniformScaleAllowed);
+	}
+}
+
+void UMultiTransformer::SetDisallowNegativeScaling(bool bDisallow)
+{
+	bDisallowNegativeScaling = bDisallow;
+	if (TransformGizmo != nullptr)
+	{
+		TransformGizmo->SetDisallowNegativeScaling(bDisallowNegativeScaling);
+	}
+}
+
+void UMultiTransformer::AddAlignmentMechanic(UDragAlignmentMechanic* AlignmentMechanic)
+{
+	DragAlignmentMechanic = AlignmentMechanic;
+	if (TransformGizmo)
+	{
+		DragAlignmentMechanic->AddToGizmo(TransformGizmo);
+	}
 }
 
 void UMultiTransformer::Tick(float DeltaTime)

@@ -379,8 +379,7 @@ void UHoleFillTool::SetupPreview()
 	FComponentMaterialSet MaterialSet;
 	ComponentTarget->GetMaterialSet(MaterialSet);
 	Preview->ConfigureMaterials(MaterialSet.Materials,
-		ToolSetupUtil::GetDefaultWorkingMaterial(GetToolManager())
-	);
+		ToolSetupUtil::GetDefaultWorkingMaterial(GetToolManager()));
 
 	// configure secondary render material
 	UMaterialInterface* SelectionMaterial = ToolSetupUtil::GetSelectionMaterial(FLinearColor(0.8f, 0.75f, 0.0f), GetToolManager());

@@ -95,6 +95,20 @@ public:
 		return MeshTimestamp == Mesh->GetShapeTimestamp();
 	}
 
+	bool IsValid(bool bAllowUnsafeModifiedMeshQueries) const
+	{
+		checkSlow(RootIndex >= 0);
+		if (RootIndex < 0)
+		{
+			return false;
+		}
+		if (!bAllowUnsafeModifiedMeshQueries)
+		{
+			return (MeshTimestamp == Mesh->GetShapeTimestamp());
+		}
+		return true;
+	}
+
 	void SetBuildOptions(int32 MaxBoxTriCount)
 	{
 		TopDownLeafMaxTriCount = MaxBoxTriCount;
@@ -373,7 +387,7 @@ public:
 		FindHitTriangle(RootIndex, Ray, NearestT, TID, Options);
 		return TID != IndexConstants::InvalidID;
 	}
-
+	
 protected:
 	void FindHitTriangle(
 		int IBox, const FRay3d& Ray, double& NearestT, int& TID,

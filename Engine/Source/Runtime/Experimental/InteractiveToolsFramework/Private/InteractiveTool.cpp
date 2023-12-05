@@ -53,9 +53,9 @@ void UInteractiveTool::DrawHUD(FCanvas* Canvas, IToolsContextRenderAPI* RenderAP
 {
 }
 
-void UInteractiveTool::AddInputBehavior(UInputBehavior* Behavior)
+void UInteractiveTool::AddInputBehavior(UInputBehavior* Behavior, void* Source)
 {
-	InputBehaviors->Add(Behavior);
+	InputBehaviors->Add(Behavior, Source);
 }
 
 const UInputBehaviorSet* UInteractiveTool::GetInputBehaviors() const
@@ -138,6 +138,11 @@ bool UInteractiveTool::SetToolPropertySourceEnabled(UInteractiveToolPropertySet*
 	return true;
 }
 
+void UInteractiveTool::NotifyOfPropertyChangeByTool(UInteractiveToolPropertySet* PropertySet) const
+{
+	OnPropertyModifiedDirectlyByTool.Broadcast(PropertySet);
+}
+
 TArray<UObject*> UInteractiveTool::GetToolProperties(bool bEnabledOnly) const
 {
 	if (bEnabledOnly == false)
@@ -159,18 +164,18 @@ TArray<UObject*> UInteractiveTool::GetToolProperties(bool bEnabledOnly) const
 }
 
 void
-UInteractiveToolPropertySet::SaveProperties(UInteractiveTool* SaveFromTool)
+UInteractiveToolPropertySet::SaveProperties(UInteractiveTool* SaveFromTool, const FString& CacheIdentifier)
 {
-	SaveRestoreProperties(SaveFromTool, true);
+	SaveRestoreProperties(SaveFromTool, CacheIdentifier, true);
 }
 
 void
-UInteractiveToolPropertySet::RestoreProperties(UInteractiveTool* RestoreToTool)
+UInteractiveToolPropertySet::RestoreProperties(UInteractiveTool* RestoreToTool, const FString& CacheIdentifier)
 {
-	SaveRestoreProperties(RestoreToTool, false);
+	SaveRestoreProperties(RestoreToTool, CacheIdentifier, false);
 }
 
-void UInteractiveToolPropertySet::SaveRestoreProperties(UInteractiveTool* RestoreToTool, bool bSaving)
+void UInteractiveToolPropertySet::SaveRestoreProperties(UInteractiveTool* RestoreToTool, const FString& CacheIdentifier, bool bSaving)
 {
 	UInteractiveToolPropertySet* PropertyCache = GetDynamicPropertyCache();
 	for ( FProperty* Prop : TFieldRange<FProperty>(GetClass()) )
@@ -226,6 +231,26 @@ bool UInteractiveTool::CanAccept() const
 	return false;
 }
 
+void UInteractiveTool::UpdateAcceptWarnings(EAcceptWarning Warning)
+{
+	switch (Warning)
+	{
+	case EAcceptWarning::NoWarning:
+		if (bLastShowedAcceptWarning)
+		{
+			// clear warning
+			GetToolManager()->DisplayMessage(FText(), EToolMessageLevel::UserWarning);
+		}
+		break;
+	case EAcceptWarning::EmptyForbidden:
+		GetToolManager()->DisplayMessage(LOCTEXT("CannotCreateEmptyMesh", "WARNING: Tool doesn't allow creation of an empty mesh."),
+			EToolMessageLevel::UserWarning);
+		break;
+	default:
+		check(false);
+	}
+	bLastShowedAcceptWarning = Warning != EAcceptWarning::NoWarning;
+}
 
 void UInteractiveTool::Tick(float DeltaTime)
 {

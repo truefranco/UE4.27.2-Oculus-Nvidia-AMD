@@ -54,7 +54,6 @@ public:
 	//
 	// required calls to setup/update/shutdown this object
 	// 
-
 	/**
 	 * @param InWorld the Preview mesh actor will be created in this UWorld
 	 * @param OpGenerator This factory is called to create new MeshOperators on-demand
@@ -62,9 +61,25 @@ public:
 	void Setup(UWorld* InWorld, IDynamicMeshOperatorFactory* OpGenerator);
 
 	/**
+	 * @param InWorld the Preview mesh actor will be created in this UWorld
+	 * @param OpGenerator This factory is called to create new MeshOperators on-demand
+	 */
+	void Setup(UWorld* InWorld);
+
+	void ChangeOpFactory(IDynamicMeshOperatorFactory* OpGenerator);
+
+
+	void ClearOpFactory();
+
+	/**
 	 * Terminate any active computation and return the current Preview Mesh/Transform
 	 */
 	FDynamicMeshOpResult Shutdown();
+
+	/**
+	 * Cancel the active computation without returning anything. Doesn't destroy the mesh.
+	 */
+	void CancelCompute();
 
 	/**
 	* Terminate any active computation without returning anything
@@ -93,7 +108,23 @@ public:
 	 */
 	bool HaveValidResult() const { return bResultValid; }
 
+	double GetValidResultComputeTime() const
+	{
+		if (HaveValidResult())
+		{
+			return ValidResultComputeTimeSeconds;
+		}
+		return -1;
+	}
+	/**
+	 * @return true if current PreviewMesh result is valid (no update actively being computed) and that mesh has at least one triangle
+	 */
+	bool HaveValidNonEmptyResult() const { return bResultValid && PreviewMesh && PreviewMesh->GetMesh() && PreviewMesh->GetMesh()->TriangleCount() > 0; }
 
+	/**
+	 * @return true if current PreviewMesh result is valid (no update actively being computed) but that mesh has no triangles
+	 */
+	bool HaveEmptyResult() const { return bResultValid && PreviewMesh && PreviewMesh->GetMesh() && PreviewMesh->GetMesh()->TriangleCount() == 0; }
 	/**
 	 * Read back a copy of current preview mesh.
 	 * @param bOnlyIfValid if true, then only create mesh copy if HaveValidResult() == true
@@ -101,6 +132,15 @@ public:
 	 */
 	bool GetCurrentResultCopy(FDynamicMesh3& MeshOut, bool bOnlyIfValid = true);
 
+	/**
+	 * Allow an external function to safely access the PreviewMesh's mesh
+	 * @param bOnlyIfValid if true, then only call ProcessFunc if current result is valid, ie HaveValidResult() == true. Default false.
+	 * @return true if ProcessFunc was called
+	 */
+	bool ProcessCurrentMesh(TFunctionRef<void(const FDynamicMesh3&)> ProcessFunc, bool bOnlyIfValid = false);
+	
+	/** @return UWorld that the created PreviewMesh exist in */
+	virtual UWorld* GetWorld() const override { return PreviewWorld.Get(); }
 
 	//
 	// Optional configuration
@@ -115,14 +155,29 @@ public:
 	/**
 	 * Configure the Standard and In-Progress materials
 	 */
-	void ConfigureMaterials(TArray<UMaterialInterface*> StandardMaterials, UMaterialInterface* InProgressMaterial);
+	void ConfigureMaterials(
+		TArray<UMaterialInterface*> StandardMaterials, 
+		UMaterialInterface* InProgressMaterial,
+		UMaterialInterface* SecondaryMaterialIn = nullptr);
 
+	/**
+	 * Configure the In-Progress and Secondary Materials
+	 * @param InProgressMaterial material displayed if the background compute takes longer than WorkingMaterialDelay
+	 * @param SecondaryMaterial optional secondary material passed to mesh component, call PreviewMesh->EnableSecondaryTriangleBuffers to enable
+	 */
+	void ConfigurePreviewMaterials(
+		UMaterialInterface* InProgressMaterial,
+		UMaterialInterface* SecondaryMaterial);
+
+	/** Disable the In Progress and Secondary Materials */
+	void DisablePreviewMaterials();
 
 	/**
 	 * Set the visibility of the Preview mesh
 	 */
 	void SetVisibility(bool bVisible);
 
+	void SetIsMeshTopologyConstant(bool bOn, EMeshRenderAttributeFlags ChangingAttributes = EMeshRenderAttributeFlags::All);
 	/**
 	 * Set time that Preview will wait before showing working material
 	 */
@@ -161,11 +216,38 @@ public:
 	UPROPERTY()
 	UMaterialInterface* WorkingMaterial = nullptr;
 
+	// secondary render material to forward to PreviewMesh if set
+	UPROPERTY()
+	UMaterialInterface* SecondaryMaterial = nullptr;
+
+	UPROPERTY()
+	TWeakObjectPtr<UWorld> PreviewWorld = nullptr;
+
+	/**
+	 * When true, the preview mesh is allowed to be temporarily updated using results that we know
+	 * are dirty (i.e., the preview was invalidated, but a result became available before the operation
+	 * was restarted, so we can at least show that while we wait for the new result). The change
+	 * notifications will be fired as normal for these results, but HasValidResult will return false.
+	 */
+	bool bAllowDirtyResultUpdates = true;
+
 protected:
 	// state flag, if true then we have valid result
 	bool bResultValid = false;
+	double ValidResultComputeTimeSeconds = -1;
+
+	// Stored status of last compute, mainly so that we know when we should
+	// show the "busy" material.
+	EBackgroundComputeTaskStatus LastComputeStatus =
+	EBackgroundComputeTaskStatus::NotComputing;
 
 	bool bVisible = true;
+
+
+	// Used for partial/fast updates of the preview mesh render proxy.
+	bool bMeshTopologyIsConstant = false;
+	EMeshRenderAttributeFlags ChangingAttributeFlags = EMeshRenderAttributeFlags::All;
+	bool bMeshInitialized = false;
 
 	float SecondsBeforeWorkingMaterial = 2.0;
 
@@ -266,7 +348,18 @@ public:
 	 */
 	bool HaveValidResult() const { return bResultValid; }
 
-
+	/**
+	 * @return the elapsed compute time
+	 */
+	float GetElapsedComputeTime() const
+	{
+		check(BackgroundCompute);
+		if (BackgroundCompute)
+		{
+			return (float)BackgroundCompute->GetElapsedComputeTime();
+		}
+		return 0.f;
+	}
 	//
 	// Change notification
 	//
@@ -295,8 +388,8 @@ protected:
 		check(BackgroundCompute);
 		if (BackgroundCompute)
 		{
-			EBackgroundComputeTaskStatus Status = BackgroundCompute->CheckStatus();
-			if (Status == EBackgroundComputeTaskStatus::NewResultAvailable)
+			EBackgroundComputeTaskStatus Status = BackgroundCompute->CheckStatus().TaskStatus;
+			if (Status == EBackgroundComputeTaskStatus::ValidResultAvailable)
 			{
 				TUniquePtr<OperatorType> ResultOp = BackgroundCompute->ExtractResult();
 				OnOpCompleted.Broadcast(ResultOp.Get());

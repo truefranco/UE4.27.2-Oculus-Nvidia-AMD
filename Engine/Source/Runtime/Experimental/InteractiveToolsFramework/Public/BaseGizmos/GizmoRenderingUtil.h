@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "Components/PrimitiveComponent.h"
 
-
 /**
  * Utility functions for standard GizmoComponent rendering
  */

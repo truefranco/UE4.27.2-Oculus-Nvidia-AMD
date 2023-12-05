@@ -57,6 +57,44 @@ FTransform UGizmoTransformProxyTransformSource::GetTransform() const
 
 void UGizmoTransformProxyTransformSource::SetTransform(const FTransform& NewTransform)
 {
-	Proxy->SetTransform(NewTransform);
+	if (bOverrideSetPivotMode)
+	{
+		bool bProxySetPivotOriginal = Proxy->bSetPivotMode;
+		Proxy->bSetPivotMode = true;
+		Proxy->SetTransform(NewTransform);
+		Proxy->bSetPivotMode = bProxySetPivotOriginal;
+
+		OnPivotChanged.Broadcast(this);
+	}
+	else
+	{
+		Proxy->SetTransform(NewTransform);
+		if (Proxy->bSetPivotMode)
+		{
+			OnPivotChanged.Broadcast(this);
+		}
+		else
+		{
+			OnTransformChanged.Broadcast(this);
+		}
+	}
+}
+
+FTransform UGizmoScaledAndUnscaledTransformSources::GetTransform() const
+{
+	return ScaledTransformSource->GetTransform();
+}
+
+void UGizmoScaledAndUnscaledTransformSources::SetTransform(const FTransform& NewTransform)
+{
+	if (UnscaledTransformSource)
+	{
+		FTransform Unscaled(NewTransform);
+		Unscaled.SetScale3D(FVector::OneVector);
+		UnscaledTransformSource->SetTransform(Unscaled);
+	}
+
+	ScaledTransformSource->SetTransform(NewTransform);
+
 	OnTransformChanged.Broadcast(this);
 }

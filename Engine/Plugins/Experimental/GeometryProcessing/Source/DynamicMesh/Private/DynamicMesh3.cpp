@@ -344,6 +344,63 @@ void FDynamicMesh3::Clear()
 	*this = FDynamicMesh3();
 }
 
+void FDynamicMesh3::EnableMatchingAttributes(const FDynamicMesh3& ToMatch, bool bClearExisting, bool bDiscardExtraAttributes)
+{
+	bool bWantVertexNormals = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.HasVertexNormals() : (ToMatch.HasVertexNormals() || this->HasVertexNormals());
+	if (bClearExisting || bWantVertexNormals == false)
+	{
+		DiscardVertexNormals();
+	}
+	if (bWantVertexNormals)
+	{
+		EnableVertexNormals(FVector3f::UnitZ());
+	}
+
+	bool bWantVertexColors = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.HasVertexColors() : (ToMatch.HasVertexColors() || this->HasVertexColors());
+	if (bClearExisting || bWantVertexColors == false)
+	{
+		DiscardVertexColors();
+	}
+	if (bWantVertexColors)
+	{
+		EnableVertexColors(FVector3f::Zero());
+	}
+
+	bool bWantVertexUVs = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.HasVertexUVs() : (ToMatch.HasVertexUVs() || this->HasVertexUVs());
+	if (bClearExisting || bWantVertexUVs == false)
+	{
+		DiscardVertexUVs();
+	}
+	if (bWantVertexUVs)
+	{
+		EnableVertexUVs(FVector2f::Zero());
+	}
+
+	bool bWantTriangleGroups = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.HasTriangleGroups() : (ToMatch.HasTriangleGroups() || this->HasTriangleGroups());
+	if (bClearExisting || bWantTriangleGroups == false)
+	{
+		DiscardTriangleGroups();
+	}
+	if (bWantTriangleGroups)
+	{
+		EnableTriangleGroups();
+	}
+
+	bool bWantAttributes = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.HasAttributes() : (ToMatch.HasAttributes() || this->HasAttributes());
+	if (bClearExisting || bWantAttributes == false)
+	{
+		DiscardAttributes();
+	}
+	if (bWantAttributes)
+	{
+		EnableAttributes();
+	}
+	if (HasAttributes() && ToMatch.HasAttributes())
+	{
+		Attributes()->EnableMatchingAttributes(*ToMatch.Attributes(), bClearExisting, bDiscardExtraAttributes);
+	}
+}
+
 int FDynamicMesh3::GetComponentsFlags() const
 {
 	int c = 0;

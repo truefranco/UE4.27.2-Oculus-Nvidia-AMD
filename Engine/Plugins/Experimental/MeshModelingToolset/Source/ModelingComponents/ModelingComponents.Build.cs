@@ -26,14 +26,17 @@ public class ModelingComponents : ModuleRules
 			new string[]
 			{
 				"Core",
-                "InteractiveToolsFramework",
+				"ImageCore",
+				"PhysicsCore",
+				"InteractiveToolsFramework",
                 "MeshDescription",
 				"StaticMeshDescription",
 				"GeometricObjects",
 				"GeometryAlgorithms",
 				"DynamicMesh",
 				"MeshConversion",
-				"ModelingOperators"
+				"ModelingOperators",
+				"DeveloperSettings"
 				// ... add other public dependencies that you statically link with here ...
 			}
             );
@@ -46,6 +49,11 @@ public class ModelingComponents : ModuleRules
 				"Engine",
                 "RenderCore",
                 "RHI",
+				"ImageWriteQueue",
+				"Slate",
+				"SlateCore",
+				"AssetTools",
+				"UnrealEd"
 
 				//"MeshUtilities",    // temp for saving mesh asset
 				//"UnrealEd"

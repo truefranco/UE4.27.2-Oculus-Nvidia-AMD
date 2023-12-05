@@ -19,7 +19,15 @@ void FDynamicMeshAttributeSet::Copy(const FDynamicMeshAttributeSet& Copy)
 	{
 		NormalLayers[NormalLayerIndex].Copy(Copy.NormalLayers[NormalLayerIndex]);
 	}
-
+	if (Copy.ColorLayer)
+	{
+		EnablePrimaryColors();
+		ColorLayer->Copy(*(Copy.ColorLayer));
+	}
+	else
+	{
+		DisablePrimaryColors();
+	}
 	if (Copy.MaterialIDAttrib)
 	{
 		EnableMaterialID();
@@ -63,6 +71,13 @@ bool FDynamicMeshAttributeSet::IsCompact()
 			return false;
 		}
 	}
+	if (HasPrimaryColors())
+	{
+		if (!ColorLayer->IsCompact())
+		{
+			return false;
+		}
+	}
 	
 	// material ID and generic per-element attributes currently cannot be non-compact
 	return true;
@@ -82,7 +97,15 @@ void FDynamicMeshAttributeSet::CompactCopy(const FCompactMaps& CompactMaps, cons
 	{
 		NormalLayers[NormalLayerIndex].CompactCopy(CompactMaps, Copy.NormalLayers[NormalLayerIndex]);
 	}
-
+	if (Copy.ColorLayer)
+	{
+		EnablePrimaryColors();
+		ColorLayer->CompactCopy(CompactMaps, *(Copy.ColorLayer));
+	}
+	else
+	{
+		DisablePrimaryColors();
+	}
 	if (Copy.MaterialIDAttrib)
 	{
 		EnableMaterialID();
@@ -122,7 +145,10 @@ void FDynamicMeshAttributeSet::CompactInPlace(const FCompactMaps& CompactMaps)
 	{
 		NormalLayers[NormalLayerIndex].CompactInPlace(CompactMaps);
 	}
-
+	if (ColorLayer.IsValid())
+	{
+		ColorLayer->CompactInPlace(CompactMaps);
+	}
 	if (MaterialIDAttrib.IsValid())
 	{
 		MaterialIDAttrib->CompactInPlace(CompactMaps);
@@ -161,7 +187,7 @@ void FDynamicMeshAttributeSet::SplitAllBowties(bool bParallel)
 
 
 
-void FDynamicMeshAttributeSet::EnableMatchingAttributes(const FDynamicMeshAttributeSet& ToMatch)
+void FDynamicMeshAttributeSet::EnableMatchingAttributes(const FDynamicMeshAttributeSet& ToMatch, bool bClearExisting, bool bDiscardExtraAttributes)
 {
 	SetNumUVLayers(ToMatch.NumUVLayers());
 	for (int UVIdx = 0; UVIdx < NumUVLayers(); UVIdx++)
@@ -172,6 +198,14 @@ void FDynamicMeshAttributeSet::EnableMatchingAttributes(const FDynamicMeshAttrib
 	for (int NormalLayerIndex = 0; NormalLayerIndex < NumNormalLayers(); NormalLayerIndex++)
 	{
 		NormalLayers[NormalLayerIndex].ClearElements();
+	}
+	if (ToMatch.ColorLayer)
+	{
+		EnablePrimaryColors();
+	}
+	else 
+	{
+		DisablePrimaryColors();
 	}
 
 	if (ToMatch.MaterialIDAttrib)
@@ -211,7 +245,10 @@ void FDynamicMeshAttributeSet::Reparent(FDynamicMesh3* NewParent)
 	{
 		NormalLayers[NormalLayerIndex].Reparent(NewParent);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->Reparent(NewParent);
+	}
 	if (MaterialIDAttrib)
 	{
 		MaterialIDAttrib->Reparent(NewParent);
@@ -283,7 +320,19 @@ void FDynamicMeshAttributeSet::SetNumNormalLayers(int Num)
 	check(NormalLayers.Num() == Num);
 }
 
+void FDynamicMeshAttributeSet::EnablePrimaryColors()
+{
+	if (HasPrimaryColors() == false)
+	{
+		ColorLayer = MakeUnique<FDynamicMeshColorOverlay>(ParentMesh);
+		ColorLayer->InitializeTriangles(ParentMesh->MaxTriangleID());
+	}
+}
 
+void FDynamicMeshAttributeSet::DisablePrimaryColors()
+{
+	ColorLayer.Reset();
+}
 
 int32 FDynamicMeshAttributeSet::NumPolygroupLayers() const
 {
@@ -356,7 +405,10 @@ bool FDynamicMeshAttributeSet::IsSeamEdge(int eid) const
 			return true;
 		}
 	}
-
+	if (ColorLayer && ColorLayer->IsSeamEdge(eid))
+	{
+		return true;
+	}
 	return false;
 }
 
@@ -377,7 +429,10 @@ bool FDynamicMeshAttributeSet::IsSeamEndEdge(int eid) const
 			return true;
 		}
 	}
-
+	if (ColorLayer && ColorLayer->IsSeamEndEdge(eid))
+	{
+		return true;
+	}
 	return false;
 }
 
@@ -400,7 +455,6 @@ bool FDynamicMeshAttributeSet::IsSeamEdge(int EdgeID, bool& bIsUVSeamOut, bool& 
 			bIsNormalSeamOut = true;
 		}
 	}
-
 	return (bIsUVSeamOut || bIsNormalSeamOut);
 }
 
@@ -467,7 +521,10 @@ void FDynamicMeshAttributeSet::OnNewTriangle(int TriangleID, bool bInserted)
 	{
 		NormalLayer.InitializeNewTriangle(TriangleID);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->InitializeNewTriangle(TriangleID);
+	}
 	if (MaterialIDAttrib)
 	{
 		int NewValue = 0;
@@ -494,7 +551,10 @@ void FDynamicMeshAttributeSet::OnRemoveTriangle(int TriangleID)
 	{
 		NormalLayer.OnRemoveTriangle(TriangleID);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->OnRemoveTriangle(TriangleID);
+	}
 	// has no effect on MaterialIDAttrib
 }
 
@@ -510,7 +570,10 @@ void FDynamicMeshAttributeSet::OnReverseTriOrientation(int TriangleID)
 	{
 		NormalLayer.OnReverseTriOrientation(TriangleID);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->OnReverseTriOrientation(TriangleID);
+	}
 	// has no effect on MaterialIDAttrib
 }
 
@@ -526,7 +589,10 @@ void FDynamicMeshAttributeSet::OnSplitEdge(const FDynamicMesh3::FEdgeSplitInfo& 
 	{
 		NormalLayer.OnSplitEdge(SplitInfo);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->OnSplitEdge(SplitInfo);
+	}
 	if (MaterialIDAttrib)
 	{
 		MaterialIDAttrib->OnSplitEdge(SplitInfo);
@@ -550,7 +616,10 @@ void FDynamicMeshAttributeSet::OnFlipEdge(const FDynamicMesh3::FEdgeFlipInfo & f
 	{
 		NormalLayer.OnFlipEdge(flipInfo);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->OnFlipEdge(flipInfo);
+	}
 	if (MaterialIDAttrib)
 	{
 		MaterialIDAttrib->OnFlipEdge(flipInfo);
@@ -575,7 +644,10 @@ void FDynamicMeshAttributeSet::OnCollapseEdge(const FDynamicMesh3::FEdgeCollapse
 	{
 		NormalLayer.OnCollapseEdge(collapseInfo);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->OnCollapseEdge(collapseInfo);
+	}
 	if (MaterialIDAttrib)
 	{
 		MaterialIDAttrib->OnCollapseEdge(collapseInfo);
@@ -599,7 +671,10 @@ void FDynamicMeshAttributeSet::OnPokeTriangle(const FDynamicMesh3::FPokeTriangle
 	{
 		NormalLayer.OnPokeTriangle(pokeInfo);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->OnPokeTriangle(pokeInfo);
+	}
 	if (MaterialIDAttrib)
 	{
 		MaterialIDAttrib->OnPokeTriangle(pokeInfo);
@@ -623,7 +698,10 @@ void FDynamicMeshAttributeSet::OnMergeEdges(const FDynamicMesh3::FMergeEdgesInfo
 	{
 		NormalLayer.OnMergeEdges(mergeInfo);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->OnMergeEdges(mergeInfo);
+	}
 	if (MaterialIDAttrib)
 	{
 		MaterialIDAttrib->OnMergeEdges(mergeInfo);
@@ -647,7 +725,10 @@ void FDynamicMeshAttributeSet::OnSplitVertex(const DynamicMeshInfo::FVertexSplit
 	{
 		NormalLayer.OnSplitVertex(SplitInfo, TrianglesToUpdate);
 	}
-
+	if (ColorLayer)
+	{
+		ColorLayer->OnSplitVertex(SplitInfo, TrianglesToUpdate);
+	}
 	if (MaterialIDAttrib)
 	{
 		MaterialIDAttrib->OnSplitVertex(SplitInfo, TrianglesToUpdate);

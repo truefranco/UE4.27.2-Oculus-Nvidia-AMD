@@ -8,7 +8,8 @@
 #include "Drawing/MeshRenderDecomposition.h"
 #include "MeshTangents.h"
 #include "TransformTypes.h"
-
+#include "UDynamicMesh.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "SimpleDynamicMeshComponent.generated.h"
 
 // predecl
@@ -16,7 +17,32 @@ struct FMeshDescription;
 
 /** internal FPrimitiveSceneProxy defined in SimpleDynamicMeshSceneProxy.h */
 class FSimpleDynamicMeshSceneProxy;
+class FBaseDynamicMeshSceneProxy;
 
+/**
+ * Interface for a render mesh processor. Use this to process the Mesh stored in UDynamicMeshComponent before
+ * sending it off for rendering.
+ * NOTE: This is called whenever the Mesh is updated and before rendering, so performance matters.
+ */
+class IRenderMeshPostProcessor
+{
+public:
+	virtual ~IRenderMeshPostProcessor() = default;
+
+	virtual void ProcessMesh(const FDynamicMesh3& Mesh, FDynamicMesh3& OutRenderMesh) = 0;
+};
+
+/** Render data update hint */
+UENUM()
+enum class EDynamicMeshComponentRenderUpdateMode
+{
+	/** Do not update render data */
+	NoUpdate = 0,
+	/** Invalidate overlay of internal component, rebuilding all render data */
+	FullUpdate = 1,
+	/** Attempt to do partial update of render data if possible */
+	FastUpdate = 2
+};
 
 
 /** 
@@ -29,7 +55,7 @@ class FSimpleDynamicMeshSceneProxy;
  *
  */
 UCLASS(hidecategories = (LOD, Physics, Collision), editinlinenew, ClassGroup = Rendering)
-class MODELINGCOMPONENTS_API USimpleDynamicMeshComponent : public UBaseDynamicMeshComponent
+class MODELINGCOMPONENTS_API USimpleDynamicMeshComponent : public UBaseDynamicMeshComponent, public IInterface_CollisionDataProvider
 {
 	GENERATED_UCLASS_BODY()
 
@@ -48,13 +74,45 @@ public:
 	/**
 	 * @return pointer to internal mesh
 	 */
-	virtual FDynamicMesh3* GetMesh() override { return Mesh.Get(); }
+	virtual FDynamicMesh3* GetMesh() override { return MeshObject->GetMeshPtr(); }
 
 	/**
 	 * @return pointer to internal mesh
 	 */
-	virtual const FDynamicMesh3* GetMesh() const override { return Mesh.Get(); }
+	virtual const FDynamicMesh3* GetMesh() const override { return MeshObject->GetMeshPtr(); }
 
+
+	/**
+	 * @return the child UDynamicMesh
+	 */
+	 //UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+	virtual UDynamicMesh* GetDynamicMesh() override { return MeshObject; }
+
+	/**
+	 * Replace the current UDynamicMesh with a new one, and transfer ownership of NewMesh to this Component.
+	 * This can be used to (eg) assign a UDynamicMesh created with NewObject in the Transient Package to this Component.
+	 * @warning If NewMesh is owned/Outer'd to another DynamicMeshComponent, a GLEO error may occur if that Component is serialized.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+	void SetDynamicMesh(UDynamicMesh* NewMesh);
+
+	/**
+	 * initialize the internal mesh from a DynamicMesh
+	 */
+	virtual void SetMesh(FDynamicMesh3&& MoveMesh) override;
+
+	/**
+	 * Allow external code to read the internal mesh.
+	 */
+	virtual void ProcessMesh(TFunctionRef<void(const FDynamicMesh3&)> ProcessFunc) const;
+
+	/**
+	 * Allow external code to to edit the internal mesh.
+	 */
+	virtual void EditMesh(TFunctionRef<void(FDynamicMesh3&)> EditFunc,
+		EDynamicMeshComponentRenderUpdateMode UpdateMode = EDynamicMeshComponentRenderUpdateMode::FullUpdate);
+
+public:
 	/**
 	 * @return the current internal mesh, which is replaced with an empty mesh
 	 */
@@ -106,11 +164,17 @@ public:
 	 */
 	virtual void ApplyTransform(const FTransform3d& Transform, bool bInvert) override;
 
-
+protected:
+	/**
+	 * Internal FDynamicMesh is stored inside a UDynamicMesh container, which allows it to be
+	 * used from BP, shared with other UObjects, and so on
+	 */
+	UPROPERTY(Instanced)
+	UDynamicMesh* MeshObject;
 	//
 	// change tracking/etc
 	//
-
+public:
 	/**
 	 * Call this if you update the mesh via GetMesh(). This will destroy the existing RenderProxy and create a new one.
 	 * @todo should provide a function that calls a lambda to modify the mesh, and only return const mesh pointer
@@ -165,6 +229,23 @@ public:
 	 */
 	void FastNotifyTriangleVerticesUpdated(const TSet<int32>& Triangles, EMeshRenderAttributeFlags UpdatedAttributes);
 
+	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component|Rendering", DisplayName = "Notify Mesh Updated")
+	virtual void NotifyMeshModified();
+
+	/**
+	 * Notify the Component that vertex attribute values of it's DynamicMesh have been modified externally. This will result in
+	 * Rendering vertex buffers being updated. This update path is more efficient than doing a full Notify Mesh Updated.
+	 *
+	 * @warning it is invalid to call this function if (1) the mesh triangulation has also been changed, (2) triangle MaterialIDs have been changed,
+	 * or (3) any attribute overlay (normal, color, UV) topology has been modified, ie split-vertices have been added/removed.
+	 * Behavior of this function is undefined in these cases and may crash. If you are unsure, use Notify Mesh Updated.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component|Rendering", DisplayName = "Notify Vertex Attributes Updated")
+	virtual void NotifyMeshVertexAttributesModified(
+		bool bPositions = true,
+		bool bNormals = true,
+		bool bUVs = true,
+		bool bColors = true);
 
 	/** If false, we don't completely invalidate the RenderProxy when ApplyChange() is called (assumption is it will be handled elsewhere) */
 	UPROPERTY()
@@ -206,6 +287,15 @@ public:
 	UPROPERTY()
 	bool bExplicitShowWireframe = false;
 
+protected:
+	
+	    /** Handle for OnMeshObjectChanged which is registered with MeshObject::OnMeshChanged delegate */
+		FDelegateHandle MeshObjectChangedHandle;
+
+		/** Called whenever internal MeshObject is modified, fires OnMeshChanged and OnMeshVerticesChanged above */
+		void OnMeshObjectChanged(UDynamicMesh* ChangedMeshObject, FDynamicMeshChangeInfo ChangeInfo);
+
+public:
 	/**
 	 * Configure whether wireframe rendering is enabled or not
 	 */
@@ -241,6 +331,92 @@ public:
 	 */
 	virtual void SetExternalDecomposition(TUniquePtr<FMeshRenderDecomposition> Decomposition);
 
+private:
+		// Default what the 'Default' tangent type should map to
+		static constexpr EDynamicMeshTangentCalcType UseDefaultTangentsType = EDynamicMeshTangentCalcType::ExternallyCalculated;
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+	void SetTangentsType(EDynamicMeshTangentCalcType NewTangentsType);
+
+	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+	EDynamicMeshTangentCalcType GetTangentsType() const
+	{
+		return TangentsType == EDynamicMeshTangentCalcType::Default ? UseDefaultTangentsType : TangentsType;
+	}
+
+private:
+		// pure version of GetTangentsType, so it can be used as a getter below (getters must be BlueprintPure)
+		UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintInternalUseOnly, Category = "Dynamic Mesh Component")
+		EDynamicMeshTangentCalcType GetTangentsTypePure() const
+		{
+			return GetTangentsType();
+		}
+
+public:
+
+	/** This function marks the auto tangents as dirty, they will be recomputed before they are used again */
+	virtual void InvalidateAutoCalculatedTangents();
+
+	/** @return AutoCalculated Tangent Set, which may require that they be recomputed, or nullptr if not enabled/available */
+	const FMeshTangentsf* GetAutoCalculatedTangents();
+
+protected:
+
+	/** true if AutoCalculatedTangents has been computed for current mesh */
+	bool bAutoCalculatedTangentsValid = false;
+
+	/** Set of per-triangle-vertex tangents computed for the current mesh. Only valid if bAutoCalculatedTangentsValid == true */
+	FMeshTangentsf AutoCalculatedTangents;
+
+	void UpdateAutoCalculatedTangents();
+
+	/**
+	 * If the render proxy is invalidated (eg by MarkRenderStateDirty()), it will be destroyed at the end of
+	 * the frame, but the base SceneProxy pointer is not nulled out immediately. As a result if we call various
+	 * partial-update functions after invalidating the proxy, they may be operating on an invalid proxy.
+	 * So we have to keep track of proxy-valid state ourselves.
+	 */
+	bool bProxyValid = false;
+
+	/**
+	 * If true, the render proxy will verify that the mesh batch materials match the contents from
+	 * the component GetUsedMaterials(). Used material verification is prone to races when changing
+	 * materials on this component in quick succession (for example, SetOverrideRenderMaterial). This
+	 * parameter is provided to allow clients to opt out of used material verification for these
+	 * use cases.
+	 */
+	bool bProxyVerifyUsedMaterials = true;
+
+	//===============================================================================================================
+		// IRenderMeshPostProcessor Support. If a RenderMesh Postprocessor is configured, then instead of directly 
+		// passing the internal mesh to the RenderProxy, IRenderMeshPostProcessor::PostProcess is applied to populate
+		// the internal RenderMesh which is passed instead. This allows things like Displacement or Subdivision to be 
+		// done on-the-fly at the rendering level (which is potentially more efficient).
+		//
+public:
+	/**
+	 * Add a render mesh processor, to be called before the mesh is sent for rendering.
+	 */
+	virtual void SetRenderMeshPostProcessor(TUniquePtr<IRenderMeshPostProcessor> Processor);
+
+	/**
+	 * The SceneProxy should call these functions to get the post-processed RenderMesh. (See IRenderMeshPostProcessor.)
+	 */
+	virtual FDynamicMesh3* GetRenderMesh();
+
+	/**
+	 * The SceneProxy should call these functions to get the post-processed RenderMesh. (See IRenderMeshPostProcessor.)
+	 */
+	virtual const FDynamicMesh3* GetRenderMesh() const;
+	/**
+	 * Set new list of Materials for the Mesh. Dynamic Mesh Component does not have
+	 * Slot Names, so the size of the Material Set should be the same as the number of
+	 * different Material IDs on the mesh MaterialID attribute
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+	void ConfigureMaterialSet(const TArray<UMaterialInterface*>& NewMaterialSet);
+
 
 public:
 
@@ -253,16 +429,34 @@ public:
 
 
 protected:
+
+	/** Once async physics cook is done, create needed state */
+	virtual void FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup);
+
+
 	/**
 	 * This is called to tell our RenderProxy about modifications to the material set.
 	 * We need to pass this on for things like material validation in the Editor.
 	 */
 	virtual void NotifyMaterialSetUpdated();
 
+	FAxisAlignedBox3d LocalBounds;
+
+	void UpdateLocalBounds();
+
+	/** Simplified collision representation for the mesh component  */
+	UPROPERTY(EditAnywhere, Category = BodySetup, meta = (DisplayName = "Primitives", NoResetToDefault))
+	struct FKAggregateGeom AggGeom;
+
+	virtual UBodySetup* CreateBodySetupHelper();
+
+	/** @return Set new BodySetup for this Component. */
+	virtual void SetBodySetup(UBodySetup* NewSetup);
+
 private:
+	
 
-	FSimpleDynamicMeshSceneProxy* GetCurrentSceneProxy() { return (FSimpleDynamicMeshSceneProxy*)SceneProxy; }
-
+	void ResetProxy();
 	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	//~ End UPrimitiveComponent Interface.
@@ -271,18 +465,123 @@ private:
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	//~ Begin USceneComponent Interface.
 
-	TUniquePtr<FDynamicMesh3> Mesh;
+	TUniquePtr<IRenderMeshPostProcessor> RenderMeshPostProcessor;
+	TUniquePtr<FDynamicMesh3> RenderMesh;
 	void InitializeNewMesh();
-
-	// local-space bounding of Mesh
-	FAxisAlignedBox3d LocalBounds;
 
 	bool bTangentsValid = false;
 	FMeshTangentsf Tangents;
 	
 	FColor GetTriangleColor(const FDynamicMesh3* Mesh, int TriangleID);
+protected:
+	/** This function is passed via lambda to the RenderProxy when BaseDynamicMeshComponent::ColorMode == Polygroups */
+	FColor GetGroupColor(const FDynamicMesh3* Mesh, int TriangleID) const;
 
+	//===============================================================================================================
+	// Support for Vertex Color remapping/filtering. This allows external code to modulate the existing 
+	// Vertex Colors on the rendered mesh. The remapping is only applied to FVector4f Color Overlay attribute buffers.
+	// The lambda that is passed is held for the lifetime of the Component and
+	// must remain valid. If the Vertex Colors are modified, FastNotifyColorsUpdated() can be used to do the 
+	// minimal vertex buffer updates necessary in the RenderProxy
+
+	/** Queue for async body setups that are being cooked */
+	UPROPERTY(transient)
+	TArray<UBodySetup*> AsyncBodySetupQueue;
+
+	UPROPERTY(Instanced)
+	UBodySetup* MeshBodySetup;
+
+	virtual void InvalidatePhysicsData();
+	virtual void RebuildPhysicsData();
+
+	bool bTransientDeferCollisionUpdates = false;
+	bool bCollisionUpdatePending = false;
+public:
+	/**
+	 *	Controls whether the physics cooking should be done off the game thread.
+	 *  This should be used when collision geometry doesn't have to be immediately up to date (For example streaming in far away objects)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dynamic Mesh Component|Collision")
+	bool bUseAsyncCooking = false;
+
+	/** @return current BodySetup for this Component, or nullptr if it does not exist */
+	virtual const UBodySetup* GetBodySetup() const { return MeshBodySetup; }
+	/** @return BodySetup for this Component. A new BodySetup will be created if one does not exist. */
+	virtual UBodySetup* GetBodySetup() override;
+
+
+	/**
+	 * Force an update of the Collision/Physics data for this Component.
+	 * @param bOnlyIfPending only update if a collision update is pending, ie the underlying DynamicMesh changed and bDeferCollisionUpdates is enabled
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+	virtual void UpdateCollision(bool bOnlyIfPending = true);
+
+	/**
+	 * calls SetComplexAsSimpleCollisionEnabled(true, true)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+	void EnableComplexAsSimpleCollision();
+
+	/**
+	 * If bEnabled=true, sets bEnableComplexCollision=true and CollisionType=CTF_UseComplexAsSimple
+	 * If bEnabled=true, sets bEnableComplexCollision=false and CollisionType=CTF_UseDefault
+	 * @param bImmediateUpdate if true, UpdateCollision(true) is called
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+	void SetComplexAsSimpleCollisionEnabled(bool bEnabled, bool bImmediateUpdate = true);
+
+	/**
+	 * If true, current mesh will be used as Complex Collision source mesh.
+	 * This is independent of the CollisionType setting, ie, even if Complex collision is enabled, if this is false, then the Complex Collision mesh will be empty
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dynamic Mesh Component|Collision");
+	bool bEnableComplexCollision = false;
+
+
+	/** Type of Collision Geometry to use for this Mesh */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dynamic Mesh Component|Collision")
+	TEnumAsByte<enum ECollisionTraceFlag> CollisionType = ECollisionTraceFlag::CTF_UseSimpleAsComplex;
+
+	/**
+	 * Update the simple collision shapes associated with this mesh component
+	 *
+	 * @param AggGeom				New simple collision shapes to be used
+	 * @param bUpdateCollision		Whether to automatically call UpdateCollision() -- if false, manually call it to register the change with the physics system
+	 */
+	virtual void SetSimpleCollisionShapes(const struct FKAggregateGeom& AggGeom, bool bUpdateCollision);
+
+	const FKAggregateGeom& GetSimpleCollisionShapes() const
+	{
+		return AggGeom;
+	}
+
+	FSimpleDynamicMeshSceneProxy* GetCurrentSceneProxy();
+
+	/** Set an active VertexColor Remapping function if one exists, and update the mesh */
+	virtual void SetVertexColorRemappingFunction(TUniqueFunction<void(FVector4f&)> ColorMapFuncIn,
+		EDynamicMeshComponentRenderUpdateMode UpdateMode = EDynamicMeshComponentRenderUpdateMode::FastUpdate);
+
+	/** Clear an active VertexColor Remapping function if one exists, and update the mesh */
+	virtual void ClearVertexColorRemappingFunction(EDynamicMeshComponentRenderUpdateMode UpdateMode = EDynamicMeshComponentRenderUpdateMode::FastUpdate);
+
+	/** @return true if a VertexColor Remapping function is configured */
+	virtual bool HasVertexColorRemappingFunction();
+
+protected:
+	/** If this function is set, DynamicMesh Attribute Color Overlay colors will be passed through this function before sending to render buffers */
+	TUniqueFunction<void(FVector4f&)> VertexColorMappingFunc = nullptr;
+
+	/** This function is passed via lambda to the RenderProxy to be able to access VertexColorMappingFunc */
+	void RemapVertexColor(FVector4f& VertexColorInOut);
+
+public:
 	TUniqueFunction<bool(const FDynamicMesh3*, int32)> SecondaryTriFilterFunc = nullptr;
 
 	TUniquePtr<FMeshRenderDecomposition> Decomposition;
+
+public:
+	/** Set whether or not to validate mesh batch materials against the component materials. */
+	void SetSceneProxyVerifyUsedMaterials(bool bState);
+
 };

@@ -56,6 +56,10 @@ public:
 	UPROPERTY()
 	UInputRouter* InputRouter;	
 
+	/** current UToolTargetManager for this Context */
+	UPROPERTY()
+	UToolTargetManager* TargetManager;
+
 	/** current UInteractiveToolManager for this Context */
 	UPROPERTY()
 	UInteractiveToolManager* ToolManager;	
@@ -63,6 +67,13 @@ public:
 	/** current UInteractiveGizmoManager for this Context */
 	UPROPERTY()
 	UInteractiveGizmoManager* GizmoManager;
+
+	/**
+	 * Current Context Object Store for this Context.
+	 * Stores arbitrary objects which share data or expose APIs across interactive tools and managers belonging to this context.
+	 */
+	UPROPERTY()
+	UContextObjectStore* ContextObjectStore;
 
 protected:
 	UPROPERTY()

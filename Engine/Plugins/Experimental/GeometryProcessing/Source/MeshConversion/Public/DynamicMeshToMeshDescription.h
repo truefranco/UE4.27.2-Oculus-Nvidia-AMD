@@ -6,7 +6,6 @@
 #include "DynamicMesh3.h"
 #include "MeshDescription.h"
 #include "MeshConversionOptions.h"
-
 // predeclare tangents template
 template<typename RealType> class TMeshTangents;
 
@@ -71,14 +70,21 @@ public:
 	/**
 	 * Default conversion of DynamicMesh to MeshDescription. Calls functions below depending on mesh state
 	 */
-	void Convert(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut);
+	void Convert(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bCopyTangents = false);
 
+	/**
+	 * Updates the given mesh description based conversion options provided in the constructor. Assumes
+	 * the mesh topology has not changed.
+	 * Annoyingly, this can't just be named Update() due to ambiguity with the function below, which
+	 * existed beforehand and should probably have been this function instead.
+	 */
+	void UpdateUsingConversionOptions(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut);
 
 	/**
 	 * Update existing MeshDescription based on DynamicMesh. Assumes mesh topology has not changed.
 	 * Copies positions and normals; does not update UVs
 	 */
-	void Update(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bUpdateNormals = true, bool bUpdateUVs = false);
+	void Update(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bUpdateNormals = true, bool bUpdateTangents = false, bool bUpdateUVs = false);
 
 
 	/**
@@ -86,7 +92,7 @@ public:
 	 *	NOTE: assumes the order of triangles in the MeshIn correspond to the ordering you'd get by iterating over polygons, then tris-in-polygons, on MeshOut
 	 *		  This matches conversion currently used in MeshDescriptionToDynamicMesh.cpp, but if that changes we will need to change this function to match!
 	 */
-	void UpdateAttributes(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bUpdateNormals, bool bUpdateUVs);
+	void UpdateAttributes(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, bool bUpdateNormals, bool bUpdateTangents = false, bool bUpdateUVs = false);
 
 	/**
 	 * Update the Tangent and BinormalSign attributes of the MeshDescription, assuming mesh topology has not changed. Does not modify any other attributes.
@@ -94,6 +100,21 @@ public:
 	 *		  This matches conversion currently used in MeshDescriptionToDynamicMesh.cpp, but if that changes we will need to change this function to match!
 	 */
 	void UpdateTangents(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut, const TMeshTangents<double>* Tangents);
+
+	/**
+	 * Use the MeshIn Overlays to update the Tangent and BinormalSign attributes of the MeshDescription, assuming mesh topology has not changed. Does not modify any other attributes.
+	 *	NOTE: assumes the order of triangles in the MeshIn correspond to the ordering you'd get by iterating over triangles, on MeshOut
+	 *		  This matches conversion currently used in MeshDescriptionToDynamicMesh.cpp, but if that changes we will need to change this function to match!
+	 */
+	void UpdateTangents(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut);
+
+
+	/**
+	 * Update only vertex colors, assuming the mesh topology has not changed.  Does not touch positions or other attributes.
+	 *	NOTE: assumes the order of triangles in the MeshIn correspond to the ordering you'd get by iterating over triangles, on MeshOut
+	 *		  This matches conversion currently used in MeshDescriptionToDynamicMesh.cpp, but if that changes we will need to change this function to match!
+	 */
+	void UpdateVertexColors(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut);
 
 	//
 	// Internal functions that you can also call directly
@@ -116,4 +137,15 @@ public:
 	 * each triangle vertex (ie corner). However vertex positions are shared.
 	 */
 	void Convert_NoSharedInstances(const FDynamicMesh3* MeshIn, FMeshDescription& MeshOut);
+
+	/**
+	 * Applies an optional sRGB-to-Linear color transform on the input. The color transform
+	 * is controlled by ConversionOptions.bTransformVtxColorsSRGBToLinear.
+	 *
+	 * The counterpart to this method is MeshDescriptionToDynamicMesh::ApplyVertexColorTransform
+	 * which will undo this color transformation when the MeshDescription is read back.
+	 *
+	 * @param Color color to transform
+	 */
+	void ApplyVertexColorTransform(FVector4f& Color) const;
 };

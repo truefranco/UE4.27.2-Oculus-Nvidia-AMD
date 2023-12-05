@@ -35,6 +35,25 @@ public:
 	/** map from triangle ID to (polygon,triangle) pair */
 	TArray<FIndex2i> TriToPolyTriMap;
 
+	/** map from DynamicMesh triangle ID to MeshDescription FTriangleID*/
+	TArray<FTriangleID> TriIDMap;
+
+	/**
+	* map from DynamicMesh vertex Id to MeshDecription FVertexID.
+	* NB: due to vertex splitting, multiple DynamicMesh vertex ids
+	* may map to the same MeshDescription FVertexID.
+	*  ( a vertex split is a result of reconciling non-manifold MeshDescription vertex )
+	*/
+	TArray<FVertexID> VertIDMap;
+
+
+	/**
+	* If the source MeshDescription is non-manifold, store mesh vertex id as a vertex attribute on the result mesh
+	* This data can be accessed using FNonManifoldMappingSupport ( see NonManifoldMappingSupport.h)
+	*
+	* Note: the vertex attribute will not be created if the source mesh is manifold (as this data would be redundant) or if bDisableAttributes is true.
+	*/
+	bool bVIDsFromNonManifoldMeshDescriptionAttr = false;
 
 	/**
 	 * Various modes can be used to create output triangle groups
@@ -55,7 +74,7 @@ public:
 	/**
 	 * Default conversion of MeshDescription to DynamicMesh
 	 */
-	void Convert(const FMeshDescription* MeshIn, FDynamicMesh3& MeshOut);
+	void Convert(const FMeshDescription* MeshIn, FDynamicMesh3& MeshOut, bool bCopyTangents = false);
 
 	/**
 	 * Copy tangents from MeshDescription to a FMeshTangents instance.

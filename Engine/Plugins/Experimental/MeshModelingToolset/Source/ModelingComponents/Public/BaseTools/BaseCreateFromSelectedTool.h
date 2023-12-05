@@ -8,6 +8,7 @@
 #include "BaseGizmos/TransformGizmo.h"
 #include "MeshOpPreviewHelpers.h"
 #include "PropertySets/OnAcceptProperties.h"
+#include "PropertySets/CreateMeshObjectTypeProperties.h"
 #include "BaseCreateFromSelectedTool.generated.h"
 
 
@@ -184,6 +185,9 @@ protected:
 
 	UPROPERTY()
 	UTransformInputsToolProperties* TransformProperties;
+
+	UPROPERTY()
+	UCreateMeshObjectTypeProperties* OutputTypeProperties;
 
 	UPROPERTY()
 	UBaseCreateFromSelectedHandleSourceProperties* HandleSourcesProperties;

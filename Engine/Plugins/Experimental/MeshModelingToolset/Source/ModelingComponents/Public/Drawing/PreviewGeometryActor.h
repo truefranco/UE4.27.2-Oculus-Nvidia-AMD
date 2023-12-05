@@ -56,7 +56,15 @@ public:
 	UFUNCTION()
 	APreviewGeometryActor* GetActor() const { return ParentActor;  }
 
+	/**
+	 * Get the current transform on the preview
+	 */
+	FTransform GetTransform() const;
 
+	/**
+	 * Set the transform on the preview mesh
+	 */
+	void SetTransform(const FTransform& UseTransform);
 
 	//
 	// Line Sets

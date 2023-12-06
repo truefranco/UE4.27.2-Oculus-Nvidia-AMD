@@ -61,7 +61,13 @@ public:
 		}
 	}
 
-
+	TUniqueFunction<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> MakeTangentsFunc()
+	{
+		return [](int VertexID, int TriangleID, int TriVtxIdx, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY) -> void
+			{
+				VectorUtil::MakePerpVectors(Normal, TangentX, TangentY);
+			};
+	}
 
 
 	virtual void InitializeSingleBuffer()
@@ -86,7 +92,7 @@ public:
 
 		InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 			Mesh->TriangleCount(), Mesh->TriangleIndicesItr(),
-			UVOverlay, NormalOverlay, ColorOverlay );
+			UVOverlay, NormalOverlay, ColorOverlay, MakeTangentsFunc());
 
 		ENQUEUE_RENDER_COMMAND(FOctreeDynamicMeshSceneProxyInitializeSingle)(
 			[this, RenderBuffers](FRHICommandListImmediate& RHICmdList)
@@ -114,7 +120,7 @@ public:
 			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
 			ColorOverlay = Mesh->Attributes()->PrimaryColors();
 		}
-
+		auto TangentsFunc = MakeTangentsFunc();
 		const TArray<int32>& SetIDs = Decomposition.GetIndexSetIDs();
 		for (int32 SetID : SetIDs)
 		{
@@ -125,7 +131,7 @@ public:
 
 			InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 				Tris.Num(), Tris,
-				UVOverlay, NormalOverlay, ColorOverlay);
+				UVOverlay, NormalOverlay, ColorOverlay, TangentsFunc);
 
 			ENQUEUE_RENDER_COMMAND(FOctreeDynamicMeshSceneProxyInitializeFromDecomposition)(
 				[this, SetID, RenderBuffers](FRHICommandListImmediate& RHICmdList)
@@ -173,7 +179,7 @@ public:
 			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
 			ColorOverlay = Mesh->Attributes()->PrimaryColors();
 		}
-
+		auto TangentsFunc = MakeTangentsFunc();
 		{
 			SCOPE_CYCLE_COUNTER(STAT_SculptToolOctree_UpdateDecompCreate);
 			int NumSets = SetsToUpdate.Num();
@@ -187,7 +193,7 @@ public:
 
 				InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 					Tris.Num(), Tris,
-					UVOverlay, NormalOverlay, ColorOverlay);
+					UVOverlay, NormalOverlay, ColorOverlay, TangentsFunc);
 
 				ENQUEUE_RENDER_COMMAND(FOctreeDynamicMeshSceneProxyUpdateAddOne)(
 					[this, SetID, RenderBuffers](FRHICommandListImmediate& RHICmdList)

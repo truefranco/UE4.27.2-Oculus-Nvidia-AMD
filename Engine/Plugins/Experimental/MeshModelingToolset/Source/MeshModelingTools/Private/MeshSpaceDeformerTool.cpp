@@ -193,7 +193,7 @@ void UMeshSpaceDeformerTool::Setup()
 	// parent of any Components in this case, we just use it's transform and change delegate.
 	TransformProxy = NewObject<UTransformProxy>(this);
 	TransformProxy->SetTransform(FTransform(GizmoOrientation, GizmoCenter));
-	TransformGizmo = GetToolManager()->GetPairedGizmoManager()->CreateCustomTransformGizmo(
+	TransformGizmo = UE::TransformGizmoUtil::CreateCustomTransformGizmo(GetToolManager(),
 		ETransformGizmoSubElements::StandardTranslateRotate, this);
 
 	TransformGizmo->SetActiveTarget(TransformProxy, GetToolManager());

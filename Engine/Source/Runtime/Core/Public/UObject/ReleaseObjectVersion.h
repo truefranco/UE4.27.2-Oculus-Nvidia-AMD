@@ -141,6 +141,8 @@ struct CORE_API FReleaseObjectVersion
 		// Remove default resolution limit of 512 pixels for cubemaps generated from long-lat sources
 		LonglatTextureCubeDefaultMaxResolution,
 
+		AddingNewDynamicMesh,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

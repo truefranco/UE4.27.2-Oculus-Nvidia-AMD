@@ -1,8 +1,113 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "MeshTangents.h"
+#include "VectorUtil.h"
 #include "Async/ParallelFor.h"
 
+FDynamicMeshTangents::FDynamicMeshTangents(const FDynamicMesh3* MeshIn)
+{
+	Mesh = MeshIn;
+	if (ensure(Mesh) && ensure(Mesh->HasAttributes()))
+	{
+		Normals = Mesh->Attributes()->PrimaryNormals();
+		if (ensure(Normals) && Mesh->Attributes()->HasTangentSpace())
+		{
+			Tangents = Mesh->Attributes()->PrimaryTangents();
+			Bitangents = Mesh->Attributes()->PrimaryBiTangents();
+		}
+	}
+}
+
+
+bool FDynamicMeshTangents::HasValidTangents(const bool bCheckValues /*=false*/) const
+{
+	if (!Mesh || !Tangents || !Bitangents)
+	{
+		return false;
+	}
+
+	if (!bCheckValues)
+	{
+		// If not checking values, then we are done. Overlays are valid. 
+		return true;
+	}
+
+	for (const int TriId : Mesh->TriangleIndicesItr())
+	{
+		if (!Tangents->IsSetTriangle(TriId))
+		{
+			return false;
+		}
+
+		for (int TriVtxId = 0; TriVtxId < 2; ++TriVtxId)
+		{
+			FVector T, B;
+			Tangents->GetTriElement(TriId, TriVtxId, (FVector3f&)T);
+			Bitangents->GetTriElement(TriId, TriVtxId, (FVector3f&)B);
+			if (T.IsNearlyZero() || T.ContainsNaN() || B.IsNearlyZero() || B.ContainsNaN())
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+
+
+void FDynamicMeshTangents::GetTangentFrame(int32 TriangleID, int32 TriVertexIndex, FVector3f& Normal, FVector3f& Tangent, FVector3f& Bitangent) const
+{
+	if (Normals && Normals->IsSetTriangle(TriangleID))
+	{
+		Normals->GetTriElement(TriangleID, TriVertexIndex, Normal);
+		if (Tangents && Tangents->IsSetTriangle(TriangleID))
+		{
+			Tangents->GetTriElement(TriangleID, TriVertexIndex, Tangent);
+			Bitangents->GetTriElement(TriangleID, TriVertexIndex, Bitangent);
+		}
+		else
+		{
+			VectorUtil::MakePerpVectors(Normal, Tangent, Bitangent);
+		}
+	}
+	else
+	{
+		Normal = FVector3f::UnitZ();
+		Tangent = FVector3f::UnitX();
+		Bitangent = FVector3f::UnitY();
+	}
+}
+
+
+void FDynamicMeshTangents::GetTangentVectors(int32 TriangleID, int32 TriVertexIndex, const FVector3f& Normal, FVector3f& Tangent, FVector3f& Bitangent) const
+{
+	if (Tangents && Tangents->IsSetTriangle(TriangleID))
+	{
+		Tangents->GetTriElement(TriangleID, TriVertexIndex, Tangent);
+		Bitangents->GetTriElement(TriangleID, TriVertexIndex, Bitangent);
+	}
+	else
+	{
+		VectorUtil::MakePerpVectors(Normal, Tangent, Bitangent);
+	}
+}
+
+
+
+
+void FDynamicMeshTangents::GetTangentVectors(int32 TriangleID, int32 TriVertexIndex, FVector3f& Tangent, FVector3f& Bitangent) const
+{
+	if (Tangents && Tangents->IsSetTriangle(TriangleID))
+	{
+		Tangents->GetTriElement(TriangleID, TriVertexIndex, Tangent);
+		Bitangents->GetTriElement(TriangleID, TriVertexIndex, Bitangent);
+	}
+	else
+	{
+		Tangent = FVector3f::UnitX();
+		Bitangent = FVector3f::UnitY();
+	}
+}
 
 template<typename RealType>
 void TMeshTangents<RealType>::SetTangentCount(int Count, bool bClearToZero)

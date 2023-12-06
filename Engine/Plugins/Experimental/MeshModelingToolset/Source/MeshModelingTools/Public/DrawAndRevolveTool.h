@@ -45,17 +45,18 @@ public:
 		EditCondition = "HeightOffsetPerDegree != 0 || RevolveDegrees != 360", ValidEnumValues = "None, CenterFan, Delaunay"))
 	ERevolvePropertiesCapFillMode CapFillMode = ERevolvePropertiesCapFillMode::Delaunay;
 
-	/** Connect the ends of an open profile to the axis to close the top and bottom of the revolved result. Not relevant if profile curve is closed. */
-	UPROPERTY(EditAnywhere, Category = RevolveSettings, AdvancedDisplay)
-	bool bConnectOpenProfileToAxis = true;
+	/** Connect the ends of an open path to the axis to add caps to the top and bottom of the revolved result.
+	  * This is not relevant for paths that are already closed. */
+	UPROPERTY(EditAnywhere, Category = Revolve, AdvancedDisplay)
+	bool bClosePathToAxis = true;
 	
 	/** Determines whether plane control widget snaps to world grid (only relevant if world coordinate mode is active in viewport) .*/
 	UPROPERTY(EditAnywhere, Category = DrawPlane)
 	bool bSnapToWorldGrid = false;
 
 	/** Sets the draw plane origin. The revolution axis is the X axis in the plane. */
-	UPROPERTY(EditAnywhere, Category = DrawPlane, meta = (
-		EditCondition = "bAllowedToEditDrawPlane", HideEditConditionToggle))
+	UPROPERTY(EditAnywhere, Category = DrawPlane, meta = (DisplayName = "Origin", EditCondition = "bAllowedToEditDrawPlane", HideEditConditionToggle,
+		Delta = 5, LinearDeltaSensitivity = 1))
 	FVector DrawPlaneOrigin = FVector(0, 0, 0);
 
 	/** Sets the draw plane orientation. The revolution axis is the X axis in the plane. */

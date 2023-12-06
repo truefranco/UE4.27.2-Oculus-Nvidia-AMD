@@ -224,6 +224,24 @@ public:
 	void FastNotifyTriangleVerticesUpdated(const TArray<int32>& Triangles, EMeshRenderAttributeFlags UpdatedAttributes);
 
 	/**
+	 * If a Decomposition is set on this Component, and everything is currently valid (proxy/etc), precompute the set of
+	 * buffers that will be modified, as well as the bounds of the modified region. These are both computed in parallel.
+	 * Use FastNotifyTriangleVerticesUpdated_ApplyPrecompute() with the returned future to apply this precomputation.
+	 * @return a future that will (eventually) return true if the precompute is OK, and (immediately) false if it is not
+	 */
+    TFuture<bool> FastNotifyTriangleVerticesUpdated_TryPrecompute(const TArray<int32>& Triangles, TArray<int32>& UpdateSetsOut, FAxisAlignedBox3d& BoundsOut);
+
+	/**
+	 * This function updates vertex positions/attributes of existing SceneProxy render buffers if possible, for the given triangles.
+	 * The assumption is that FastNotifyTriangleVerticesUpdated_TryPrecompute() was used to get the Precompute future, this function
+	 * will Wait() until it is done and then use the UpdateSets and UpdateSetBounds that were computed (must be the same variables
+	 * passed to FastNotifyTriangleVerticesUpdated_TryPrecompute).
+	 * If the Precompute future returns false, then we forward the call to FastNotifyTriangleVerticesUpdated(), which will do more work.
+	 */
+	void FastNotifyTriangleVerticesUpdated_ApplyPrecompute(const TArray<int32>& Triangles, EMeshRenderAttributeFlags UpdatedAttributes,
+		TFuture<bool>& Precompute, const TArray<int32>& UpdateSets, const FAxisAlignedBox3d& UpdateSetBounds);
+
+	/**
 	 * This function updates vertex positions/attributes of existing SceneProxy render buffers if possible, for the given triangles.
 	 * If a FMeshRenderDecomposition has not been explicitly set, call is forwarded to FastNotifyVertexAttributesUpdated()
 	 */
@@ -296,6 +314,26 @@ protected:
 		void OnMeshObjectChanged(UDynamicMesh* ChangedMeshObject, FDynamicMeshChangeInfo ChangeInfo);
 
 public:
+
+	/** Set an active triangle color function if one exists, and update the mesh */
+	virtual void SetTriangleColorFunction(TUniqueFunction<FColor(const FDynamicMesh3*, int)> TriangleColorFuncIn,
+		EDynamicMeshComponentRenderUpdateMode UpdateMode = EDynamicMeshComponentRenderUpdateMode::FastUpdate);
+	/** Clear an active triangle color function if one exists, and update the mesh */
+	virtual void ClearTriangleColorFunction(EDynamicMeshComponentRenderUpdateMode UpdateMode = EDynamicMeshComponentRenderUpdateMode::FastUpdate);
+
+	/** @return true if a triangle color function is configured */
+	virtual bool HasTriangleColorFunction();
+protected:
+	/** If this function is set, we will use these colors instead of vertex colors */
+	TUniqueFunction<FColor(const FDynamicMesh3*, int)> TriangleColorFunc = nullptr;
+
+	/** This function is passed via lambda to the RenderProxy to be able to access TriangleColorFunc */
+	FColor GetTriangleColor(const FDynamicMesh3* Mesh, int TriangleID);
+
+	/** This function is passed via lambda to the RenderProxy when BaseDynamicMeshComponent::ColorMode == Polygroups */
+	FColor GetGroupColor(const FDynamicMesh3* Mesh, int TriangleID) const;
+public:
+
 	/**
 	 * Configure whether wireframe rendering is enabled or not
 	 */
@@ -305,12 +343,6 @@ public:
 	 * @return true if wireframe rendering pass is enabled
 	 */
 	virtual bool EnableWireframeRenderPass() const override { return bExplicitShowWireframe; }
-
-
-	/**
-	 * If this function is set, we will use these colors instead of vertex colors
-	 */
-	TFunction<FColor(const FDynamicMesh3*, int)> TriangleColorFunc = nullptr;
 
 
 	/**
@@ -471,11 +503,6 @@ private:
 
 	bool bTangentsValid = false;
 	FMeshTangentsf Tangents;
-	
-	FColor GetTriangleColor(const FDynamicMesh3* Mesh, int TriangleID);
-protected:
-	/** This function is passed via lambda to the RenderProxy when BaseDynamicMeshComponent::ColorMode == Polygroups */
-	FColor GetGroupColor(const FDynamicMesh3* Mesh, int TriangleID) const;
 
 	//===============================================================================================================
 	// Support for Vertex Color remapping/filtering. This allows external code to modulate the existing 
@@ -497,6 +524,15 @@ protected:
 	bool bTransientDeferCollisionUpdates = false;
 	bool bCollisionUpdatePending = false;
 public:
+
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FComponentChildrenChangedDelegate, USceneComponent*, bool);
+
+	/**
+	 * The OnChildAttached() and OnChildDetached() implementations (from USceneComponent API) broadcast this delegate. This
+	 * allows Actors that have UDynamicMeshComponent's to respond to changes in their Component hierarchy.
+	 */
+	FComponentChildrenChangedDelegate OnChildAttachmentModified;
+
 	/**
 	 *	Controls whether the physics cooking should be done off the game thread.
 	 *  This should be used when collision geometry doesn't have to be immediately up to date (For example streaming in far away objects)
@@ -509,6 +545,9 @@ public:
 	/** @return BodySetup for this Component. A new BodySetup will be created if one does not exist. */
 	virtual UBodySetup* GetBodySetup() override;
 
+	/** If true, updates to the mesh will not result in immediate collision regeneration. Useful when the mesh will be modified multiple times before collision is needed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dynamic Mesh Component|Collision");
+	bool bDeferCollisionUpdates = false;
 
 	/**
 	 * Force an update of the Collision/Physics data for this Component.
@@ -556,6 +595,12 @@ public:
 		return AggGeom;
 	}
 
+protected:
+
+	virtual FBaseDynamicMeshSceneProxy* GetBaseSceneProxy() override { return (FBaseDynamicMeshSceneProxy*)GetCurrentSceneProxy(); }
+	/**
+	 * @return current render proxy, if valid, otherwise nullptr
+	 */
 	FSimpleDynamicMeshSceneProxy* GetCurrentSceneProxy();
 
 	/** Set an active VertexColor Remapping function if one exists, and update the mesh */
@@ -568,12 +613,18 @@ public:
 	/** @return true if a VertexColor Remapping function is configured */
 	virtual bool HasVertexColorRemappingFunction();
 
-protected:
+
 	/** If this function is set, DynamicMesh Attribute Color Overlay colors will be passed through this function before sending to render buffers */
 	TUniqueFunction<void(FVector4f&)> VertexColorMappingFunc = nullptr;
 
 	/** This function is passed via lambda to the RenderProxy to be able to access VertexColorMappingFunc */
 	void RemapVertexColor(FVector4f& VertexColorInOut);
+	virtual void OnChildAttached(USceneComponent* ChildComponent) override;
+	virtual void OnChildDetached(USceneComponent* ChildComponent) override;
+	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostLoad() override;
+	void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void BeginDestroy() override;
 
 public:
 	TUniqueFunction<bool(const FDynamicMesh3*, int32)> SecondaryTriFilterFunc = nullptr;

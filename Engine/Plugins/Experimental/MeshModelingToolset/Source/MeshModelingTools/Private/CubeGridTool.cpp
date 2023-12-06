@@ -581,11 +581,6 @@ const FToolTargetTypeRequirements& UCubeGridToolBuilder::GetTargetRequirements()
 bool UCubeGridToolBuilder::CanBuildTool(const FToolBuilderState& SceneState) const
 {
 	return SceneState.TargetManager->CountSelectedAndTargetable(SceneState, GetTargetRequirements()) <= 1;
-	//{
-		//return (this->AssetAPI != nullptr);
-	//}
-	//else
-		//return false;
 }
 
 UInteractiveTool* UCubeGridToolBuilder::BuildTool(const FToolBuilderState& SceneState) const
@@ -595,15 +590,8 @@ UInteractiveTool* UCubeGridToolBuilder::BuildTool(const FToolBuilderState& Scene
 	UToolTarget* Target = SceneState.TargetManager->BuildFirstSelectedTargetable(SceneState, GetTargetRequirements());
 	NewTool->SetTarget(Target); // May be null
 	NewTool->SetWorld(SceneState.World);
-	//NewTool->SetAssetAPI(AssetAPI);
 	return NewTool;
 }
-
-//void UCubeGridTool::SetAssetAPI(IToolsContextAssetAPI* AssetAPIIn)
-//{
-	//this->AssetAPI = AssetAPIIn;
-//}
-
 
 void UCubeGridTool::InvalidatePreview(bool bUpdateCornerLineSet)
 {
@@ -828,7 +816,6 @@ void UCubeGridTool::Setup()
 
 	Preview = NewObject<UMeshOpPreviewWithBackgroundCompute>(this);
 	Preview->Setup(TargetWorld, this);
-	//Preview->PreviewMesh->SetMaterial(MaterialProperties->Material.Get());
 	ToolSetupUtil::ApplyRenderingConfigurationToPreview(Preview->PreviewMesh, Target);
 	Preview->PreviewMesh->SetTangentsMode(EDynamicMeshTangentCalcType::AutoCalculated);
 	if (Target)

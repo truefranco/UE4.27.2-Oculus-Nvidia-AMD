@@ -605,15 +605,7 @@ void UPreviewMesh::Bake(FMeshDescription* MeshDescription, bool bHaveModifiedTop
 
 void UPreviewMesh::SetTriangleColorFunction(TFunction<FColor(const FDynamicMesh3*, int)> TriangleColorFunc, ERenderUpdateMode UpdateMode)
 {
-	DynamicMeshComponent->TriangleColorFunc = TriangleColorFunc;
-	if (UpdateMode == ERenderUpdateMode::FastUpdate)
-	{
-		DynamicMeshComponent->FastNotifyColorsUpdated();
-	}
-	else if (UpdateMode == ERenderUpdateMode::FullUpdate)
-	{
-		DynamicMeshComponent->NotifyMeshUpdated();
-	}
+	DynamicMeshComponent->SetTriangleColorFunction(TriangleColorFunc, (EDynamicMeshComponentRenderUpdateMode)(int32)UpdateMode);
 }
 
 void UPreviewMesh::SetEnableRenderMeshDecomposition(bool bEnable)
@@ -635,18 +627,7 @@ void UPreviewMesh::SetEnableRenderMeshDecomposition(bool bEnable)
 
 void UPreviewMesh::ClearTriangleColorFunction(ERenderUpdateMode UpdateMode)
 {
-	if (DynamicMeshComponent->TriangleColorFunc)
-	{
-		DynamicMeshComponent->TriangleColorFunc = nullptr;
-		if (UpdateMode == ERenderUpdateMode::FastUpdate)
-		{
-			DynamicMeshComponent->FastNotifyColorsUpdated();
-		}
-		else if (UpdateMode == ERenderUpdateMode::FullUpdate)
-		{
-			DynamicMeshComponent->NotifyMeshUpdated();
-		}
-	}
+	DynamicMeshComponent->ClearTriangleColorFunction((EDynamicMeshComponentRenderUpdateMode)(int32)UpdateMode);
 }
 
 void UPreviewMesh::NotifyWorldPathTracedOutputInvalidated()

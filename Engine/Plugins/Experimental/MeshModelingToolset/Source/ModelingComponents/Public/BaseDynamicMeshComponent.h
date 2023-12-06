@@ -134,6 +134,15 @@ public:
 	}
 
 	/**
+	 * @return pointer to internal mesh
+	 */
+	virtual const FDynamicMesh3* GetMesh() const
+	{
+		unimplemented();
+		return nullptr;
+	}
+
+	/**
 	 * Allow external code to read the internal mesh.
 	 */
 	virtual void ProcessMesh(TFunctionRef<void(const FDynamicMesh3&)> ProcessFunc) const
@@ -145,15 +154,6 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
 	virtual UDynamicMesh* GetDynamicMesh()
-	{
-		unimplemented();
-		return nullptr;
-	}
-
-	/**
-	 * @return pointer to internal mesh
-	 */
-	virtual const FDynamicMesh3* GetMesh() const
 	{
 		unimplemented();
 		return nullptr;

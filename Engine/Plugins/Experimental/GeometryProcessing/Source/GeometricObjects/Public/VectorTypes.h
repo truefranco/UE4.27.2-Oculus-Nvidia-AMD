@@ -6,10 +6,6 @@
 #include "MathUtil.h"
 #include <sstream>
 
-
-
-
-
 /**
 * Templated 2D Vector. Ported from g3Sharp library, with the intention of
 * maintaining compatibility with existing g3Sharp code. Has an API
@@ -136,6 +132,10 @@ struct FVector2
 	constexpr T Cross(const FVector2<T>& V2) const
 	{
 		return X * V2.Y - Y * V2.X;
+	}
+	constexpr FVector2<T> PerpCW(const FVector2<T>& V) const
+	{
+		return FVector2<T>(V.Y, -V.X);
 	}
 
 	constexpr FVector2<T> Perp() const

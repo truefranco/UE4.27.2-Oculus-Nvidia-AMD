@@ -4,31 +4,43 @@
 
 #pragma once
 
+#include "BoxTypes.h"
+#include "CompGeom/PolygonTriangulation.h"
+#include "Containers/Array.h"
+#include "Containers/ArrayView.h"
+#include "Containers/Set.h"
 #include "CoreMinimal.h"
-
+#include "Curve/CurveUtil.h"
+#include "FrameTypes.h"
+#include "HAL/PlatformCrt.h"
+#include "IndexTypes.h"
+#include "Math/UnrealMathSSE.h"
 #include "Math/UnrealMathUtility.h"
+#include "Math/Vector.h"
+#include "Math/Vector2D.h"
+#include "MathUtil.h"
+#include "MatrixTypes.h"
 #include "MeshShapeGenerator.h"
 #include "Misc/AssertionMacros.h"
-
-#include "CompGeom/PolygonTriangulation.h"
-#include "FrameTypes.h"
-#include "MatrixTypes.h"
 #include "Polygon2.h"
-#include "Curve/CurveUtil.h"
-
+#include "Templates/UnrealTemplate.h"
 #include "Util/ProgressCancel.h"
+#include "VectorTypes.h"
+
+class FProgressCancel;
 
 /**
  * ECapType indicates the type of cap to use on a sweep
  */
-enum class /*GEOMETRICOBJECTS_API*/ ECapType
+enum class /*GEOMETRYCORE_API*/ ECapType
 {
 	None = 0,
-	FlatTriangulation = 1
+	FlatTriangulation = 1,
+	FlatMidpointFan = 2
 	// TODO: Cone, other caps ...
 };
 
-class /*GEOMETRICOBJECTS_API*/ FSweepGeneratorBase : public FMeshShapeGenerator
+class /*GEOMETRYCORE_API*/ FSweepGeneratorBase : public FMeshShapeGenerator
 {
 public:
 	virtual ~FSweepGeneratorBase()
@@ -37,6 +49,9 @@ public:
 
 	/** If true, each quad gets a separate polygroup */
 	bool bPolygroupPerQuad = false;
+
+	/** If true, the last point of the profile curve is considered to be connected to the first. */
+	bool bProfileCurveIsClosed = true;
 
 protected:
 	int32 CapVertStart[2], CapNormalStart[2], CapUVStart[2], CapTriangleStart[2], CapPolygonStart[2];
@@ -54,49 +69,108 @@ protected:
 							   int32 NumCrossSections,
 							   bool bLoop,
 							   const ECapType Caps[2],
-							   FVector2f SectionsUVScale, FVector2f CapUVScale, FVector2f CapUVOffset)
+							   FVector2f SectionsUVScale, 
+							   FVector2f CapUVScale, 
+							   FVector2f CapUVOffset,
+							   const TArrayView<const float>& CustomCrossSectionTexCoord = {}, // if specified and valid, we use custom UVs instead of automatically generating them
+							   const TArrayView<const float>& CustomPathTexCoord = {})
 	{
 		// per cross section
-		int32 XVerts = CrossSection.VertexCount();
-		int32 XNormals = XVerts + NormalSections.Num();
-		int32 XUVs = XVerts + UVSections.Num() + 1;
+		const int32 XVerts = CrossSection.VertexCount();
+		const int32 XSegments = bProfileCurveIsClosed ? XVerts : XVerts - 1;
+		const int32 XNormals = XVerts + NormalSections.Num();
+		const int32 XUVs = XSegments + UVSections.Num() + 1;
 
-		double TotalPerimeter = 0, TotalPathLength = 0;
-		TArray<double> CrossSectionPercentages, PathPercentages;
-		if (bEvenlySpaceUVs)
+		float TotalPerimeter = 0.0f, TotalPathLength = 0.0f;
+		TArray<float> CrossSectionTexCoord, PathTexCoord;
+
+		// Compute texture coordinates along the cross section (U coordinates)
+		if (bProfileCurveIsClosed && CustomCrossSectionTexCoord.Num() >= XVerts + 1)
 		{
-			CrossSectionPercentages.Add(0);
-			PathPercentages.Add(0);
-			for (int XIdx = 0, XNum = CrossSection.VertexCount(); XIdx < XNum; XIdx++)
+			CrossSectionTexCoord = CustomCrossSectionTexCoord;
+		}
+		else if (bProfileCurveIsClosed && CustomCrossSectionTexCoord.Num() == XVerts)
+		{
+			CrossSectionTexCoord = CustomCrossSectionTexCoord;
+
+			// If the cross section curve is closed and we are missing texture coordinate for the 
+			// last element we wrap araound and use the coordinate of the first element
+			CrossSectionTexCoord.Add(CrossSectionTexCoord[0]);
+		}
+		else if (bProfileCurveIsClosed == false && CustomCrossSectionTexCoord.Num() >= XVerts) 
+		{
+			CrossSectionTexCoord = CustomCrossSectionTexCoord;
+		}
+		else if (bEvenlySpaceUVs)
+		{
+			CrossSectionTexCoord.Add(0.0f);
+			for (int Idx = 0; Idx < XSegments; Idx++)
 			{
-				double SegLen = CrossSection[XIdx].Distance(CrossSection[(XIdx + 1) % XNum]);
+				float SegLen = float((CrossSection[Idx], CrossSection[(Idx + 1) % XSegments]).Distance((CrossSection[Idx], CrossSection[(Idx + 1) % XSegments])));
 				TotalPerimeter += SegLen;
-				CrossSectionPercentages.Add(TotalPerimeter);
+				CrossSectionTexCoord.Add(TotalPerimeter);
 			}
-			TotalPerimeter = FMath::Max(TotalPerimeter, FMathd::ZeroTolerance);
-			for (int Idx = 1; Idx < CrossSectionPercentages.Num(); Idx++)
+			TotalPerimeter = FMath::Max(TotalPerimeter, FMathf::ZeroTolerance);
+			for (int Idx = 0; Idx < CrossSectionTexCoord.Num(); Idx++)
 			{
-				CrossSectionPercentages[Idx] /= TotalPerimeter;
-			}
-			int NumPathSegs = bLoop ? Path.Num() : Path.Num() - 1;
-			for (int PIdx = 0; PIdx < NumPathSegs; PIdx++)
-			{
-				double SegLen = Path[PIdx].Distance(Path[(PIdx + 1) % Path.Num()]);
-				TotalPathLength += SegLen;
-				PathPercentages.Add(TotalPathLength);
-			}
-			TotalPathLength = FMath::Max(TotalPathLength, FMathd::ZeroTolerance);
-			for (int Idx = 1; Idx < PathPercentages.Num(); Idx++)
-			{
-				PathPercentages[Idx] /= TotalPathLength;
+				CrossSectionTexCoord[Idx] /= TotalPerimeter;
+				CrossSectionTexCoord[Idx] = 1.0f - CrossSectionTexCoord[Idx];
 			}
 		}
-
+		else 
+		{	
+			for (int Idx = 0; Idx < XSegments; Idx++)
+			{
+				float U = float(Idx) / float(XSegments);
+				CrossSectionTexCoord.Add(1.0f - U);
+			}
+			CrossSectionTexCoord.Add(0.0f);
+		}
+		
+		// Compute texture coordinates along the path (V coordinates)
+		if (CustomPathTexCoord.Num() >= NumCrossSections)
+		{
+			PathTexCoord = CustomPathTexCoord;
+		}
+		else if (bLoop && CustomPathTexCoord.Num() == NumCrossSections - 1)
+		{
+			PathTexCoord = CustomPathTexCoord;
+			
+			// If the path curve is closed and we are missing texture coordinate for the 
+			// last element we wrap araound and use the coordinate of the first element
+			PathTexCoord.Add(PathTexCoord[0]);
+		}
+		else if (bEvenlySpaceUVs) 
+		{
+			PathTexCoord.Add(0.0f);
+			int NumPathSegs = bLoop ? Path.Num() : Path.Num() - 1;
+			for (int Idx = 0; Idx < NumPathSegs; Idx++)
+			{
+				float SegLen = float((Path[Idx], Path[(Idx + 1) % Path.Num()]).Distance((Path[Idx], Path[(Idx + 1) % Path.Num()])));
+				TotalPathLength += SegLen;
+				PathTexCoord.Add(TotalPathLength);
+			}
+			TotalPathLength = FMath::Max(TotalPathLength, FMathf::ZeroTolerance);
+			for (int Idx = 0; Idx < PathTexCoord.Num(); Idx++)
+			{
+				PathTexCoord[Idx] /= TotalPathLength;
+				PathTexCoord[Idx] = 1.0f - PathTexCoord[Idx];
+			}
+		}
+		else 
+		{
+			for (int32 Idx = 0; Idx < NumCrossSections; Idx++)
+			{
+				float V = float(Idx) / float(NumCrossSections - 1);
+				PathTexCoord.Add(1.0f - V);
+			}
+		}
+		
 		int32 NumVerts = XVerts * NumCrossSections - (bLoop ? XVerts : 0);
 		int32 NumNormals = NumCrossSections > 1 ? (XNormals * NumCrossSections - (bLoop ? XNormals : 0)) : 0;
 		NumNormals += XNormals * SharpNormalsAlongLength.Num();
 		int32 NumUVs = NumCrossSections > 1 ? XUVs * NumCrossSections : 0;
-		int32 NumPolygons = (NumCrossSections - 1) * XVerts;
+		int32 NumPolygons = (NumCrossSections - 1) * XSegments;
 		int32 NumTriangles = NumPolygons * 2;
 
 		TArray<FIndex3i> OutTriangles;
@@ -121,16 +195,15 @@ protected:
 					NumUVs += XVerts;
 					NumNormals += XVerts;
 				}
-
+				else if (Caps[CapIdx] == ECapType::FlatMidpointFan)
+				{
+					NumTriangles += XSegments;
+					NumPolygons++;
+					NumUVs += XVerts + 1;
+					NumNormals += XVerts + 1;
+					NumVerts += 1;
+				}
 				// TODO: support more cap type; e.g.:
-				//else if (Caps[CapIdx] == ECapType::FlatMidpointFan)
-				//{
-				//	NumTriangles += XVerts;
-				//	NumPolygons += XVerts;
-				//	NumUVs += XVerts + 1;
-				//	NumNormals += XVerts + 1;
-				//	NumVerts += 1;
-				//}
 				//else if (Caps[CapIdx] == ECapType::Cone)
 				//{
 				//	NumTriangles += XVerts;
@@ -148,7 +221,6 @@ protected:
 		{
 			for (int32 CapIdx = 0; CapIdx < 2; CapIdx++)
 			{
-
 				if (Caps[CapIdx] == ECapType::FlatTriangulation)
 				{
 					int32 VertOffset = CapIdx * (XVerts * (NumCrossSections - 1));
@@ -159,7 +231,6 @@ protected:
 					for (const FIndex3i& Triangle : OutTriangles)
 					{
 						bool Flipped = CapIdx == 0;
-						Flipped = !Flipped;
 						SetTriangle(TriIdx,
 							Triangle.A + VertOffset, Triangle.B + VertOffset, Triangle.C + VertOffset,
 							Flipped);
@@ -176,11 +247,54 @@ protected:
 						SetTrianglePolygon(TriIdx, PolyIdx);
 						TriIdx++;
 					}
-					float SideScale = 2 * CapIdx - 1;
+					float SideScale = float(2 * CapIdx - 1);
 					for (int32 Idx = 0; Idx < XVerts; Idx++)
 					{
 						FVector2f CenteredVert = (FVector2f)CrossSection.GetVertices()[Idx] * CapUVScale + CapUVOffset;
 						SetUV(CapUVStart[CapIdx] + Idx, FVector2f(CenteredVert.X * SideScale, CenteredVert.Y), VertOffset + Idx);
+
+						// correct normal to be filled by subclass
+						SetNormal(CapNormalStart[CapIdx] + Idx, FVector3f::Zero(), VertOffset + Idx);
+					}
+				}
+				else if (Caps[CapIdx] == ECapType::FlatMidpointFan)
+				{
+					int32 VertOffset = CapIdx * (XVerts * (NumCrossSections - 1));
+					int32 CapVertStartIdx = CapVertStart[CapIdx];
+					int32 TriIdx = CapTriangleStart[CapIdx];
+					int32 PolyIdx = CapPolygonStart[CapIdx];
+					for (int32 VertIdx = 0; VertIdx < XSegments; VertIdx++)
+					{
+						bool Flipped = CapIdx == 0;
+						SetTriangle(TriIdx,
+							VertOffset + VertIdx,
+							CapVertStartIdx,
+							VertOffset + (VertIdx + 1) % XVerts,
+							Flipped);
+						SetTriangleUVs(TriIdx,
+							CapUVStart[CapIdx] + VertIdx,
+							CapUVStart[CapIdx] + XVerts,
+							CapUVStart[CapIdx] + (VertIdx + 1) % XVerts,
+							Flipped);
+						SetTriangleNormals(TriIdx,
+							CapNormalStart[CapIdx] + VertIdx,
+							CapNormalStart[CapIdx] + XVerts,
+							CapNormalStart[CapIdx] + (VertIdx + 1) % XVerts,
+							Flipped);
+						SetTrianglePolygon(TriIdx, PolyIdx);
+						TriIdx++;
+					}
+
+					// Set cap midpoint UV & Normal
+					// (correct normal to be filled by subclass)
+					SetUV(CapUVStart[CapIdx] + XVerts, FVector2f::Zero() + CapUVOffset, CapVertStartIdx);
+					SetNormal(CapNormalStart[CapIdx] + XVerts, FVector3f::Zero(), CapVertStartIdx);
+
+					// Set cap profile UVs & Normal
+					for (int32 Idx = 0; Idx < XVerts; Idx++)
+					{
+						FVector2f CenteredVert = (FVector2f)CrossSection.GetVertices()[Idx] * CapUVScale + CapUVOffset;
+						SetUV(CapUVStart[CapIdx] + Idx, FVector2f(CenteredVert.X, CenteredVert.Y), VertOffset + Idx);
 						SetNormal(CapNormalStart[CapIdx] + Idx, FVector3f::Zero(), VertOffset + Idx);
 					}
 				}
@@ -203,13 +317,12 @@ protected:
 
 			int32 NumSections = UVSections.Num();
 			int32 NextDupVertIdx = UVSection < NumSections ? UVSections[UVSection] : -1;
-			for (int32 VertSubIdx = 0; VertSubIdx < XVerts; UVSubIdx++)
+			for (int32 VertSubIdx = 0; VertSubIdx < XSegments; UVSubIdx++)
 			{
-				float UVX = bEvenlySpaceUVs ? CrossSectionPercentages[VertSubIdx] : VertSubIdx / float(XVerts);
 				for (int32 XIdx = 0; XIdx < NumCrossSections; XIdx++)
 				{
-					float UVY = bEvenlySpaceUVs ? PathPercentages[XIdx] : XIdx / float(NumCrossSections - 1);
-					SetUV(XIdx * XUVs + UVSubIdx, FVector2f(1-UVX, 1-UVY) * SectionsUVScale, (XIdx % CrossSectionsMod) * XVerts + VertSubIdx);
+					FVector2f UV = FVector2f(CrossSectionTexCoord[VertSubIdx], PathTexCoord[XIdx]);
+					SetUV(XIdx * XUVs + UVSubIdx, UV * SectionsUVScale, (XIdx % CrossSectionsMod) * XVerts + VertSubIdx);
 				}
 
 				if (VertSubIdx == NextDupVertIdx)
@@ -221,12 +334,12 @@ protected:
 					for (int32 XIdx = 0; XIdx + 1 < NumCrossSections; XIdx++)
 					{
 						SetTriangleUVs(
-							XVerts * 2 * XIdx + 2 * VertSubIdx,
+							XSegments * 2 * XIdx + 2 * VertSubIdx,
 							XIdx * XUVs + UVSubIdx,
 							XIdx * XUVs + UVSubIdx + 1,
 							(XIdx + 1) * XUVs + UVSubIdx, true);
 						SetTriangleUVs(
-							XVerts * 2 * XIdx + 2 * VertSubIdx + 1,
+							XSegments * 2 * XIdx + 2 * VertSubIdx + 1,
 							(XIdx + 1) * XUVs + UVSubIdx + 1,
 							(XIdx + 1) * XUVs + UVSubIdx,
 							XIdx * XUVs + UVSubIdx + 1, true);
@@ -236,12 +349,11 @@ protected:
 			}
 			{
 				// final UV
-				float UVX = 1.0f;
-				int32 VertSubIdx = 0;
+				int32 VertSubIdx = bProfileCurveIsClosed ? 0 : XSegments;
 				for (int32 XIdx = 0; XIdx < NumCrossSections; XIdx++)
 				{
-					float UVY = bEvenlySpaceUVs ? PathPercentages[XIdx] : XIdx / float(NumCrossSections - 1);
-					SetUV(XIdx * XUVs + UVSubIdx, FVector2f(1-UVX, 1-UVY) * SectionsUVScale, (XIdx % CrossSectionsMod) * XVerts + VertSubIdx);
+					FVector2f UV = FVector2f(CrossSectionTexCoord.Last(), PathTexCoord[XIdx]);
+					SetUV(XIdx * XUVs + UVSubIdx, UV * SectionsUVScale, (XIdx % CrossSectionsMod) * XVerts + VertSubIdx);
 				}
 			}
 			NumSections = NormalSections.Num();
@@ -271,40 +383,43 @@ protected:
 				}
 				else
 				{
-					int32 WrappedNextNormalSubIdx = (NormalSubIdx + 1) % XNormals;
-					int32 WrappedNextVertexSubIdx = (VertSubIdx + 1) % XVerts;
-					SharpNormalIdx = 0;
-					for (int32 XIdx = 0, NXIdx = 0; XIdx + 1 < NumCrossSections; XIdx++, NXIdx++)
+					if (VertSubIdx < XSegments) // if bProfileCurveIsClosed == false skip the last triangle strip generation
 					{
-						int32 T0Idx = XVerts * 2 * XIdx + 2 * VertSubIdx;
-						int32 T1Idx = T0Idx + 1;
-						int32 PIdx = XVerts * XIdx + VertSubIdx;
-						int32 NextXIdx = (XIdx + 1) % CrossSectionsMod;
-						int32 NextNXIdx = (NXIdx + 1) % NormalCrossSectionsMod;
-						SetTrianglePolygon(T0Idx, (bPolygroupPerQuad) ? PIdx : (CurFaceGroupIndex+XIdx) );
-						SetTrianglePolygon(T1Idx, (bPolygroupPerQuad) ? PIdx : (CurFaceGroupIndex+XIdx) );
-						SetTriangle(T0Idx,
-									XIdx * XVerts + VertSubIdx,
-									XIdx * XVerts + WrappedNextVertexSubIdx,
-									NextXIdx * XVerts + VertSubIdx, true);
-						SetTriangle(T1Idx,
-									NextXIdx * XVerts + WrappedNextVertexSubIdx,
-									NextXIdx * XVerts + VertSubIdx,
-									XIdx * XVerts + WrappedNextVertexSubIdx, true);
-						SetTriangleNormals(
-							T0Idx,
-							NXIdx * XNormals + NormalSubIdx,
-							NXIdx * XNormals + WrappedNextNormalSubIdx,
-							NextNXIdx * XNormals + NormalSubIdx, true);
-						SetTriangleNormals(
-							T1Idx,
-							NextNXIdx * XNormals + WrappedNextNormalSubIdx,
-							NextNXIdx * XNormals + NormalSubIdx,
-							NXIdx * XNormals + WrappedNextNormalSubIdx, true);
-						if (SharpNormalIdx < SharpNormalsAlongLength.Num() && XIdx+1 == SharpNormalsAlongLength[SharpNormalIdx])
+						int32 WrappedNextNormalSubIdx = (NormalSubIdx + 1) % XNormals;
+						int32 WrappedNextVertexSubIdx = (VertSubIdx + 1) % XVerts;
+						SharpNormalIdx = 0;
+						for (int32 XIdx = 0, NXIdx = 0; XIdx + 1 < NumCrossSections; XIdx++, NXIdx++)
 						{
-							NXIdx++;
-							SharpNormalIdx++;
+							int32 T0Idx = XSegments * 2 * XIdx + 2 * VertSubIdx;
+							int32 T1Idx = T0Idx + 1;
+							int32 PIdx = XSegments * XIdx + VertSubIdx;
+							int32 NextXIdx = (XIdx + 1) % CrossSectionsMod;
+							int32 NextNXIdx = (NXIdx + 1) % NormalCrossSectionsMod;
+							SetTrianglePolygon(T0Idx, (bPolygroupPerQuad) ? PIdx : (CurFaceGroupIndex + XIdx));
+							SetTrianglePolygon(T1Idx, (bPolygroupPerQuad) ? PIdx : (CurFaceGroupIndex + XIdx));
+							SetTriangle(T0Idx,
+								XIdx * XVerts + VertSubIdx,
+								XIdx * XVerts + WrappedNextVertexSubIdx,
+								NextXIdx * XVerts + VertSubIdx, true);
+							SetTriangle(T1Idx,
+								NextXIdx * XVerts + WrappedNextVertexSubIdx,
+								NextXIdx * XVerts + VertSubIdx,
+								XIdx * XVerts + WrappedNextVertexSubIdx, true);
+							SetTriangleNormals(
+								T0Idx,
+								NXIdx * XNormals + NormalSubIdx,
+								NXIdx * XNormals + WrappedNextNormalSubIdx,
+								NextNXIdx * XNormals + NormalSubIdx, true);
+							SetTriangleNormals(
+								T1Idx,
+								NextNXIdx * XNormals + WrappedNextNormalSubIdx,
+								NextNXIdx * XNormals + NormalSubIdx,
+								NXIdx * XNormals + WrappedNextNormalSubIdx, true);
+							if (SharpNormalIdx < SharpNormalsAlongLength.Num() && XIdx + 1 == SharpNormalsAlongLength[SharpNormalIdx])
+							{
+								NXIdx++;
+								SharpNormalIdx++;
+							}
 						}
 					}
 					VertSubIdx++;
@@ -317,12 +432,13 @@ protected:
 /**
 * Generate a cylinder with optional end caps
 */
-class /*DYNAMICMESH_API*/ FVerticalCylinderGeneratorBase : public FSweepGeneratorBase
+class /*GEOMETRYCORE_API*/ FVerticalCylinderGeneratorBase : public FSweepGeneratorBase
 {
 public:
 	int AngleSamples = 16;
 	bool bCapped = false;
 	bool bUVScaleMatchSidesAndCaps = true;
+	ECapType CapType = ECapType::FlatMidpointFan;
 
 	static float ComputeSegLengths(const TArrayView<float>& Radii, const TArrayView<float>& Heights, TArray<float>& AlongPercents)
 	{
@@ -332,8 +448,8 @@ public:
 		AlongPercents[0] = 0;
 		for (int XIdx = 0; XIdx+1 < NumX; XIdx++)
 		{
-			float Dist = FVector2d(Radii[XIdx], Heights[XIdx]).Distance(FVector2d(Radii[XIdx + 1], Heights[XIdx + 1]));
-			LenAlong += Dist;
+			double Dist = ( FVector2d(Radii[XIdx], Heights[XIdx]), FVector2d(Radii[XIdx + 1], Heights[XIdx + 1]) ).Distance((FVector2d(Radii[XIdx], Heights[XIdx]), FVector2d(Radii[XIdx + 1], Heights[XIdx + 1])));
+			LenAlong += float(Dist);
 			AlongPercents[XIdx + 1] = LenAlong;
 		}
 		for (int XIdx = 0; XIdx+1 < NumX; XIdx++)
@@ -351,8 +467,8 @@ public:
 
 		if (bCapped)
 		{
-			Caps[0] = ECapType::FlatTriangulation;
-			Caps[1] = ECapType::FlatTriangulation;
+			Caps[0] = CapType;
+			Caps[1] = CapType;
 		}
 
 		int NumX = Radii.Num();
@@ -374,7 +490,8 @@ public:
 		TArray<FVector2d> NormalSides; NormalSides.SetNum(NumX - 1);
 		for (int XIdx = 0; XIdx+1 < NumX; XIdx++)
 		{
-			NormalSides[XIdx] = (FVector2d(Radii[XIdx+1], Heights[XIdx+1]) - FVector2d(Radii[XIdx], Heights[XIdx])).Perp().Normalized();
+			FVector2d Vec = FVector2d(Radii[XIdx + 1], Heights[XIdx + 1]) - FVector2d(Radii[XIdx], Heights[XIdx]);
+			NormalSides[XIdx] = ((Vec).PerpCW((Vec))).Normalized();
 		}
 		TArray<FVector2d> SmoothedNormalSides; SmoothedNormalSides.SetNum(NumX);
 		// smooth internal normals
@@ -392,7 +509,6 @@ public:
 			int SharpNormalIdx = 0;
 			for (int XIdx = 0, NormalXIdx = 0; XIdx < NumX; ++XIdx, ++NormalXIdx)
 			{
-				double Along = AlongPercents[XIdx];
 				double AlongRadius = Radii[XIdx];
 				Vertices[SubIdx + XIdx * AngleSamples] =
 					FVector3d(XVerts[SubIdx].X * AlongRadius, XVerts[SubIdx].Y * AlongRadius, Heights[XIdx]);
@@ -401,30 +517,47 @@ public:
 					// write sharp normals
 					if (ensure(XIdx > 0)) // very first index cannot be sharp
 					{
-						Normals[SubIdx + NormalXIdx * AngleSamples] = FVector3f(XVerts[SubIdx].X*NormalSides[XIdx-1].X, XVerts[SubIdx].Y*NormalSides[XIdx-1].X, NormalSides[XIdx-1].Y);
+						Normals[SubIdx + NormalXIdx * AngleSamples] = FVector3f(float(XVerts[SubIdx].X*NormalSides[XIdx-1].X), float(XVerts[SubIdx].Y*NormalSides[XIdx-1].X), float(NormalSides[XIdx-1].Y));
 					}
 					NormalXIdx++;
 					if (ensure(XIdx + 1 < NumX)) // very last index cannot be sharp
 					{
-						Normals[SubIdx + NormalXIdx * AngleSamples] = FVector3f(XVerts[SubIdx].X*NormalSides[XIdx].X, XVerts[SubIdx].Y*NormalSides[XIdx].X, NormalSides[XIdx].Y);
+						Normals[SubIdx + NormalXIdx * AngleSamples] = FVector3f(float(XVerts[SubIdx].X*NormalSides[XIdx].X), float(XVerts[SubIdx].Y*NormalSides[XIdx].X), float(NormalSides[XIdx].Y));
 					}
 					SharpNormalIdx++;
 				}
 				else
 				{
 					// write smoothed normal
-					Normals[SubIdx + NormalXIdx * AngleSamples] = FVector3f(XVerts[SubIdx].X*SmoothedNormalSides[XIdx].X, XVerts[SubIdx].Y*SmoothedNormalSides[XIdx].X, SmoothedNormalSides[XIdx].Y);
+					Normals[SubIdx + NormalXIdx * AngleSamples] = FVector3f(float(XVerts[SubIdx].X*SmoothedNormalSides[XIdx].X), float(XVerts[SubIdx].Y*SmoothedNormalSides[XIdx].X), float(SmoothedNormalSides[XIdx].Y));
 				}
 			}
 		}
-		// if capped, set top/bottom normals
+		
 		if (bCapped)
 		{
+			// if capped, set vertices.
+			for (int CapIdx = 0; CapIdx < 2; CapIdx++)
+			{
+				if (Caps[CapIdx] == ECapType::FlatMidpointFan)
+				{
+					Vertices[CapVertStart[CapIdx]] = FVector3d::UnitZ() * (double)Heights[CapIdx * (Heights.Num() - 1)];
+				}
+			}
+
+			// if capped, set top/bottom normals
 			for (int SubIdx = 0; SubIdx < X.VertexCount(); SubIdx++)
 			{
 				for (int XBotTop = 0; XBotTop < 2; ++XBotTop)
 				{
-					Normals[CapNormalStart[XBotTop] + SubIdx] = FVector3f(0, 0, 2 * XBotTop - 1);
+					Normals[CapNormalStart[XBotTop] + SubIdx] = FVector3f(0.f, 0.f, float(2 * XBotTop - 1));
+				}
+			}
+			for (int CapIdx = 0; CapIdx < 2; CapIdx++)
+			{
+				if (Caps[CapIdx] == ECapType::FlatMidpointFan)
+				{
+					Normals[CapNormalStart[CapIdx] + X.VertexCount()] = FVector3f(0.f, 0.f, float(2 * CapIdx - 1));
 				}
 			}
 		}
@@ -466,7 +599,7 @@ public:
 /**
  * Generate a cylinder with optional end caps
  */
-class /*DYNAMICMESH_API*/ FCylinderGenerator : public FVerticalCylinderGeneratorBase
+class /*GEOMETRYCORE_API*/ FCylinderGenerator : public FVerticalCylinderGeneratorBase
 {
 public:
 	float Radius[2] = {1.0f, 1.0f};
@@ -504,7 +637,7 @@ public:
 /**
 * Generate a 3D arrow
 */
-class /*DYNAMICMESH_API*/ FArrowGenerator : public FVerticalCylinderGeneratorBase
+class /*GEOMETRYCORE_API*/ FArrowGenerator : public FVerticalCylinderGeneratorBase
 {
 public:
 	float StickRadius = 0.5f;
@@ -523,7 +656,7 @@ public:
 		float LenAlong = ComputeSegLengths(Radii, Heights, AlongPercents);
 		for (int Idx = 0; Idx < 3; Idx++)
 		{
-			AdditionalLengthSamples[Idx] = (int)(.5f+AlongPercents[Idx + 1] * TargetSamples);
+			AdditionalLengthSamples[Idx] = (int)(.5f+AlongPercents[Idx + 1] * float(TargetSamples));
 		}
 	}
 
@@ -531,33 +664,47 @@ public:
 	/** Generate the mesh */
 	virtual FMeshShapeGenerator& Generate() override
 	{
-		TArray<float> Radii, Heights;
-		TArray<int> SharpNormalsAlongLength;
-		float SrcRadii[] { StickRadius, StickRadius, HeadBaseRadius, HeadTipRadius };
-		float SrcHeights[] { 0, StickLength, StickLength, StickLength + HeadLength };
+		const float SrcRadii[]{StickRadius, StickRadius, HeadBaseRadius, HeadTipRadius};
+		const float SrcHeights[]{0, StickLength, StickLength, StickLength + HeadLength};
 
-		int SegIdx = 0;
-		for (; SegIdx < 3; SegIdx++)
+		TArray<float> Radii, Heights;
+		const int NumVerts = 4 + AdditionalLengthSamples[0] + AdditionalLengthSamples[1] + AdditionalLengthSamples[2];
+		Radii.SetNumUninitialized(NumVerts);
+		Heights.SetNumUninitialized(NumVerts);
+
+		int VertIdx = 0;
+		auto SetVert = [&Radii, &Heights, &VertIdx](float Radius, float Height)
 		{
-			Radii.Add(SrcRadii[SegIdx]);
-			Heights.Add(SrcHeights[SegIdx]);
-			for (int ExtraIdx = 0; ExtraIdx < AdditionalLengthSamples[SegIdx]; ExtraIdx++)
+			Radii[VertIdx] = Radius;
+			Heights[VertIdx] = Height;
+			++VertIdx;
+		};
+
+		for (int SegIdx = 0; true; ++SegIdx)
+		{
+			SetVert(SrcRadii[SegIdx], SrcHeights[SegIdx]);
+
+			if (SegIdx == 3)
 			{
-				float Along = float(ExtraIdx + 1) / float(AdditionalLengthSamples[SegIdx] + 1);
-				Radii.Add(FMath::Lerp(SrcRadii[SegIdx], SrcRadii[SegIdx + 1], Along));
-				Heights.Add(FMath::Lerp(SrcHeights[SegIdx], SrcHeights[SegIdx + 1], Along));
+				break;
+			}
+
+			for (int ExtraSeg = 1, NumExtraSegs = AdditionalLengthSamples[SegIdx] + 1; ExtraSeg < NumExtraSegs; ++ExtraSeg)
+			{
+				const float Along = float(ExtraSeg) / float(NumExtraSegs);
+				SetVert(FMath::Lerp(SrcRadii[SegIdx], SrcRadii[SegIdx + 1], Along),
+						FMath::Lerp(SrcHeights[SegIdx], SrcHeights[SegIdx + 1], Along));
 			}
 		}
-		SharpNormalsAlongLength.Add(1 + AdditionalLengthSamples[0]);
-		SharpNormalsAlongLength.Add(SharpNormalsAlongLength.Last() + 1 + AdditionalLengthSamples[1]);
-		Radii.Add(SrcRadii[SegIdx]);
-		Heights.Add(SrcHeights[SegIdx]);
-		
+
+		TArray<int> SharpNormalsAlongLength{1 + AdditionalLengthSamples[0], 2 + AdditionalLengthSamples[0] + AdditionalLengthSamples[1]};
+
 		GenerateVerticalCircleSweep(Radii, Heights, SharpNormalsAlongLength);
 
 		return *this;
 	}
 };
+
 
 
 /**
@@ -567,16 +714,25 @@ public:
  *  - a custom variant for toruses specifically (would be faster)
  *  - Mitering cross sections support?
  */
-class /*DYNAMICMESH_API*/ FGeneralizedCylinderGenerator : public FSweepGeneratorBase
+class /*GEOMETRYCORE_API*/ FGeneralizedCylinderGenerator : public FSweepGeneratorBase
 {
 public:
 	FPolygon2d CrossSection;
 	TArray<FVector3d> Path;
 
 	FFrame3d InitialFrame;
+	// If PathFrames.Num == Path.Num, then PathFrames[k] is used for each step instead of the propagated InitialFrame.
+	TArray<FFrame3d> PathFrames;
+	// If PathScales.Num == Path.Num, then PathScales[k] is applied to the CrossSection at each step (this is combined with StartScale/EndScale, but ignored if bLoop=true)
+	TArray<FVector2d> PathScales;
 
 	bool bCapped = false;
 	bool bLoop = false;
+	ECapType CapType = ECapType::FlatTriangulation;
+
+	// 2D uniform scale of the CrossSection, interpolated along the Path (via arc length) from StartScale to EndScale
+	double StartScale = 1.0;
+	double EndScale = 1.0;
 
 	// When true, the generator attempts to scale UV's in a way that preserves scaling across different mesh
 	// results, aiming for 1.0 in UV space to be equal to UnitUVInWorldCoordinates in world space. This in
@@ -587,6 +743,32 @@ public:
 	// Only relevant if bUVScaleRelativeWorld is true (see that description)
 	float UnitUVInWorldCoordinates = 100;
 
+    // Optional custom UV values:
+	
+    // -If FSweepGeneratorBase::bProfileCurveIsClosed == true and CrossSectionTexCoord.Num() >= CrossSection.VertexCount() + 1 
+	// then the first CrossSection.VertexCount() + 1 values will be used as U coordinates.
+    //
+    // -If FSweepGeneratorBase::bProfileCurveIsClosed == true and CrossSectionTexCoord.Num() == CrossSection.VertexCount() 
+	// then the CrossSectionTexCoord[0] will be used as the value for the last element.
+    //
+    // -If FSweepGeneratorBase::bProfileCurveIsClosed == false and CrossSectionTexCoord.Num() >= CrossSection.VertexCount() 
+	// then the first CrossSection.VertexCount() values will be used as U coordinates.
+    // 
+    // -Otherwise, the U coordinates will be automatically generated.
+    TArray<float> CrossSectionTexCoord;
+    
+    // -If bLoop == true and PathTexCoord.Num() >= Path.Num() + 1 then the first Path.Num() + 1 values will be used as
+    //  V coordinates.
+    //
+    // -If bLoop == true and PathTexCoord.Num() == Path.Num() then the PathTexCoord[0] will be used as the value for the 
+    //  last element.
+    //
+    // -If bLoop == false and PathTexCoord.Num() >= Path.Num() then the first Path.Num() values will be used as V 
+    // coordinates.
+	//
+    // -Otherwise, the V coordinates will be automatically generated.
+    TArray<float> PathTexCoord;
+
 public:
 	/** Generate the mesh */
 	virtual FMeshShapeGenerator& Generate() override
@@ -596,23 +778,27 @@ public:
 
 		if (bCapped && !bLoop)
 		{
-			Caps[0] = ECapType::FlatTriangulation;
-			Caps[1] = ECapType::FlatTriangulation;
+			Caps[0] = CapType;
+			Caps[1] = CapType;
 		}
 		int PathNum = Path.Num();
-		
+	
+		bool bHavePathScaling = (PathScales.Num() == PathNum);
+		bool bApplyScaling = (bHavePathScaling|| (StartScale != 1.0) || (EndScale != 1.0)) && (bLoop == false);
+		bool bNeedArcLength = (bApplyScaling || bUVScaleRelativeWorld);
+		double TotalPathArcLength = (bNeedArcLength) ? TCurveUtil<double>::ArcLength(Path, bLoop) : 1.0;
+
 		FAxisAlignedBox2f Bounds = (FAxisAlignedBox2f)CrossSection.Bounds();
 		double BoundsMaxDimInv = 1.0 / FMathd::Max(Bounds.MaxDim(), .001);
-		FVector2f SectionScale(1, 1), CapScale(BoundsMaxDimInv, BoundsMaxDimInv);
+		FVector2f SectionScale(1.f, 1.f), CapScale((float)BoundsMaxDimInv, (float)BoundsMaxDimInv);
 		if (bUVScaleRelativeWorld)
 		{
 			double Perimeter = CrossSection.Perimeter();
-			double PathLen = TCurveUtil<double>::ArcLength(Path, bLoop);
-			SectionScale.X = Perimeter / UnitUVInWorldCoordinates;
-			SectionScale.Y = PathLen / UnitUVInWorldCoordinates;
+			SectionScale.X = float( Perimeter / UnitUVInWorldCoordinates );
+			SectionScale.Y = float( TotalPathArcLength / UnitUVInWorldCoordinates);
 			CapScale.X = CapScale.Y = 1.0f / UnitUVInWorldCoordinates;
 		}
-		ConstructMeshTopology(CrossSection, {}, {}, {}, true, Path, PathNum + (bLoop ? 1 : 0), bLoop, Caps, SectionScale, CapScale, Bounds.Center());
+		ConstructMeshTopology(CrossSection, {}, {}, {}, true, Path, PathNum + (bLoop ? 1 : 0), bLoop, Caps, SectionScale, CapScale, Bounds.Center(), CrossSectionTexCoord, PathTexCoord);
 
 		int XNum = CrossSection.VertexCount();
 		TArray<FVector2d> XNormals; XNormals.SetNum(XNum);
@@ -621,37 +807,68 @@ public:
 			XNormals[Idx] = CrossSection.GetNormal_FaceAvg(Idx);
 		}
 
+		double AccumArcLength = 0;
 		FFrame3d CrossSectionFrame = InitialFrame;
+		bool bHaveExplicitFrames = (PathFrames.Num() == Path.Num());
 		for (int PathIdx = 0; PathIdx < PathNum; ++PathIdx)
 		{
-			FVector3d Tangent = TCurveUtil<double>::Tangent(Path, PathIdx, bLoop);
-			CrossSectionFrame.AlignAxis(2, Tangent);
 			FVector3d C = Path[PathIdx];
-			FVector3d X = CrossSectionFrame.X();
-			FVector3d Y = CrossSectionFrame.Y();
+			FVector3d X, Y;
+			if (bHaveExplicitFrames == false)
+			{
+				FVector3d Tangent = TCurveUtil<double>::Tangent(Path, PathIdx, bLoop);
+				CrossSectionFrame.AlignAxis(2, Tangent);
+				X = CrossSectionFrame.X();
+				Y = CrossSectionFrame.Y();
+			}
+			else
+			{
+				C = PathFrames[PathIdx].Origin;
+				X = PathFrames[PathIdx].X();
+				Y = PathFrames[PathIdx].Y();
+			}
+
+			double T = FMathd::Clamp((AccumArcLength / TotalPathArcLength), 0.0, 1.0);
+			double UniformScale = (bApplyScaling) ? FMathd::Lerp(StartScale, EndScale, T) : 1.0;
+			FVector2d PathScaling = (bHavePathScaling) ? PathScales[PathIdx] : FVector2d::One();
+
 			for (int SubIdx = 0; SubIdx < XNum; SubIdx++)
 			{
-				FVector2d XP = CrossSection[SubIdx];
+				FVector2d XP = UniformScale * PathScaling * CrossSection[SubIdx];
 				FVector2d XN = XNormals[SubIdx];
 				Vertices[SubIdx + PathIdx * XNum] = C + X * XP.X + Y * XP.Y;
-				Normals[SubIdx + PathIdx * XNum] = FVector3f(X * XN.X + Y * XN.Y);
+				Normals[SubIdx + PathIdx * XNum] = (FVector3f)(X * XN.X + Y * XN.Y);
+			}
+
+			if (PathIdx < PathNum - 1)
+			{
+				AccumArcLength += (C, Path[PathIdx + 1]).Distance((C, Path[PathIdx + 1]));
 			}
 		}
 		if (bCapped && !bLoop)
 		{
+			// if capped, set vertices.
 			for (int CapIdx = 0; CapIdx < 2; CapIdx++)
 			{
-				FVector3f Normal(TCurveUtil<double>::Tangent(Path, CapIdx * (PathNum-1), bLoop) * (CapIdx * 2 - 1));
+				if (Caps[CapIdx] == ECapType::FlatMidpointFan)
+				{
+					Vertices[CapVertStart[CapIdx]] = Path[CapIdx * (Path.Num() - 1)];
+				}
+			}
+
+			for (int CapIdx = 0; CapIdx < 2; CapIdx++)
+			{
+				FVector3d Normal = TCurveUtil<double>::Tangent(Path, CapIdx * (PathNum - 1), bLoop) * (double)(CapIdx * 2 - 1);
 				for (int SubIdx = 0; SubIdx < XNum; SubIdx++)
 				{
-					Normals[CapNormalStart[CapIdx] + SubIdx] = Normal;
+					Normals[CapNormalStart[CapIdx] + SubIdx] = (FVector3f)Normal;
 				}
 			}
 		}
 
 		for (int k = 0; k < Normals.Num(); ++k)
 		{
-			Normals[k].Normalize();
+			(Normals[k]).Normalized();
 		}
 
 		return *this;
@@ -695,8 +912,11 @@ public:
 	// Curve that will be swept along the curve, given in coordinates of the frames used in the sweep curve.
 	TArray<FVector3d> ProfileCurve;
 
-	// Curve along which to sweep the profile curve
+	// Curve along which to sweep the profile curve.
 	TArray<FFrame3d> SweepCurve;
+
+	// (Optional) Curve along which to scale the profile curve, corresponding to each frame in SweepCurve.
+	TArray<FVector> SweepScaleCurve;
 
 	// Indices into ProfileCurve that should not be swept along the curve, instead being instantiated
 	// just once. This is useful for welding vertices on an axis of rotation if the sweep curve denotes
@@ -764,7 +984,7 @@ public:
 	// a case where we would actually use them.
 protected:
 
-	void InitializeUvBuffer(const TArray<int32>& VertPositionOffsets, 
+	void InitializeUvBuffer(const TArray<int32>& VertPositionOffsets,
 		int32& NumUvRowsOut, int32& NumUvColumnsOut);
 	void AdjustNormalsForTriangle(int32 TriIndex, int32 FirstIndex, int32 SecondIndex, int32 ThirdIndex,
 		TArray<FVector3d>& WeightedNormals);

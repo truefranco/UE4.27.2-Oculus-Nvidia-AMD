@@ -409,7 +409,6 @@ public:
 		FMeshRenderBufferSet::DestroyRenderBufferSet(BufferSet);
 	}
 
-
 	/**
 	 * Initialize rendering buffers from given attribute overlays.
 	 * Creates three vertices per triangle, IE no shared vertices in buffers.
@@ -419,10 +418,31 @@ public:
 		FMeshRenderBufferSet* RenderBuffers,
 		const FDynamicMesh3* Mesh,
 		int NumTriangles, TriangleEnumerable Enumerable,
-		FDynamicMeshUVOverlay* UVOverlay,
-		FDynamicMeshNormalOverlay* NormalOverlay,
-		FDynamicMeshColorOverlay* ColorOverlay,
-		TFunction<void(int, int, int, FVector3f&, FVector3f&)> TangentsFunc = nullptr,
+		const FDynamicMeshUVOverlay* UVOverlay,
+		const FDynamicMeshNormalOverlay* NormalOverlay,
+		const FDynamicMeshColorOverlay* ColorOverlay,
+		TFunctionRef<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc,
+		bool bTrackTriangles = false)
+	{
+		TArray<const FDynamicMeshUVOverlay*> UVOverlays;
+		UVOverlays.Add(UVOverlay);
+		InitializeBuffersFromOverlays(RenderBuffers, Mesh, NumTriangles, Enumerable,
+			UVOverlays, NormalOverlay, ColorOverlay, TangentsFunc, bTrackTriangles);
+	}
+
+	/**
+	 * Initialize rendering buffers from given attribute overlays.
+	 * Creates three vertices per triangle, IE no shared vertices in buffers.
+	 */
+	template<typename TriangleEnumerable, typename UVOverlayListAllocator>
+	void InitializeBuffersFromOverlays(
+		FMeshRenderBufferSet* RenderBuffers,
+		const FDynamicMesh3* Mesh,
+		int NumTriangles, TriangleEnumerable Enumerable,
+		const TArray<const FDynamicMeshUVOverlay*, UVOverlayListAllocator>& UVOverlays,
+		const FDynamicMeshNormalOverlay* NormalOverlay,
+		const FDynamicMeshColorOverlay* ColorOverlay,
+		TFunctionRef<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc,
 		bool bTrackTriangles = false)
 	{
 		//SCOPE_CYCLE_COUNTER(STAT_SculptToolOctree_InitializeBufferFromOverlay);
@@ -436,7 +456,10 @@ public:
 		bool bHaveColors = Mesh->HasVertexColors() && (bIgnoreVertexColors == false);
 
 		int NumVertices = NumTriangles * 3;
-		int NumTexCoords = 1;		// no! zero!
+		int NumUVOverlays = UVOverlays.Num();
+		int NumTexCoords = FMath::Max(1, NumUVOverlays);		// no! zero!
+		TArray<FIndex3i, TFixedAllocator<MAX_STATIC_TEXCOORDS>> UVTriangles;
+		UVTriangles.SetNum(NumTexCoords);
 
 		{
 			RenderBuffers->PositionVertexBuffer.Init(NumVertices);
@@ -457,13 +480,17 @@ public:
 		for (int TriangleID : Enumerable)
 		{
 			FIndex3i Tri = Mesh->GetTriangle(TriangleID);
-			FIndex3i TriUV = (UVOverlay != nullptr) ? UVOverlay->GetTriangle(TriangleID) : FIndex3i::Zero();
+			for (int32 k = 0; k < NumTexCoords; ++k)
+			{
+				UVTriangles[k] = (k < NumUVOverlays && UVOverlays[k] != nullptr) ? UVOverlays[k]->GetTriangle(TriangleID) : FIndex3i::Invalid();
+			}
 			FIndex3i TriNormal = (NormalOverlay != nullptr) ? NormalOverlay->GetTriangle(TriangleID) : FIndex3i::Zero();
+			FIndex3i TriColor = (ColorOverlay != nullptr) ? ColorOverlay->GetTriangle(TriangleID) : FIndex3i::Zero();
 
-			FColor TriColor = ConstantVertexColor;
+			FColor UniformTriColor = ConstantVertexColor;
 			if (bUsePerTriangleColor && PerTriangleColorFunc != nullptr)
 			{
-				TriColor = PerTriangleColorFunc(Mesh, TriangleID);
+				UniformTriColor = PerTriangleColorFunc(Mesh, TriangleID);
 				bHaveColors = false;
 			}
 
@@ -471,26 +498,33 @@ public:
 			{
 				RenderBuffers->PositionVertexBuffer.VertexPosition(VertIdx) = (FVector)Mesh->GetVertex(Tri[j]);
 
-				FVector3f Normal = (NormalOverlay != nullptr && TriNormal[j] != FDynamicMesh3::InvalidID) ?
-					NormalOverlay->GetElement(TriNormal[j]) : Mesh->GetVertexNormal(Tri[j]);
-
-				// either request known tangent, or calculate a nonsense one
-				if (TangentsFunc != nullptr)
+				FVector3f Normal;
+				if (bUsePerTriangleNormals)
 				{
-					TangentsFunc(Tri[j], TriangleID, j, TangentX, TangentY);
+					Normal = (FVector3f)Mesh->GetTriNormal(TriangleID);
 				}
 				else
 				{
-					VectorUtil::MakePerpVectors(Normal, TangentX, TangentY);
+					Normal = (NormalOverlay != nullptr && TriNormal[j] != FDynamicMesh3::InvalidID) ?
+						NormalOverlay->GetElement(TriNormal[j]) : Mesh->GetVertexNormal(Tri[j]);
 				}
+
+				// get tangents
+				TangentsFunc(Tri[j], TriangleID, j, Normal, TangentX, TangentY);
+
 				RenderBuffers->StaticMeshVertexBuffer.SetVertexTangents(VertIdx, (FVector)TangentX, (FVector)TangentY, (FVector)Normal);
 
-				FVector2f UV = (UVOverlay != nullptr && TriUV[j] != FDynamicMesh3::InvalidID) ?
-					UVOverlay->GetElement(TriUV[j]) : FVector2f::Zero();
-				RenderBuffers->StaticMeshVertexBuffer.SetVertexUV(VertIdx, 0, (FVector2D)UV);
+				for (int32 k = 0; k < NumTexCoords; ++k)
+				{
+					FVector2f UV = (UVTriangles[k][j] != FDynamicMesh3::InvalidID) ?
+						UVOverlays[k]->GetElement(UVTriangles[k][j]) : FVector2f::Zero();
+					RenderBuffers->StaticMeshVertexBuffer.SetVertexUV(VertIdx, k, (FVector2D&)UV);
+				}
 
-				RenderBuffers->ColorVertexBuffer.VertexColor(VertIdx) = (bHaveColors) ?
-					(FColor)Mesh->GetVertexColor(Tri[j]) : TriColor;
+				FColor VertexFColor = (bHaveColors && TriColor[j] != FDynamicMesh3::InvalidID) ?
+					GetOverlayColorAsFColor(ColorOverlay, TriColor[j]) : UniformTriColor;
+
+				RenderBuffers->ColorVertexBuffer.VertexColor(VertIdx) = VertexFColor;
 
 				RenderBuffers->IndexBuffer.Indices[TriIdx++] = VertIdx;		// currently TriIdx == VertIdx so we don't really need both...
 				VertIdx++;
@@ -621,7 +655,51 @@ public:
 		}
 	}
 
+	/**
+	 * RecomputeRenderBufferTriangleIndexSets re-sorts the existing set of triangles in a FMeshRenderBufferSet
+	 * into primary and secondary index buffers. Note that UploadIndexBufferUpdate() must be called
+	 * after this function!
+	 */
+	void RecomputeRenderBufferTriangleIndexSets(
+		FMeshRenderBufferSet* RenderBuffers,
+		const FDynamicMesh3* Mesh)
+	{
+		if (RenderBuffers->TriangleCount == 0)
+		{
+			return;
+		}
+		if (ensure(RenderBuffers->Triangles.IsSet() && RenderBuffers->Triangles->Num() > 0) == false)
+		{
+			return;
+		}
 
+		//bool bDuplicate = false;		// flag for future use, in case we want to draw all triangles in primary and duplicates in secondary...
+		RenderBuffers->IndexBuffer.Indices.Reset();
+		RenderBuffers->SecondaryIndexBuffer.Indices.Reset();
+
+		TArray<uint32>& Indices = RenderBuffers->IndexBuffer.Indices;
+		TArray<uint32>& SecondaryIndices = RenderBuffers->SecondaryIndexBuffer.Indices;
+		const TArray<int32>& TriangleIDs = RenderBuffers->Triangles.GetValue();
+
+		int NumTris = TriangleIDs.Num();
+		for (int k = 0; k < NumTris; ++k)
+		{
+			int TriangleID = TriangleIDs[k];
+			bool bInclude = SecondaryTriFilterFunc(Mesh, TriangleID);
+			if (bInclude)
+			{
+				SecondaryIndices.Add(3 * k);
+				SecondaryIndices.Add(3 * k + 1);
+				SecondaryIndices.Add(3 * k + 2);
+			}
+			else // if (bDuplicate == false)
+			{
+				Indices.Add(3 * k);
+				Indices.Add(3 * k + 1);
+				Indices.Add(3 * k + 2);
+			}
+		}
+	}
 
 	/**
 	 * Update vertex positions/normals/colors of an existing set of render buffers.
@@ -632,8 +710,8 @@ public:
 		FMeshRenderBufferSet* RenderBuffers,
 		const FDynamicMesh3* Mesh,
 		int NumTriangles, TriangleEnumerable Enumerable,
-		FDynamicMeshNormalOverlay* NormalOverlay,
-		FDynamicMeshColorOverlay* ColorOverlay,
+		const FDynamicMeshNormalOverlay* NormalOverlay,
+		const FDynamicMeshColorOverlay* ColorOverlay,
 		TFunctionRef<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc,
 		bool bUpdatePositions = true,
 		bool bUpdateNormals = false,
@@ -644,17 +722,14 @@ public:
 			return;
 		}
 
-		bool bHaveColors = Mesh->HasVertexColors() && (bIgnoreVertexColors == false);
+		bool bHaveColors = (ColorOverlay != nullptr) && (bIgnoreVertexColors == false);
 
 		int NumVertices = NumTriangles * 3;
-		check(RenderBuffers->PositionVertexBuffer.GetNumVertices() == NumVertices);
-		if (bUpdateNormals)
+		if ((bUpdatePositions && ensure(RenderBuffers->PositionVertexBuffer.GetNumVertices() == NumVertices) == false)
+			|| (bUpdateNormals && ensure(RenderBuffers->StaticMeshVertexBuffer.GetNumVertices() == NumVertices) == false)
+			|| (bUpdateColors && ensure(RenderBuffers->ColorVertexBuffer.GetNumVertices() == NumVertices) == false))
 		{
-			check(RenderBuffers->StaticMeshVertexBuffer.GetNumVertices() == NumVertices);
-		}
-		if (bUpdateColors)
-		{
-			check(RenderBuffers->ColorVertexBuffer.GetNumVertices() == NumVertices);
+			return;
 		}
 
 		int VertIdx = 0;
@@ -664,11 +739,12 @@ public:
 			FIndex3i Tri = Mesh->GetTriangle(TriangleID);
 
 			FIndex3i TriNormal = (bUpdateNormals && NormalOverlay != nullptr) ? NormalOverlay->GetTriangle(TriangleID) : FIndex3i::Zero();
+			FIndex3i TriColor = (bUpdateColors && ColorOverlay != nullptr) ? ColorOverlay->GetTriangle(TriangleID) : FIndex3i::Zero();
 
-			FColor TriColor = ConstantVertexColor;
+			FColor UniformTriColor = ConstantVertexColor;
 			if (bUpdateColors && bUsePerTriangleColor && PerTriangleColorFunc != nullptr)
 			{
-				TriColor = PerTriangleColorFunc(Mesh, TriangleID);
+				UniformTriColor = PerTriangleColorFunc(Mesh, TriangleID);
 				bHaveColors = false;
 			}
 
@@ -682,8 +758,17 @@ public:
 				if (bUpdateNormals)
 				{
 					// get normal and tangent
-					FVector3f Normal = (NormalOverlay != nullptr && TriNormal[j] != FDynamicMesh3::InvalidID) ?
-						NormalOverlay->GetElement(TriNormal[j]) : Mesh->GetVertexNormal(Tri[j]);
+					FVector3f Normal;
+					if (bUsePerTriangleNormals)
+					{
+						Normal = (FVector3f)Mesh->GetTriNormal(TriangleID);
+					}
+					else
+					{
+						Normal = (NormalOverlay != nullptr && TriNormal[j] != FDynamicMesh3::InvalidID) ?
+							NormalOverlay->GetElement(TriNormal[j]) : Mesh->GetVertexNormal(Tri[j]);
+					}
+
 					TangentsFunc(Tri[j], TriangleID, j, Normal, TangentX, TangentY);
 
 					RenderBuffers->StaticMeshVertexBuffer.SetVertexTangents(VertIdx, (FVector)TangentX, (FVector)TangentY, (FVector)Normal);
@@ -691,8 +776,9 @@ public:
 
 				if (bUpdateColors)
 				{
-					RenderBuffers->ColorVertexBuffer.VertexColor(VertIdx) = (bHaveColors) ?
-						(FColor)Mesh->GetVertexColor(Tri[j]) : TriColor;
+					FColor VertexFColor = (bHaveColors && TriColor[j] != FDynamicMesh3::InvalidID) ?
+						GetOverlayColorAsFColor(ColorOverlay, TriColor[j]) : UniformTriColor;
+					RenderBuffers->ColorVertexBuffer.VertexColor(VertIdx) = VertexFColor;
 				}
 
 				VertIdx++;
@@ -706,29 +792,54 @@ public:
 	 * Update vertex uvs of an existing set of render buffers.
 	 * Assumes that buffers were created with unshared vertices, ie three vertices per triangle, eg by InitializeBuffersFromOverlays()
 	 */
-	template<typename TriangleEnumerable>
+	template<typename TriangleEnumerable, typename UVOverlayListAllocator>
 	void UpdateVertexUVBufferFromOverlays(
 		FMeshRenderBufferSet* RenderBuffers,
 		const FDynamicMesh3* Mesh,
 		int32 NumTriangles, TriangleEnumerable Enumerable,
-		FDynamicMeshUVOverlay* UVOverlay, int32 UVIndex)
+		const TArray<const FDynamicMeshUVOverlay*, UVOverlayListAllocator>& UVOverlays)
 	{
+		// We align the update to the way we set UV's in InitializeBuffersFromOverlays.
+
 		if (RenderBuffers->TriangleCount == 0)
 		{
 			return;
 		}
 		int NumVertices = NumTriangles * 3;
-		check(RenderBuffers->StaticMeshVertexBuffer.GetNumVertices() == NumVertices);
+		if (ensure(RenderBuffers->StaticMeshVertexBuffer.GetNumVertices() == NumVertices) == false)
+		{
+			return;
+		}
+
+		int NumUVOverlays = UVOverlays.Num();
+		int NumTexCoords = RenderBuffers->StaticMeshVertexBuffer.GetNumTexCoords();
+		if (!ensure(NumUVOverlays <= NumTexCoords))
+		{
+			return;
+		}
+
+		// Temporarily stores the UV element indices for all UV channels of a single triangle
+		TArray<FIndex3i, TFixedAllocator<MAX_STATIC_TEXCOORDS>> UVTriangles;
+		UVTriangles.SetNum(NumTexCoords);
 
 		int VertIdx = 0;
 		for (int TriangleID : Enumerable)
 		{
-			FIndex3i UVTri = UVOverlay->GetTriangle(TriangleID);
+			for (int32 k = 0; k < NumTexCoords; ++k)
+			{
+				UVTriangles[k] = (k < NumUVOverlays && UVOverlays[k] != nullptr) ? UVOverlays[k]->GetTriangle(TriangleID) : FIndex3i::Invalid();
+			}
+
 			for (int j = 0; j < 3; ++j)
 			{
-				FVector2f UV = UVOverlay->GetElement(UVTri[j]);
-				RenderBuffers->StaticMeshVertexBuffer.SetVertexUV(VertIdx, UVIndex, (FVector2D)UV);
-				VertIdx++;
+				for (int32 k = 0; k < NumTexCoords; ++k)
+				{
+					FVector2f UV = (UVTriangles[k][j] != FDynamicMesh3::InvalidID) ?
+						UVOverlays[k]->GetElement(UVTriangles[k][j]) : FVector2f::Zero();
+					RenderBuffers->StaticMeshVertexBuffer.SetVertexUV(VertIdx, k, (FVector2D&)UV);
+				}
+
+				++VertIdx;
 			}
 		}
 	}

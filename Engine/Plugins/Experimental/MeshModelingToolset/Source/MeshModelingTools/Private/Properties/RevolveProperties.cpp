@@ -36,31 +36,30 @@ void URevolveProperties::ApplyToCurveSweepOp(const UNewMeshMaterialProperties& M
 		DegreesPerStep *= -1;
 		DegreesOffset *= -1;
 	}
-
 	const double DownAxisOffsetPerStep = TotalRevolutionDegrees * HeightOffsetPerDegree / Steps;
 
-	if (bProfileIsCrossSectionOfSide && DegreesPerStep != 0 && abs(DegreesPerStep) < 180)
+	if (bPathAtMidpointOfStep && DegreesPerStep != 0 && abs(DegreesPerStep) < 180)
 	{
 		RevolveUtil::MakeProfileCurveMidpointOfFirstStep(CurveSweepOpOut.ProfileCurve, DegreesPerStep, RevolutionAxisOrigin, RevolutionAxisDirection);
 	}
 
 	// Generate the sweep curve
 	CurveSweepOpOut.bSweepCurveIsClosed = bWeldFullRevolution && HeightOffsetPerDegree == 0 && TotalRevolutionDegrees == 360;
-	int32 NumSweepFrames = CurveSweepOpOut.bSweepCurveIsClosed ? Steps : Steps + 1; // If closed, last sweep frame is also first
+	const int32 NumSweepFrames = CurveSweepOpOut.bSweepCurveIsClosed ? Steps : Steps + 1; // If closed, last sweep frame is also first
 	CurveSweepOpOut.SweepCurve.Reserve(NumSweepFrames);
 	RevolveUtil::GenerateSweepCurve(RevolutionAxisOrigin, RevolutionAxisDirection, DegreesOffset,
-		DegreesPerStep, NumSweepFrames, bWeldFullRevolution, CurveSweepOpOut.SweepCurve);
+		DegreesPerStep, DownAxisOffsetPerStep, NumSweepFrames, CurveSweepOpOut.SweepCurve);
 
 	// Weld any vertices that are on the axis
-	if (bWeldVertsOnAxis)
+	if (bWeldVertsOnAxis && DownAxisOffsetPerStep == 0)
 	{
 		RevolveUtil::WeldPointsOnAxis(CurveSweepOpOut.ProfileCurve, RevolutionAxisOrigin,
 			RevolutionAxisDirection, AxisWeldTolerance, CurveSweepOpOut.ProfileVerticesToWeld);
 	}
 	CurveSweepOpOut.bSharpNormals = bSharpNormals;
-	CurveSweepOpOut.SharpNormalAngleTolerance = SharpNormalAngleTolerance;
-	CurveSweepOpOut.DiagonalTolerance = DiagonalProportionTolerance;
-	double UVScale = MaterialProperties.UVScale;
+	CurveSweepOpOut.SharpNormalAngleTolerance = SharpNormalsDegreeThreshold;
+	CurveSweepOpOut.DiagonalTolerance = QuadSplitCompactTolerance;
+	const double UVScale = MaterialProperties.UVScale;
 	CurveSweepOpOut.UVScale = FVector2d(UVScale, UVScale);
 	if (bReverseProfileCurve ^ bFlipVs)
 	{

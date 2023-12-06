@@ -56,7 +56,7 @@ TUniquePtr<FDynamicMeshOperator> URevolveOperatorFactory::MakeNewOperator()
 	CurveSweepOp->bProfileCurveIsClosed = RevolveTool->ControlPointsMechanic->GetIsLoop();
 
 	// If we are capping the top and bottom, we just add a couple extra vertices and mark the curve as being closed
-	if (!CurveSweepOp->bProfileCurveIsClosed && RevolveTool->Settings->bConnectOpenProfileToAxis)
+	if (!CurveSweepOp->bProfileCurveIsClosed && RevolveTool->Settings->bClosePathToAxis)
 	{
 		// Project first and last points onto the revolution axis.
 		FVector3d FirstPoint = CurveSweepOp->ProfileCurve[0];
@@ -231,10 +231,6 @@ void UDrawAndRevolveTool::UpdateRevolutionAxis()
 	const int32 AXIS_SNAP_TARGET_ID = 1;
 	ControlPointsMechanic->RemoveSnapLine(AXIS_SNAP_TARGET_ID);
 	ControlPointsMechanic->AddSnapLine(AXIS_SNAP_TARGET_ID, FLine3d(RevolutionAxisOrigin, RevolutionAxisDirection));
-	if (Preview)
-	{
-		Preview->InvalidateResult();
-	}
 }
 
 void UDrawAndRevolveTool::Shutdown(EToolShutdownType ShutdownType)

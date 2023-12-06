@@ -6,7 +6,6 @@
 
 // TODO: Other functions from SweepGenerator.h should go here too.
 
-
 // FProfileSweepGenerator
 
 // Various indexing utility functions. See the comment in Generate() for a description of vertex/triangle/uv layout.
@@ -74,7 +73,7 @@ void FProfileSweepGenerator::AdjustNormalsForTriangle(int32 TriIndex, int32 Firs
 
 	FVector3d Bc = (Vertices[ThirdIndex] - Vertices[SecondIndex]).Normalized();
 	FVector3d Ac = (Vertices[ThirdIndex] - Vertices[FirstIndex]).Normalized();
-	FVector3d TriangleNormal = Ac.Cross(AbNormalized).Normalized();
+	FVector3d TriangleNormal = (Ac.Cross(AbNormalized)).Normalized();
 
 	// Note that AngleR requires normalized inputs
 	WeightedNormals[TriIndex * 3] = TriangleNormal * AbNormalized.AngleR(Ac);
@@ -93,7 +92,7 @@ FMeshShapeGenerator& FProfileSweepGenerator::Generate()
 	}
 
 	// Check that we have our inputs
-	if (ProfileCurve.Num() < 2 || SweepCurve.Num() < 2)
+	if (ProfileCurve.Num() < 2 || SweepCurve.Num() < 2 || (!SweepScaleCurve.IsEmpty() && SweepScaleCurve.Num() != SweepCurve.Num()))
 	{
 		Reset();
 		return *this;;
@@ -220,17 +219,27 @@ FMeshShapeGenerator& FProfileSweepGenerator::Generate()
 	{
 		if (WeldedVertices.Contains(ProfileIndex))
 		{
+			FVector FramePoint = (FVector)ProfileCurve[ProfileIndex];
 			// Position stays locked into the first frame
+			if (!SweepScaleCurve.IsEmpty())
+			{
+				FramePoint *= SweepScaleCurve[0];
+			}
 			SetVertex(GetVertIndex(true, 0, ProfileIndex, NumWelded, NumNonWelded, VertPositionOffsets), 
-				SweepCurve[0].FromFramePoint(ProfileCurve[ProfileIndex]));
+				SweepCurve[0].FromFramePoint(FramePoint));
 		}
 		else
 		{
 			// Generate copies of the vertex in all the sweep frames.
 			for (int32 SweepIndex = 0; SweepIndex < NumSweepPoints; ++SweepIndex)
 			{
+				FVector FramePoint = (FVector)ProfileCurve[ProfileIndex];
+				if (!SweepScaleCurve.IsEmpty())
+				{
+					FramePoint *= SweepScaleCurve[SweepIndex];
+				}
 				SetVertex(GetVertIndex(false, SweepIndex, ProfileIndex, NumWelded, NumNonWelded, VertPositionOffsets),
-					SweepCurve[SweepIndex].FromFramePoint(ProfileCurve[ProfileIndex]));
+					SweepCurve[SweepIndex].FromFramePoint(FramePoint));
 			}
 		}
 	});
@@ -390,7 +399,7 @@ FMeshShapeGenerator& FProfileSweepGenerator::Generate()
 	// Normalize and set them
 	ParallelFor(NumVerts, [this, &NormalSums](int VertIndex)
 	{
-		SetNormal(VertIndex, (FVector3f)(NormalSums[VertIndex].Normalized()), VertIndex);
+		SetNormal(VertIndex, (FVector3f)((NormalSums[VertIndex])).Normalized(), VertIndex);
 	});
 
 	if (Progress && Progress->Cancelled())
@@ -473,17 +482,18 @@ void FProfileSweepGenerator::InitializeUvBuffer(const TArray<int32>& VertPositio
 	// the profile vertices across sweep frames. We can divide by NumProfileVertices later, if we need to.
 	TArray<double> Distances;
 	Distances.SetNumZeroed(NumSweepSegments);
-	ParallelFor(NumSweepSegments, 
+	ParallelFor(NumSweepSegments,
 		[this, NumSweepPoints, NumProfilePoints, NumWelded, NumNonWelded, &VertPositionOffsets, &Distances]
-		(int SweepIndex)
+	(int SweepIndex)
 	{
 		int32 NextSweepIndex = (SweepIndex + 1) % NumSweepPoints;
 		for (int32 ProfileIndex = 0; ProfileIndex < NumProfilePoints; ++ProfileIndex)
 		{
 			if (!WeldedVertices.Contains(ProfileIndex))
 			{
-				Distances[SweepIndex] += Vertices[GetVertIndex(false, SweepIndex, ProfileIndex, NumWelded, NumNonWelded, VertPositionOffsets)].Distance(
-					Vertices[GetVertIndex(false, NextSweepIndex, ProfileIndex, NumWelded, NumNonWelded, VertPositionOffsets)]);
+				FVector3d A = Vertices[GetVertIndex(false, SweepIndex, ProfileIndex, NumWelded, NumNonWelded, VertPositionOffsets)];
+				FVector3d B = Vertices[GetVertIndex(false, NextSweepIndex, ProfileIndex, NumWelded, NumNonWelded, VertPositionOffsets)];
+				Distances[SweepIndex] += A.Distance(B);
 			}
 		}
 	});
@@ -513,7 +523,7 @@ void FProfileSweepGenerator::InitializeUvBuffer(const TArray<int32>& VertPositio
 	{
 		UScale = (UnitUVInWorldCoordinates != 0) ? 
 			// Get an average and convert to UV from world using the scale.
-			UScale / (NumProfilePoints * UnitUVInWorldCoordinates) 
+			UScale / (float(NumProfilePoints) * UnitUVInWorldCoordinates) 
 			: 0;
 	}
 	// Adjust
@@ -541,12 +551,12 @@ void FProfileSweepGenerator::InitializeUvBuffer(const TArray<int32>& VertPositio
 			if (WeldedVertices.Contains(ProfileIndex))
 			{
 				int32 VertIndex = GetVertIndex(true, SweepIndex, ProfileIndex, NumWelded, NumNonWelded, VertPositionOffsets);
-				SetUV(i * NumUvColumnsOut + j, FVector2f(WeldedUs[i], Vs[j]), VertIndex);
+				SetUV(i * NumUvColumnsOut + j, FVector2f((float)WeldedUs[i], (float)Vs[j]), VertIndex);
 			}
 			else
 			{
 				int32 VertIndex = GetVertIndex(false, SweepIndex, ProfileIndex, NumWelded, NumNonWelded, VertPositionOffsets);
-				SetUV(i * NumUvColumnsOut + j, FVector2f(RegularUs[i], Vs[j]), VertIndex);
+				SetUV(i * NumUvColumnsOut + j, FVector2f((float)RegularUs[i], (float)Vs[j]), VertIndex);
 			}
 		}
 	});

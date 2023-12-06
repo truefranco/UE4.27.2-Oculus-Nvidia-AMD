@@ -6,6 +6,42 @@
 #include "DynamicMeshAttributeSet.h"
 
 /**
+ * FDynamicMeshTangents is a helper object for accessing tangents stored in the AttributeSet of a FDynamicMesh3.
+ */
+class DYNAMICMESH_API FDynamicMeshTangents
+{
+public:
+	const FDynamicMesh3* Mesh = nullptr;
+	const FDynamicMeshNormalOverlay* Normals = nullptr;
+	const FDynamicMeshNormalOverlay* Tangents = nullptr;
+	const FDynamicMeshNormalOverlay* Bitangents = nullptr;
+
+	FDynamicMeshTangents(const FDynamicMesh3* MeshIn);
+
+	/**
+	 * Checks the mesh for valid tangents. When bCheckValues == true,
+	 * inspects the tangents for invalid values (ex. zero, NaN).
+	 *
+	 * @param bCheckValues inspect tangent values for zero/NaN
+	 * @return true if the mesh has valid tangents
+	 */
+	bool HasValidTangents(bool bCheckValues = false) const;
+
+	/**
+	 * If tangents are available in the overlays, returns them. If only Normal is available, computes orthogonal basis. Falls back to unit axes if no overlays are available.
+	 */
+	void GetTangentFrame(int32 TriangleID, int32 TriVertexIndex, FVector3f& NormalOut, FVector3f& TangentOut, FVector3f& BitangentOut) const;
+	/**
+	 * If tangents are available in the overlays, returns them. Otherwise computes orthogonal basis to Normal argument.
+	 */
+	void GetTangentVectors(int32 TriangleID, int32 TriVertexIndex, const FVector3f& Normal, FVector3f& TangentOut, FVector3f& BitangentOut) const;
+	/**
+	 * If tangents are available in the overlays, returns them, otherwise falls back to unit X/Y axes.
+	 */
+	void GetTangentVectors(int32 TriangleID, int32 TriVertexIndex, FVector3f& TangentOut, FVector3f& BitangentOut) const;
+};
+
+/**
  * Options used by TMeshTangents for tangents computation
  */
 struct DYNAMICMESH_API FComputeTangentsOptions

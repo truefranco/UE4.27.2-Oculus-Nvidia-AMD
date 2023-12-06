@@ -18,6 +18,7 @@ class FDynamicMeshOperator
 protected:
 	TUniquePtr<FDynamicMesh3> ResultMesh;
 	FTransform3d ResultTransform;
+	FGeometryResult ResultInfo;
 
 public:
 	FDynamicMeshOperator()
@@ -37,7 +38,13 @@ public:
 		ResultTransform = Transform;
 	}
 
-
+	/**
+	 * Set the output information
+	 */
+	virtual void SetResultInfo(const FGeometryResult& Info)
+	{
+		ResultInfo = Info;
+	}
 	/**
 	 * @return ownership of the internal mesh that CalculateResult() produced
 	 */
@@ -53,7 +60,13 @@ public:
 	{
 		return ResultTransform;
 	}
-
+	/**
+	 * @return the result information returned by CalculateResult()
+	 */
+	const FGeometryResult& GetResultInfo() const
+	{
+		return ResultInfo;
+	}
 	/**
 	 * Calculate the result of the operator. This will populate the internal Mesh and Transform.
 	 * @param Progress implementors can use this object to report progress and determine if they should halt and terminate expensive computations

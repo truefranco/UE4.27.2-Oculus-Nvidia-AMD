@@ -4,6 +4,7 @@
 
 #include "SimpleDynamicMeshComponent.h"
 #include "BaseDynamicMeshSceneProxy.h"
+#include "MeshTangents.h"
 #include "Async/ParallelFor.h"
 
 
@@ -81,7 +82,40 @@ public:
 		}
 	}
 
+	TUniqueFunction<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> MakeTangentsFunc(bool bSkipAutoCompute = false)
+	{
+		EDynamicMeshTangentCalcType TangentsType = ParentComponent->GetTangentsType();
+		if (TangentsType == EDynamicMeshTangentCalcType::ExternallyCalculated)
+		{
+			FDynamicMesh3* RenderMesh = ParentComponent->GetRenderMesh();
+			// If the RenderMesh has tangents, use them. Otherwise we fall back to the orthogonal basis, below.
+			if (RenderMesh && RenderMesh->HasAttributes() && RenderMesh->Attributes()->HasTangentSpace())
+			{
+				FDynamicMeshTangents Tangents(RenderMesh);
+				return [Tangents](int VertexID, int TriangleID, int TriVtxIdx, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY) -> void
+					{
+						Tangents.GetTangentVectors(TriangleID, TriVtxIdx, Normal, TangentX, TangentY);
+					};
+			}
+		}
+		else if (TangentsType == EDynamicMeshTangentCalcType::AutoCalculated && bSkipAutoCompute == false)
+		{
+			const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
+			if (Tangents != nullptr)
+			{
+				return [Tangents](int VertexID, int TriangleID, int TriVtxIdx, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY) -> void
+					{
+						Tangents->GetTriangleVertexTangentVectors(TriangleID, TriVtxIdx, TangentX, TangentY);
+					};
+			}
+		}
 
+		// fallback to orthogonal basis
+		return [](int VertexID, int TriangleID, int TriVtxIdx, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY) -> void
+			{
+				VectorUtil::MakePerpVectors(Normal, TangentX, TangentY);
+			};
+	}
 
 	/**
 	 * Initialize multiple buffers for the mesh based on the given Decomposition
@@ -108,37 +142,28 @@ public:
 		FDynamicMeshUVOverlay* UVOverlay = Mesh->Attributes()->PrimaryUV();
 		FDynamicMeshNormalOverlay* NormalOverlay = Mesh->Attributes()->PrimaryNormals();
 		FDynamicMeshColorOverlay* ColorOverlay = Mesh->Attributes()->PrimaryColors();
-
-		TFunction<void(int, int, int, FVector3f&, FVector3f&)> TangentsFunc = nullptr;
-		const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
-		if (Tangents != nullptr)
-		{
-			TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, FVector3f& TangentX, FVector3f& TangentY)
-			{
-				return Tangents->GetPerTriangleTangent(TriangleID, TriVtxIdx, TangentX, TangentY);
-			};
-		}
-
+		TUniqueFunction<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc = MakeTangentsFunc();
+		//TFunction<void(int, int, int, FVector3f&, FVector3f&)> TangentsFunc = nullptr;
 		// init renderbuffers for each set
 		ParallelFor(NumSets, [&](int32 SetIndex)
-		{
-			const FMeshRenderDecomposition::FGroup& Group = Decomposition->GetGroup(SetIndex);
-			const TArray<int32>& Triangles = Group.Triangles;
-			if (Triangles.Num() > 0)
 			{
-				FMeshRenderBufferSet* RenderBuffers = RenderBufferSets[SetIndex];
-				RenderBuffers->Triangles = Triangles;
-				InitializeBuffersFromOverlays(RenderBuffers, Mesh,
-					Triangles.Num(), Triangles,
-					UVOverlay, NormalOverlay, ColorOverlay, TangentsFunc);
-
-				ENQUEUE_RENDER_COMMAND(FSimpleDynamicMeshSceneProxyInitializeFromDecomposition)(
-					[RenderBuffers](FRHICommandListImmediate& RHICmdList)
+				const FMeshRenderDecomposition::FGroup& Group = Decomposition->GetGroup(SetIndex);
+				const TArray<int32>& Triangles = Group.Triangles;
+				if (Triangles.Num() > 0)
 				{
-					RenderBuffers->Upload();
-				});
-			}
-		});
+					FMeshRenderBufferSet* RenderBuffers = RenderBufferSets[SetIndex];
+					RenderBuffers->Triangles = Triangles;
+					InitializeBuffersFromOverlays(RenderBuffers, Mesh,
+						Triangles.Num(), Triangles,
+						UVOverlay, NormalOverlay, ColorOverlay, TangentsFunc);
+
+					ENQUEUE_RENDER_COMMAND(FDynamicMeshSceneProxyInitializeFromDecomposition)(
+						[RenderBuffers](FRHICommandListImmediate& RHICmdList)
+						{
+							RenderBuffers->Upload();
+						});
+				}
+			});
 	}
 
 
@@ -153,37 +178,34 @@ public:
 	 */
 	virtual void InitializeSingleBufferSet(FMeshRenderBufferSet* RenderBuffers)
 	{
-		FDynamicMesh3* Mesh = ParentComponent->GetMesh();
+		const FDynamicMesh3* Mesh = ParentComponent->GetRenderMesh();
 
 		// find suitable overlays
-		FDynamicMeshUVOverlay* UVOverlay = nullptr;
-		FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
-		FDynamicMeshColorOverlay* ColorOverlay = nullptr;
+		TArray<const FDynamicMeshUVOverlay*, TInlineAllocator<8>> UVOverlays;
+		const FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
+		const FDynamicMeshColorOverlay* ColorOverlay = nullptr;
 		if (Mesh->HasAttributes())
 		{
-			UVOverlay = Mesh->Attributes()->PrimaryUV();
-			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
-		}
-
-		TFunction<void(int, int, int, FVector3f&, FVector3f&)> TangentsFunc = nullptr;
-		const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
-		if (Tangents != nullptr)
-		{
-			TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, FVector3f& TangentX, FVector3f& TangentY)
+			const FDynamicMeshAttributeSet* Attributes = Mesh->Attributes();
+			NormalOverlay = Attributes->PrimaryNormals();
+			UVOverlays.SetNum(Attributes->NumUVLayers());
+			for (int32 k = 0; k < UVOverlays.Num(); ++k)
 			{
-				return Tangents->GetPerTriangleTangent(TriangleID, TriVtxIdx, TangentX, TangentY);
-			};
+				UVOverlays[k] = Attributes->GetUVLayer(k);
+			}
+			ColorOverlay = Attributes->PrimaryColors();
 		}
+		TUniqueFunction<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc = MakeTangentsFunc();
 
 		InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 			Mesh->TriangleCount(), Mesh->TriangleIndicesItr(),
-			UVOverlay, NormalOverlay, ColorOverlay, TangentsFunc);
+			UVOverlays, NormalOverlay, ColorOverlay, TangentsFunc);
 
-		ENQUEUE_RENDER_COMMAND(FSimpleDynamicMeshSceneProxyInitializeSingle)(
+		ENQUEUE_RENDER_COMMAND(FDynamicMeshSceneProxyInitializeSingle)(
 			[RenderBuffers](FRHICommandListImmediate& RHICmdList)
-		{
-			RenderBuffers->Upload();
-		});
+			{
+				RenderBuffers->Upload();
+			});
 	}
 
 
@@ -193,24 +215,27 @@ public:
 	 */
 	virtual void InitializeByMaterial(TArray<FMeshRenderBufferSet*>& BufferSets)
 	{
-		FDynamicMesh3* Mesh = ParentComponent->GetMesh();
-		check(Mesh->HasAttributes() && Mesh->Attributes()->HasMaterialID());
+		const FDynamicMesh3* Mesh = ParentComponent->GetRenderMesh();
+		if (ensure(Mesh->HasAttributes() && Mesh->Attributes()->HasMaterialID()) == false)
+		{
+			return;
+		}
+
+		const FDynamicMeshAttributeSet* Attributes = Mesh->Attributes();
 
 		// find suitable overlays
-		FDynamicMeshUVOverlay* UVOverlay = Mesh->Attributes()->PrimaryUV();
-		FDynamicMeshNormalOverlay* NormalOverlay = Mesh->Attributes()->PrimaryNormals();
-		FDynamicMeshMaterialAttribute* MaterialID = Mesh->Attributes()->GetMaterialID();
-		FDynamicMeshColorOverlay* ColorOverlay = Mesh->Attributes()->PrimaryColors();
+		const FDynamicMeshMaterialAttribute* MaterialID = Attributes->GetMaterialID();
+		const FDynamicMeshNormalOverlay* NormalOverlay = Mesh->Attributes()->PrimaryNormals();
+		const FDynamicMeshColorOverlay* ColorOverlay = Mesh->Attributes()->PrimaryColors();
 
-		TFunction<void(int, int, int, FVector3f&, FVector3f&)> TangentsFunc = nullptr;
-		const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
-		if (Tangents != nullptr)
+		TArray<const FDynamicMeshUVOverlay*, TInlineAllocator<8>> UVOverlays;
+		UVOverlays.SetNum(Attributes->NumUVLayers());
+		for (int32 k = 0; k < UVOverlays.Num(); ++k)
 		{
-			TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, FVector3f& TangentX, FVector3f& TangentY)
-			{
-				return Tangents->GetPerTriangleTangent(TriangleID, TriVtxIdx, TangentX, TangentY);
-			};
+			UVOverlays[k] = Attributes->GetUVLayer(k);
 		}
+
+		TUniqueFunction<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc = MakeTangentsFunc();
 
 		// count number of triangles for each material (could do in parallel?)
 		int NumMaterials = BufferSets.Num();
@@ -221,14 +246,18 @@ public:
 			Counts[k].Reset();
 		}
 		ParallelFor(Mesh->MaxTriangleID(), [&](int tid)
-		{
-			int MatIdx;
-			MaterialID->GetValue(tid, &MatIdx);
-			if (MatIdx >= 0 && MatIdx < NumMaterials)
 			{
-				Counts[MatIdx].Increment();
-			}
-		});
+				if (!Mesh->IsTriangle(tid))
+				{
+					return;
+				}
+				int MatIdx;
+				MaterialID->GetValue(tid, &MatIdx);
+				if (MatIdx >= 0 && MatIdx < NumMaterials)
+				{
+					Counts[MatIdx].Increment();
+				}
+			});
 
 		// find max count
 		int32 MaxCount = 0;
@@ -260,17 +289,83 @@ public:
 
 				InitializeBuffersFromOverlays(RenderBuffers, Mesh,
 					Triangles.Num(), Triangles,
-					UVOverlay, NormalOverlay, ColorOverlay, TangentsFunc);
+					UVOverlays, NormalOverlay, ColorOverlay, TangentsFunc);
 
 				RenderBuffers->Triangles = Triangles;
 
-				ENQUEUE_RENDER_COMMAND(FSimpleDynamicMeshSceneProxyInitializeByMaterial)(
+				ENQUEUE_RENDER_COMMAND(FDynamicMeshSceneProxyInitializeByMaterial)(
 					[RenderBuffers](FRHICommandListImmediate& RHICmdList)
-				{
-					RenderBuffers->Upload();
-				});
+					{
+						RenderBuffers->Upload();
+					});
 			}
 		}
+	}
+
+
+	bool RenderMeshLayoutMatchesRenderBuffers() const
+	{
+		const FDynamicMesh3* Mesh = ParentComponent->GetRenderMesh();
+
+		auto CheckBufferSet = [](const FDynamicMesh3* Mesh, const FMeshRenderBufferSet* BufferSet, int NumTriangles) -> bool
+			{
+				if (BufferSet->Triangles)
+				{
+					for (int TriangleID : BufferSet->Triangles.GetValue())
+					{
+						if (!Mesh->IsTriangle(TriangleID))
+						{
+							return false;
+						}
+					}
+				}
+
+				int NumVertices = NumTriangles * 3;
+				if (BufferSet->PositionVertexBuffer.GetNumVertices() != NumVertices ||
+					BufferSet->StaticMeshVertexBuffer.GetNumVertices() != NumVertices ||
+					BufferSet->ColorVertexBuffer.GetNumVertices() != NumVertices)
+				{
+					return false;
+				}
+
+				return true;
+			};
+
+		if (bIsSingleBuffer)
+		{
+			if (ensure(RenderBufferSets.Num() == 1))
+			{
+				FMeshRenderBufferSet* BufferSet = RenderBufferSets[0];
+				if (BufferSet->TriangleCount != Mesh->TriangleCount())
+				{
+					return false;
+				}
+
+				int NumTriangles = Mesh->TriangleCount();
+
+				if (!CheckBufferSet(Mesh, BufferSet, NumTriangles))
+				{
+					return false;
+				}
+			}
+		}
+		else
+		{
+			for (FMeshRenderBufferSet* BufferSet : RenderBufferSets)
+			{
+				if (ensure(BufferSet->Triangles))
+				{
+					int NumTriangles = BufferSet->Triangles->Num();
+
+					if (!CheckBufferSet(Mesh, BufferSet, NumTriangles))
+					{
+						return false;
+					}
+				}
+			}
+		}
+
+		return true;
 	}
 
 
@@ -286,73 +381,148 @@ public:
 		// This needs to be rewritten for split-by-material buffers.
 		// Could store triangle set with each buffer, and then rebuild vtx buffer(s) as needed?
 
-		FDynamicMesh3* Mesh = ParentComponent->GetMesh();
+		FDynamicMesh3* Mesh = ParentComponent->GetRenderMesh();
 
 		// find suitable overlays and attributes
 		FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
-		TFunction<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc =
-			[](int, int, int, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY) { VectorUtil::MakePerpVectors(Normal, TangentX, TangentY); };
-		if (bNormals)
+		if (bNormals && ensure(Mesh->HasAttributes()))
 		{
-			check(Mesh->HasAttributes());
 			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
-
-			const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
-			if (Tangents != nullptr)
+		}
+		TArray<const FDynamicMeshUVOverlay*, TInlineAllocator<8>> UVOverlays;
+		if (bUVs && ensure(Mesh->HasAttributes()))
+		{
+			const FDynamicMeshAttributeSet* Attributes = Mesh->Attributes();
+			UVOverlays.SetNum(Attributes->NumUVLayers());
+			for (int32 i = 0; i < UVOverlays.Num(); ++i)
 			{
-				TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY)
-				{
-					return Tangents->GetPerTriangleTangent(TriangleID, TriVtxIdx, TangentX, TangentY);
-				};
+				UVOverlays[i] = Attributes->GetUVLayer(i);
 			}
 		}
-		FDynamicMeshUVOverlay* UVOVerlay = nullptr;
-		if (bUVs)
-		{
-			check(Mesh->HasAttributes());
-			UVOVerlay = Mesh->Attributes()->PrimaryUV();
-		}
-
 		FDynamicMeshColorOverlay* ColorOverlay = nullptr;
 		if (bColors && ensure(Mesh->HasAttributes()))
 		{
 			ColorOverlay = Mesh->Attributes()->PrimaryColors();
 		}
 
+		// Currently deferring tangents auto-computation if doing fast vertex update (maybe needs to be exposed?)
+		TUniqueFunction<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc = MakeTangentsFunc(true);
+
 		if (bIsSingleBuffer)
 		{
-			check(RenderBufferSets.Num() == 1);
-			FMeshRenderBufferSet* Buffers = RenderBufferSets[0];
-			if (bPositions || bNormals || bColors)
+			if (ensure(RenderBufferSets.Num() == 1))
 			{
-				UpdateVertexBuffersFromOverlays(Buffers, Mesh,
-					Mesh->TriangleCount(), Mesh->TriangleIndicesItr(),
-					NormalOverlay, ColorOverlay, TangentsFunc,
-					bPositions, bNormals, bColors);
-			}
-			if (bUVs)
-			{
-				UpdateVertexUVBufferFromOverlays(Buffers, Mesh,
-					Mesh->TriangleCount(), Mesh->TriangleIndicesItr(), UVOVerlay, 0);
-			}
+				FMeshRenderBufferSet* Buffers = RenderBufferSets[0];
+				if (bPositions || bNormals || bColors)
+				{
+					UpdateVertexBuffersFromOverlays(Buffers, Mesh,
+						Mesh->TriangleCount(), Mesh->TriangleIndicesItr(),
+						NormalOverlay, ColorOverlay, TangentsFunc,
+						bPositions, bNormals, bColors);
+				}
+				if (bUVs)
+				{
+					UpdateVertexUVBufferFromOverlays(Buffers, Mesh,
+						Mesh->TriangleCount(), Mesh->TriangleIndicesItr(), UVOverlays);
+				}
 
 
-			ENQUEUE_RENDER_COMMAND(FSimpleDynamicMeshSceneProxyFastUpdateVertices)(
-				[Buffers, bPositions, bNormals, bColors, bUVs](FRHICommandListImmediate& RHICmdList)
-			{
-				Buffers->UploadVertexUpdate(bPositions, bNormals || bUVs, bColors);
-			});
+				ENQUEUE_RENDER_COMMAND(FDynamicMeshSceneProxyFastUpdateVertices)(
+					[Buffers, bPositions, bNormals, bColors, bUVs](FRHICommandListImmediate& RHICmdList)
+					{
+						Buffers->UploadVertexUpdate(bPositions, bNormals || bUVs, bColors);
+					});
+			}
 		}
 		else
 		{
 			ParallelFor(RenderBufferSets.Num(), [&](int i)
-			{
-				FMeshRenderBufferSet* Buffers = RenderBufferSets[i];
-				if (Buffers->TriangleCount == 0)
 				{
-					return;
-				}
-				check(Buffers->Triangles.IsSet());
+					FMeshRenderBufferSet* Buffers = RenderBufferSets[i];
+					if (Buffers->TriangleCount == 0)
+					{
+						return;
+					}
+					if (ensure(Buffers->Triangles.IsSet()))
+					{
+						if (bPositions || bNormals || bColors)
+						{
+							UpdateVertexBuffersFromOverlays(Buffers, Mesh,
+								Buffers->Triangles->Num(), Buffers->Triangles.GetValue(),
+								NormalOverlay, ColorOverlay, TangentsFunc,
+								bPositions, bNormals, bColors);
+						}
+						if (bUVs)
+						{
+							UpdateVertexUVBufferFromOverlays(Buffers, Mesh,
+								Buffers->Triangles->Num(), Buffers->Triangles.GetValue(), UVOverlays);
+						}
+
+						ENQUEUE_RENDER_COMMAND(FDynamicMeshSceneProxyFastUpdateVertices)(
+							[Buffers, bPositions, bNormals, bColors, bUVs](FRHICommandListImmediate& RHICmdList)
+							{
+								Buffers->UploadVertexUpdate(bPositions, bNormals || bUVs, bColors);
+							});
+					}
+				});
+		}
+	}
+
+
+
+	/**
+	 * Update the vertex position/normal/color buffers
+	 */
+	void FastUpdateVertices(const TArray<int32>& WhichBuffers, bool bPositions, bool bNormals, bool bColors, bool bUVs)
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(DynamicMeshProxy_FastUpdateVertices);
+
+		// skip if we have no updates
+		if (bPositions == false && bNormals == false && bColors == false && bUVs == false)
+		{
+			return;
+		}
+
+		// This needs to be rewritten for split-by-material buffers.
+		// Could store triangle set with each buffer, and then rebuild vtx buffer(s) as needed?
+
+		const FDynamicMesh3* Mesh = ParentComponent->GetRenderMesh();
+
+		// find suitable overlays
+		const FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
+		if (bNormals && ensure(Mesh->HasAttributes()))
+		{
+			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
+		}
+		TArray<const FDynamicMeshUVOverlay*> UVOverlays;
+		if (bUVs && ensure(Mesh->HasAttributes()))
+		{
+			const FDynamicMeshAttributeSet* Attributes = Mesh->Attributes();
+			UVOverlays.SetNum(Attributes->NumUVLayers());
+			for (int32 i = 0; i < UVOverlays.Num(); ++i)
+			{
+				UVOverlays[i] = Attributes->GetUVLayer(i);
+			}
+		}
+		const FDynamicMeshColorOverlay* ColorOverlay = nullptr;
+		if (bColors && ensure(Mesh->HasAttributes()))
+		{
+			ColorOverlay = Mesh->Attributes()->PrimaryColors();
+		}
+
+		// Currently deferring tangents auto-computation if doing fast vertex update (maybe needs to be exposed?)
+		TUniqueFunction<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc = MakeTangentsFunc(true);
+
+		ParallelFor(WhichBuffers.Num(), [&](int idx)
+		{
+			int32 BufferIndex = WhichBuffers[idx];
+			if ( RenderBufferSets.IsValidIndex(BufferIndex) == false || RenderBufferSets[BufferIndex]->TriangleCount == 0)
+			{
+				return;
+			}
+			FMeshRenderBufferSet* Buffers = RenderBufferSets[BufferIndex];
+			if (ensure(Buffers->Triangles.IsSet()))
+			{
 				if (bPositions || bNormals || bColors)
 				{
 					UpdateVertexBuffersFromOverlays(Buffers, Mesh,
@@ -363,88 +533,15 @@ public:
 				if (bUVs)
 				{
 					UpdateVertexUVBufferFromOverlays(Buffers, Mesh,
-						Buffers->Triangles->Num(), Buffers->Triangles.GetValue(), UVOVerlay, 0);
+						Buffers->Triangles->Num(), Buffers->Triangles.GetValue(), UVOverlays);
 				}
 
-				ENQUEUE_RENDER_COMMAND(FSimpleDynamicMeshSceneProxyFastUpdateVertices)(
+				ENQUEUE_RENDER_COMMAND(FDynamicMeshSceneProxyFastUpdateVerticesBufferList)(
 					[Buffers, bPositions, bNormals, bColors, bUVs](FRHICommandListImmediate& RHICmdList)
 				{
-					Buffers->UploadVertexUpdate(bPositions, bNormals || bUVs, bColors);
+					Buffers->TransferVertexUpdateToGPU(bPositions, bNormals, bUVs, bColors);
 				});
-			});
-		}
-	}
-
-
-
-	/**
-	 * Update the vertex position/normal/color buffers
-	 */
-	virtual void FastUpdateVertices(const TArray<int32>& WhichBuffers, bool bPositions, bool bNormals, bool bColors, bool bUVs)
-	{
-		// This needs to be rewritten for split-by-material buffers.
-		// Could store triangle set with each buffer, and then rebuild vtx buffer(s) as needed?
-
-		FDynamicMesh3* Mesh = ParentComponent->GetMesh();
-
-		// find suitable overlays
-		FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
-		TFunction<void(int, int, int, const FVector3f&, FVector3f&, FVector3f&)> TangentsFunc =
-			[](int, int, int, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY) { VectorUtil::MakePerpVectors(Normal, TangentX, TangentY); };
-		if (bNormals)
-		{
-			check(Mesh->HasAttributes());
-			NormalOverlay = Mesh->Attributes()->PrimaryNormals();
-
-			const FMeshTangentsf* Tangents = ParentComponent->GetAutoCalculatedTangents();
-			if (Tangents != nullptr)
-			{
-				TangentsFunc = [Tangents](int VertexID, int TriangleID, int TriVtxIdx, const FVector3f& Normal, FVector3f& TangentX, FVector3f& TangentY)
-				{
-					return Tangents->GetPerTriangleTangent(TriangleID, TriVtxIdx, TangentX, TangentY);
-				};
 			}
-		}
-		FDynamicMeshUVOverlay* UVOVerlay = nullptr;
-		if (bUVs)
-		{
-			check(Mesh->HasAttributes());
-			UVOVerlay = Mesh->Attributes()->PrimaryUV();
-		}
-
-		FDynamicMeshColorOverlay* ColorOverlay = nullptr;
-		if (bColors && ensure(Mesh->HasAttributes()))
-		{
-			ColorOverlay = Mesh->Attributes()->PrimaryColors();
-		}
-
-		ParallelFor(WhichBuffers.Num(), [&](int idx)
-		{
-			int32 BufferIndex = WhichBuffers[idx];
-			if ( RenderBufferSets.IsValidIndex(BufferIndex) == false || RenderBufferSets[BufferIndex]->TriangleCount == 0)
-			{
-				return;
-			}
-			FMeshRenderBufferSet* Buffers = RenderBufferSets[BufferIndex];
-			check(Buffers->Triangles.IsSet());
-			if (bPositions || bNormals || bColors)
-			{
-				UpdateVertexBuffersFromOverlays(Buffers, Mesh,
-					Buffers->Triangles->Num(), Buffers->Triangles.GetValue(),
-					NormalOverlay, ColorOverlay, TangentsFunc,
-					bPositions, bNormals, bColors);
-			}
-			if (bUVs)
-			{
-				UpdateVertexUVBufferFromOverlays(Buffers, Mesh,
-					Buffers->Triangles->Num(), Buffers->Triangles.GetValue(), UVOVerlay, 0);
-			}
-
-			ENQUEUE_RENDER_COMMAND(FSimpleDynamicMeshSceneProxyFastUpdateVerticesBufferList)(
-				[Buffers, bPositions, bNormals, bColors, bUVs](FRHICommandListImmediate& RHICmdList)
-			{
-				Buffers->TransferVertexUpdateToGPU(bPositions, bNormals, bUVs, bColors);
-			});
 		});
 	}
 
@@ -469,7 +566,7 @@ public:
 
 			if (Buffers->TriangleCount > 0)
 			{
-				FastUpdateIndexBuffers(Buffers, Mesh);
+				RecomputeRenderBufferTriangleIndexSets(Buffers, Mesh);
 			}
 
 			ENQUEUE_RENDER_COMMAND(FSimpleDynamicMeshSceneProxyFastUpdateAllIndexBuffers)(
@@ -481,7 +578,38 @@ public:
 		});
 	}
 
+	/**
+	 * Update index buffers inside each RenderBuffer set
+	 */
+	void FastUpdateIndexBuffers(const TArray<int32>& WhichBuffers)
+	{
+		FDynamicMesh3* Mesh = ParentComponent->GetRenderMesh();
 
+		// have to wait for all outstanding rendering to finish because the index buffers we are about to edit might be in-use
+		FlushRenderingCommands();
+
+		ParallelFor(WhichBuffers.Num(), [this, &WhichBuffers, &Mesh](int i)
+			{
+				int32 BufferIndex = WhichBuffers[i];
+				if (RenderBufferSets.IsValidIndex(BufferIndex) == false)
+				{
+					return;
+				}
+
+				FMeshRenderBufferSet* Buffers = RenderBufferSets[BufferIndex];
+				FScopeLock BuffersLock(&Buffers->BuffersLock);
+				if (Buffers->TriangleCount > 0)
+				{
+					RecomputeRenderBufferTriangleIndexSets(Buffers, Mesh);
+				}
+
+				ENQUEUE_RENDER_COMMAND(FDynamicMeshSceneProxyFastUpdateSomeIndexBuffers)(
+					[Buffers](FRHICommandListImmediate& RHICmdList)
+					{
+						Buffers->UploadIndexBufferUpdate();
+					});
+			});
+	}
 
 public:
 
@@ -531,6 +659,13 @@ public:
 		}
 	}
 
+	virtual void UpdatedReferencedMaterials() override
+	{
+		FBaseDynamicMeshSceneProxy::UpdatedReferencedMaterials();
+
+		// The material relevance may need updating.
+		MaterialRelevance = ParentComponent->GetMaterialRelevance(GetScene().GetFeatureLevel());
+	}
 
 	virtual bool CanBeOccluded() const override
 	{

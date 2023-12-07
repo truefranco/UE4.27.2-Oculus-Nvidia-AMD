@@ -167,6 +167,9 @@ void UMeshAttributePaintTool::Setup()
 	{
 		Mesh.DiscardVertexColors();
 		Mesh.EnableVertexColors(FVector3f::Zero());
+		Mesh.Attributes()->EnablePrimaryColors();
+		// Create an overlay that has no split elements, init with zero value.
+		Mesh.Attributes()->PrimaryColors()->CreateFromPredicate([](int ParentVID, int TriIDA, int TriIDB) {return true; }, 0.f);
 	});
 
 	// build octree

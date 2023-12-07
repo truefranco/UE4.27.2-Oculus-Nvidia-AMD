@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "BaseGizmos/IntervalGizmo.h"
+#include "BaseGizmos/TransformGizmo.h"
 #include "InteractiveGizmoManager.h"
 #include "BaseGizmos/AxisPositionGizmo.h"
 
@@ -11,6 +12,7 @@
 
 #include "Components/SphereComponent.h"
 #include "Components/PrimitiveComponent.h"
+#include "ToolContextInterfaces.h"
 #include "Engine/World.h"
 #include "Engine/CollisionProfile.h"
 
@@ -85,6 +87,44 @@ public:
 	}
 };
 
+/**
+ * This change source doesn't actually issue any valid transactions. Instead, it is a helper class
+ * that can get attached to the interval gizmo's state target to fire off BeginEditSequence and
+ * EndEditSequence on the start/end of a drag.
+ */
+class FIntervalGizmoChangeBroadcaster : public IToolCommandChangeSource
+{
+public:
+	FIntervalGizmoChangeBroadcaster(UIntervalGizmo* IntervalGizmoIn) : IntervalGizmo(IntervalGizmoIn) {}
+
+	virtual ~FIntervalGizmoChangeBroadcaster() {}
+
+	TWeakObjectPtr<UIntervalGizmo> IntervalGizmo;
+
+	virtual void BeginChange() override
+	{
+		if (IntervalGizmo.IsValid())
+		{
+			IntervalGizmo->BeginEditSequence();
+		}
+	}
+	virtual TUniquePtr<FToolCommandChange> EndChange() override
+	{
+		if (IntervalGizmo.IsValid())
+		{
+			IntervalGizmo->EndEditSequence();
+		}
+		return TUniquePtr<FToolCommandChange>();
+	}
+	virtual UObject* GetChangeTarget() override
+	{
+		return IntervalGizmo.Get();
+	}
+	virtual FText GetChangeDescription() override
+	{
+		return LOCTEXT("FIntervalGizmoChangeBroadcaster", "IntervalGizmoEdit");
+	}
+};
 
 AIntervalGizmoActor::AIntervalGizmoActor()
 {
@@ -96,7 +136,7 @@ AIntervalGizmoActor::AIntervalGizmoActor()
 	SphereComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 }
 
-AIntervalGizmoActor* AIntervalGizmoActor::ConstructDefaultIntervalGizmo(UWorld* World)
+AIntervalGizmoActor* AIntervalGizmoActor::ConstructDefaultIntervalGizmo(UWorld* World, UGizmoViewContext* GizmoViewContext)
 {
 	FActorSpawnParameters SpawnInfo;
 	AIntervalGizmoActor* NewActor = World->SpawnActor<AIntervalGizmoActor>(FVector::ZeroVector, FRotator::ZeroRotator, SpawnInfo);
@@ -118,6 +158,12 @@ UInteractiveGizmo* UIntervalGizmoBuilder::BuildGizmo(const FToolBuilderState& Sc
 {
 	UIntervalGizmo* NewGizmo = NewObject<UIntervalGizmo>(SceneState.GizmoManager);
 	NewGizmo->SetWorld(SceneState.World);
+
+	UGizmoViewContext* GizmoViewContext = SceneState.ToolManager->GetContextObjectStore()->FindContext<UGizmoViewContext>();
+	check(GizmoViewContext && GizmoViewContext->IsValidLowLevel());
+
+	// use default gizmo actor if client has not given us a new builder
+	NewGizmo->SetGizmoActorBuilder(GizmoActorBuilder ? GizmoActorBuilder : MakeShared<FIntervalGizmoActorFactory>(GizmoViewContext));
 
 	// override default hover function if proposed
 	if (UpdateHoverFunction)
@@ -277,6 +323,16 @@ void UIntervalGizmo::SetActiveTarget(UTransformProxy* TransformTargetIn, UGizmoL
 	DownIntervalSource    = DownInterval;
 	ForwardIntervalSource = ForwardInterval;
 
+	// Get the parameter source to notify our delegate of any changes
+	UpIntervalSource->OnParameterChanged.AddWeakLambda(this, [this](IGizmoFloatParameterSource*, FGizmoFloatParameterChange Change) {
+		OnIntervalChanged.Broadcast(this, FVector::ZAxisVector, Change.CurrentValue);
+		});
+	DownIntervalSource->OnParameterChanged.AddWeakLambda(this, [this](IGizmoFloatParameterSource*, FGizmoFloatParameterChange Change) {
+		OnIntervalChanged.Broadcast(this, -FVector::ZAxisVector, -Change.CurrentValue);
+		});
+	ForwardIntervalSource->OnParameterChanged.AddWeakLambda(this, [this](IGizmoFloatParameterSource*, FGizmoFloatParameterChange Change) {
+		OnIntervalChanged.Broadcast(this, FVector::YAxisVector, Change.CurrentValue);
+		});
 
 	USceneComponent* GizmoComponent = GizmoActor->GetRootComponent();
 
@@ -307,9 +363,10 @@ void UIntervalGizmo::SetActiveTarget(UTransformProxy* TransformTargetIn, UGizmoL
 	StateTarget->DependentChangeSources.Add(MakeUnique<FGizmoFloatParameterChangeSource>(DownIntervalSource));
 	StateTarget->DependentChangeSources.Add(MakeUnique<FGizmoFloatParameterChangeSource>(ForwardIntervalSource));
 
-
-	UGizmoTransformProxyTransformSource* TransformSource =
-		UGizmoTransformProxyTransformSource::Construct(TransformProxy, this);
+	// Have the state target notify us of the start/end of drags
+	StateTarget->DependentChangeSources.Add(MakeUnique<FIntervalGizmoChangeBroadcaster>(this));
+	//UGizmoTransformProxyTransformSource* TransformSource =
+		//UGizmoTransformProxyTransformSource::Construct(TransformProxy, this);
 
 	// root component provides local Y/Z axis, identified by AxisIndex
 	AxisYSource = UGizmoComponentAxisSource::Construct(GizmoComponent, 1, true, this);

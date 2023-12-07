@@ -538,7 +538,7 @@ public:
 	 */
 	inline int AppendElement(const VectorType& Value)
 	{
-		return BaseType::AppendElement((const RealType*)Value);
+		return BaseType::AppendElement(&Value.X);
 	}
 
 	/**

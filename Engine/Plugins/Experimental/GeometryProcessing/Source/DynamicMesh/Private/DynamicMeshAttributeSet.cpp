@@ -189,46 +189,92 @@ void FDynamicMeshAttributeSet::SplitAllBowties(bool bParallel)
 
 void FDynamicMeshAttributeSet::EnableMatchingAttributes(const FDynamicMeshAttributeSet& ToMatch, bool bClearExisting, bool bDiscardExtraAttributes)
 {
-	SetNumUVLayers(ToMatch.NumUVLayers());
-	for (int UVIdx = 0; UVIdx < NumUVLayers(); UVIdx++)
+	int32 ExistingUVLayers = NumUVLayers();
+	int32 RequiredUVLayers = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.NumUVLayers() : FMath::Max(ExistingUVLayers, ToMatch.NumUVLayers());
+	SetNumUVLayers(RequiredUVLayers);
+	for (int32 k = bClearExisting ? 0 : ExistingUVLayers; k < NumUVLayers(); k++)
 	{
-		UVLayers[UVIdx].ClearElements();
+		UVLayers[k].ClearElements();
 	}
-	SetNumNormalLayers(ToMatch.NumNormalLayers());
-	for (int NormalLayerIndex = 0; NormalLayerIndex < NumNormalLayers(); NormalLayerIndex++)
+
+	int32 ExistingNormalLayers = NumNormalLayers();
+	int32 RequiredNormalLayers = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.NumNormalLayers() : FMath::Max(ExistingNormalLayers, ToMatch.NumNormalLayers());
+	SetNumNormalLayers(RequiredNormalLayers);
+	for (int32 k = bClearExisting ? 0 : ExistingNormalLayers; k < NumNormalLayers(); k++)
 	{
-		NormalLayers[NormalLayerIndex].ClearElements();
+		NormalLayers[k].ClearElements();
 	}
-	if (ToMatch.ColorLayer)
-	{
-		EnablePrimaryColors();
-	}
-	else 
+
+	bool bWantColorLayer = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.HasPrimaryColors() : ( ToMatch.HasPrimaryColors() || this->HasPrimaryColors() );
+	if (bClearExisting || bWantColorLayer == false)
 	{
 		DisablePrimaryColors();
 	}
-
-	if (ToMatch.MaterialIDAttrib)
+	if (bWantColorLayer)
 	{
-		EnableMaterialID();
+		EnablePrimaryColors();
 	}
-	else
+
+	bool bWantMaterialID = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.HasMaterialID() : ( ToMatch.HasMaterialID() || this->HasMaterialID() );
+	if (bClearExisting || bWantMaterialID == false)
 	{
 		DisableMaterialID();
 	}
-
-	SetNumPolygroupLayers(ToMatch.NumPolygroupLayers());
-	for (int GroupIdx = 0; GroupIdx < NumPolygroupLayers(); ++GroupIdx)
+	if (bWantMaterialID)
 	{
-		PolygroupLayers[GroupIdx].Initialize((int32)0);
+		EnableMaterialID();
 	}
 
-	GenericAttributes.Reset();
-	ResetRegisteredAttributes();
-	for (const TPair<FName, TUniquePtr<FDynamicMeshAttributeBase>>& AttribPair : ToMatch.GenericAttributes)
+	// polygroup layers are handled by count, not by name...maybe wrong
+	int32 ExistingPolygroupLayers = NumPolygroupLayers();
+	int32 RequiredPolygroupLayers = (bClearExisting || bDiscardExtraAttributes) ? ToMatch.NumPolygroupLayers() : FMath::Max(ExistingPolygroupLayers, ToMatch.NumPolygroupLayers());
+	SetNumPolygroupLayers(RequiredPolygroupLayers);
+	for (int32 k = bClearExisting ? 0 : ExistingPolygroupLayers; k < NumPolygroupLayers(); k++)
 	{
-		AttachAttribute(AttribPair.Key, AttribPair.Value->MakeNew(ParentMesh));
+		PolygroupLayers[k].Initialize((int32)0);
+		if (PolygroupLayers[k].GetName() == NAME_None && k < ToMatch.NumPolygroupLayers())
+		{
+			PolygroupLayers[k].SetName( ToMatch.GetPolygroupLayer(k)->GetName() );
+		}
 	}
+	if (bClearExisting)
+	{
+		GenericAttributes.Reset();
+		ResetRegisteredAttributes();
+
+		for (const TPair<FName, TUniquePtr<FDynamicMeshAttributeBase>>& AttribPair : ToMatch.GenericAttributes)
+		{
+			AttachAttribute(AttribPair.Key, AttribPair.Value->MakeNew(ParentMesh));
+		}
+	}
+	else
+	{
+		// get rid of any attributes in current SkinWeights and Generic sets that are not in ToMatch
+		if (bDiscardExtraAttributes)
+		{
+			GenericAttributesMap ExistingGenericAttributes = MoveTemp(GenericAttributes);
+			GenericAttributes.Reset();
+			ResetRegisteredAttributes();
+			for (TPair<FName, TUniquePtr<FDynamicMeshAttributeBase>>& AttribPair : ExistingGenericAttributes)
+			{
+				if (ToMatch.GenericAttributes.Contains(AttribPair.Key))
+				{
+					AttachAttribute(AttribPair.Key, AttribPair.Value.Release());
+				}
+			}
+		}
+		for (const TPair<FName, TUniquePtr<FDynamicMeshAttributeBase>>& AttribPair : ToMatch.GenericAttributes)
+		{
+			TUniquePtr<FDynamicMeshAttributeBase>* FoundMatch = GenericAttributes.Find(AttribPair.Key);
+			if (FoundMatch == nullptr)
+			{
+				AttachAttribute(AttribPair.Key, AttribPair.Value->MakeNew(ParentMesh));
+			}
+		}
+
+	}
+	
+	
 }
 
 
@@ -277,7 +323,9 @@ void FDynamicMeshAttributeSet::SetNumUVLayers(int Num)
 	{
 		for (int i = (int)UVLayers.Num(); i < Num; ++i)
 		{
-			UVLayers.Add(new FDynamicMeshUVOverlay(ParentMesh));
+			FDynamicMeshUVOverlay* NewUVLayer = new FDynamicMeshUVOverlay(ParentMesh);
+			NewUVLayer->InitializeTriangles(ParentMesh->MaxTriangleID());
+			UVLayers.Add(NewUVLayer);
 		}
 	}
 	else
@@ -310,7 +358,9 @@ void FDynamicMeshAttributeSet::SetNumNormalLayers(int Num)
 	{
 		for (int32 i = NormalLayers.Num(); i < Num; ++i)
 		{
-			NormalLayers.Add(new FDynamicMeshNormalOverlay(ParentMesh));
+			FDynamicMeshNormalOverlay* NewNormalLayer = new FDynamicMeshNormalOverlay(ParentMesh);
+			NewNormalLayer->InitializeTriangles(ParentMesh->MaxTriangleID());
+			NormalLayers.Add(NewNormalLayer);
 		}
 	}
 	else

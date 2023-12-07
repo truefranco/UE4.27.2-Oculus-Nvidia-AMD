@@ -142,7 +142,13 @@ enum EMaterialValueType
 	/** Used internally when sampling from virtual textures */
 	MCT_VTPageTableResult     = 1 << 13,
 	
-	MCT_ShadingModel = 1 << 14,
+	MCT_ShadingModel          = 1 << 14,
+
+	MCT_LWCScalar             = 1 << 15,
+	MCT_LWCVector2            = 1 << 16,
+	MCT_LWCVector3            = 1 << 17,
+	MCT_LWCVector4            = 1 << 18,
+	MCT_LWCType = MCT_LWCScalar | MCT_LWCVector2 | MCT_LWCVector3 | MCT_LWCVector4,
 };
 
 /**

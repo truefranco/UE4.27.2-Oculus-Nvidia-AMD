@@ -356,7 +356,10 @@ protected:
 
 	TIndirectArray<FDynamicMeshPolygroupAttribute> PolygroupLayers;
 
-	TMap<FName, TUniquePtr<FDynamicMeshAttributeBase>> GenericAttributes;
+	//TMap<FName, TUniquePtr<FDynamicMeshAttributeBase>> GenericAttributes;
+
+	using GenericAttributesMap = TMap<FName, TUniquePtr<FDynamicMeshAttributeBase>>;
+	GenericAttributesMap GenericAttributes;
 
 protected:
 	friend class FDynamicMesh3;

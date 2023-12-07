@@ -81,7 +81,7 @@ public:
 
 	inline void InsertAt(const Type& Data, unsigned int Index);
 	inline Type& ElementAt(unsigned int Index, Type InitialValue = Type{});
-
+	inline bool SetMinimumSize(unsigned int Count, const Type& InitValue);
 	inline const Type& Front() const { return Blocks[0][0]; }
 	inline const Type& Back() const { return Blocks[CurBlock][CurBlockUsed - 1]; }
 
@@ -581,6 +581,22 @@ Type& TDynamicVector<Type>::ElementAt(unsigned int Index, Type InitialValue)
 		Add(InitialValue);
 	}
 	return this->operator[](Index);
+}
+
+template <class Type>
+bool TDynamicVector<Type>::SetMinimumSize(unsigned int Count, const Type& InitValue)
+{
+	size_t nCurSize = GetLength();
+	if (Count <= nCurSize)
+	{
+		return false;
+	}
+	Resize(Count);
+	for (unsigned int Index = (unsigned int)nCurSize; Index < Count; ++Index)
+	{
+		this->operator[](Index) = InitValue;
+	}
+	return true;
 }
 
 template <class Type>

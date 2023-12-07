@@ -3,6 +3,7 @@
 #pragma once
 
 #include "InteractiveTool.h"
+#include "ToolTargets/ToolTarget.h"
 #include "ComponentSourceInterfaces.h"
 #include "SingleSelectionTool.generated.h"
 
@@ -15,13 +16,31 @@ public:
     {
 		ComponentTarget = MoveTemp(ComponentTargetIn);
 	}
-
+	void SetTarget(UToolTarget* TargetsIn)
+	{
+		Target = TargetsIn;
+	}
+	/**
+	 * @return the ToolTarget for the Tool
+	 */
+	virtual UToolTarget* GetTarget()
+	{
+		return Target;
+	}
 	/**
 	 * @return true if all ComponentTargets of this tool are still valid
 	 */
 	virtual bool AreAllTargetsValid() const
 	{
-		return ComponentTarget->IsValid();
+		if (ComponentTarget != NULL)
+		{
+			return ComponentTarget ? ComponentTarget->IsValid() : false;
+		}
+		if (Target != NULL)
+		{
+			return Target ? Target->IsValid() : false;
+		}
+		return true;
 	}
 
 
@@ -33,5 +52,5 @@ public:
 
 protected:
 	TUniquePtr<FPrimitiveComponentTarget> ComponentTarget{};
-
+	UToolTarget* Target{};
 };

@@ -55,7 +55,8 @@ public:
 	 * Create a new instance of AIntervalGizmoActor and populate the various
 	 * sub-components with standard GizmoXComponent instances suitable for a 3-interval Gizmo
 	 */
-	static AIntervalGizmoActor* ConstructDefaultIntervalGizmo(UWorld* World);
+	static AIntervalGizmoActor* ConstructDefaultIntervalGizmo(UWorld* World, 
+		UGizmoViewContext* GizmoViewContext);
 
 };
 
@@ -84,7 +85,7 @@ public:
 	 */
 	virtual AIntervalGizmoActor* CreateNewGizmoActor(UWorld* World) const
 	{
-		return AIntervalGizmoActor::ConstructDefaultIntervalGizmo(World);
+		return AIntervalGizmoActor::ConstructDefaultIntervalGizmo(World, GizmoViewContext);
 	}
 
 protected:

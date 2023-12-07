@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "BaseBehaviors/BehaviorTargetInterfaces.h"
+#include "ToolContextInterfaces.h"
 #include "Engine/World.h"
 #include "ToolSceneQueriesUtil.h"
 
@@ -30,6 +31,7 @@ class FSelectClickedAction : public IClickBehaviorTarget
 	}
 
 public:
+	USceneSnappingManager* SnapManager = nullptr;
 	UWorld* World;
 	TFunction<void(const FHitResult&)> OnClickedPositionFunc = nullptr;
 	TUniqueFunction<bool()> ExternalCanClickPredicate = nullptr;

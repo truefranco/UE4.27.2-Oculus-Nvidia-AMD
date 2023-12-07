@@ -436,6 +436,7 @@ template<typename RealType, int ElementSize>
 void TDynamicMeshOverlay<RealType, ElementSize>::InitializeNewTriangle(int tid)
 {
 	int i = 3 * tid;
+	ElementTriangles.SetMinimumSize(i + 3, FDynamicMesh3::InvalidID);
 	ElementTriangles.InsertAt(FDynamicMesh3::InvalidID, i + 2);
 	ElementTriangles.InsertAt(FDynamicMesh3::InvalidID, i + 1);
 	ElementTriangles.InsertAt(FDynamicMesh3::InvalidID, i);

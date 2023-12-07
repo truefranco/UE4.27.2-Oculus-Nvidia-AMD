@@ -157,6 +157,7 @@ bool UInteractiveToolManager::ActivateTool(EToolSide Side)
 
 bool UInteractiveToolManager::ActivateToolInternal(EToolSide Side)
 {
+	bActiveToolMadeSelectionStoreRequest = false;
 	// construct input state we will pass to tools
 	FToolBuilderState InputState;
 	QueriesAPI->GetCurrentSelectionState(InputState);

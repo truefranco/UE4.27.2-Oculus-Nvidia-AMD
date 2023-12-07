@@ -137,4 +137,16 @@ namespace ToolSetupUtil
 	 */
 	MODELINGCOMPONENTS_API UMaterialInterface* GetDefaultEditVolumeMaterial();
 
+	/**
+	 * @return Simple material with configurable depth offset, color, and opacity. Note that the material
+	 *  will have translucent blend mode, which can interact poorly with overlapping translucent
+	 *  objects, so use the other overload if you do not need opacity control.
+	 */
+	MODELINGCOMPONENTS_API UMaterialInstanceDynamic* GetCustomDepthOffsetMaterial(UInteractiveToolManager* ToolManager, const FLinearColor& Color, float PercentDepthOffset, float Opacity);
+
+	/**
+	 * @return Simple material with configurable depth offset and color. The material will have opaque blend mode.
+	 */
+	MODELINGCOMPONENTS_API UMaterialInstanceDynamic* GetCustomDepthOffsetMaterial(UInteractiveToolManager* ToolManager, const FLinearColor& Color, float PercentDepthOffset);
+
 }

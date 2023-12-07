@@ -51,8 +51,6 @@ void UInteractiveGizmoManager::Shutdown()
 		DeregisterGizmoType(DefaultPlanePositionBuilderIdentifier);
 		DeregisterGizmoType(DefaultAxisAngleBuilderIdentifier);
 		DeregisterGizmoType(DefaultThreeAxisTransformBuilderIdentifier);
-		DeregisterGizmoType(CustomThreeAxisTransformBuilderIdentifier);
-		DeregisterGizmoType(CustomRepositionableThreeAxisTransformBuilderIdentifier);
 
 	}
 }
@@ -61,10 +59,8 @@ void UInteractiveGizmoManager::Shutdown()
 
 void UInteractiveGizmoManager::RegisterGizmoType(const FString& Identifier, UInteractiveGizmoBuilder* Builder)
 {
-	if (ensure(GizmoBuilders.Contains(Identifier) == false))
-	{
-		GizmoBuilders.Add(Identifier, Builder);
-	}
+	check(GizmoBuilders.Contains(Identifier) == false);
+	GizmoBuilders.Add(Identifier, Builder);
 }
 
 

@@ -3806,7 +3806,7 @@ int32 FHLSLMaterialTranslator::ParticleSize()
 int32 FHLSLMaterialTranslator::WorldPosition(EWorldPositionIncludedOffsets WorldPositionIncludedOffsets)
 {
 	FString FunctionNamePattern;
-
+	EMaterialValueType Type = (EMaterialValueType)0;
 	// If this material has no expressions for world position offset or world displacement, the non-offset world position will
 	// be exactly the same as the offset one, so there is no point bringing in the extra code.
 	// Also, we can't access the full offset world position in anything other than the pixel shader, because it won't have
@@ -3816,6 +3816,7 @@ int32 FHLSLMaterialTranslator::WorldPosition(EWorldPositionIncludedOffsets World
 	case WPT_Default:
 		{
 			FunctionNamePattern = TEXT("Get<PREV>WorldPosition");
+			Type = MCT_LWCVector3;
 			break;
 		}
 
@@ -3823,12 +3824,14 @@ int32 FHLSLMaterialTranslator::WorldPosition(EWorldPositionIncludedOffsets World
 		{
 			bNeedsWorldPositionExcludingShaderOffsets = true;
 			FunctionNamePattern = TEXT("Get<PREV>WorldPosition<NO_MATERIAL_OFFSETS>");
+			Type = MCT_LWCVector3;
 			break;
 		}
 
 	case WPT_CameraRelative:
 		{
 			FunctionNamePattern = TEXT("Get<PREV>TranslatedWorldPosition");
+			Type = MCT_Float3;
 			break;
 		}
 
@@ -3836,6 +3839,7 @@ int32 FHLSLMaterialTranslator::WorldPosition(EWorldPositionIncludedOffsets World
 		{
 			bNeedsWorldPositionExcludingShaderOffsets = true;
 			FunctionNamePattern = TEXT("Get<PREV>TranslatedWorldPosition<NO_MATERIAL_OFFSETS>");
+			Type = MCT_Float3;
 			break;
 		}
 

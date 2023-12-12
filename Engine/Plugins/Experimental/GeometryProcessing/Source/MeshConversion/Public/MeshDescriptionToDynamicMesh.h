@@ -32,6 +32,9 @@ public:
 	/** Ignore all mesh attributes (e.g. UV/Normal layers, material groups) */
 	bool bDisableAttributes = false;
 
+	/** Should Vertex Colors of MeshDescription be transformed from Linear to SRGB */
+	bool bTransformVertexColorsLinearToSRGB = true;
+
 	/** map from triangle ID to (polygon,triangle) pair */
 	TArray<FIndex2i> TriToPolyTriMap;
 
@@ -81,4 +84,16 @@ public:
 	 * @warning Convert() must have been used to create the TargetMesh before calling this function
 	 */
 	void CopyTangents(const FMeshDescription* SourceMesh, const FDynamicMesh3* TargetMesh, TMeshTangents<float>* TangentsOut);
+protected:
+	/**
+	 * Applies an optional Linear-to-sRGB color transform on the input. The color transform
+	 * is controlled by bTransformVtxColorsLinearToSRGB.
+	 *
+	 * This is the counterpart to DynamicMeshToMeshDescription::ApplyVertexColorTransform to
+	 * undo an applied sRGB-to-Linear transformation when the MeshDescription was built.
+	 *
+	 * @param Color color to transform
+	 */
+	void ApplyVertexColorTransform(FVector4f& Color) const;
+
 };

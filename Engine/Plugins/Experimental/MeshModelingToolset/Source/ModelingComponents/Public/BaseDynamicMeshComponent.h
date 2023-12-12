@@ -234,6 +234,30 @@ protected:
 		unimplemented();
 	}
 
+	public:
+		/**
+		 * If true, render the Wireframe on top of the Shaded Mesh
+		 */
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dynamic Mesh Component|Rendering", meta = (DisplayName = "Wireframe Overlay"))
+		bool bExplicitShowWireframe = false;
+
+		/**
+		 * Configure whether wireframe rendering is enabled or not
+		 */
+		UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+		virtual void SetEnableWireframeRenderPass(bool bEnable) { bExplicitShowWireframe = bEnable; }
+
+		/**
+		 * @return true if wireframe rendering pass is enabled
+		 */
+		UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component")
+		virtual bool GetEnableWireframeRenderPass() const { return bExplicitShowWireframe; }
+
+		/**
+		 * Constant Color used when Override Color Mode is set to Constant
+		 */
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dynamic Mesh Component|Rendering", meta = (DisplayName = "Wireframe Color"))
+		FLinearColor WireframeColor = FLinearColor(0, 0.5f, 1.f);
 
 	//===============================================================================================================
 	// Built-in Color Rendering Support. When enabled, Color mode will override any assigned Materials.
@@ -296,15 +320,6 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Dynamic Mesh Component|Rendering")
 	virtual EDynamicMeshVertexColorTransformMode GetVertexColorSpaceTransformMode() const { return ColorSpaceMode; }
-
-
-
-public:
-
-	/**
-	 * Configure whether wireframe rendering is enabled or not
-	 */
-	virtual void SetEnableWireframeRenderPass(bool bEnable) { check(false); }
 
 	/**
 	 * @return true if wireframe rendering pass is enabled (default false)

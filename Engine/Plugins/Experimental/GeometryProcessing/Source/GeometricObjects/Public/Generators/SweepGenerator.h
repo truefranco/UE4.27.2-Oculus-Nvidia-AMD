@@ -14,7 +14,9 @@
 #include "FrameTypes.h"
 #include "HAL/PlatformCrt.h"
 #include "IndexTypes.h"
+#if !(PLATFORM_ANDROID || PLATFORM_IOS)
 #include "Math/UnrealMathSSE.h"
+#endif
 #include "Math/UnrealMathUtility.h"
 #include "Math/Vector.h"
 #include "Math/Vector2D.h"
@@ -106,7 +108,7 @@ protected:
 			CrossSectionTexCoord.Add(0.0f);
 			for (int Idx = 0; Idx < XSegments; Idx++)
 			{
-				float SegLen = float((CrossSection[Idx], CrossSection[(Idx + 1) % XSegments]).Distance((CrossSection[Idx], CrossSection[(Idx + 1) % XSegments])));
+				float SegLen = float(CrossSection[Idx].Distance(CrossSection[(Idx + 1) % XSegments]));
 				TotalPerimeter += SegLen;
 				CrossSectionTexCoord.Add(TotalPerimeter);
 			}
@@ -146,7 +148,7 @@ protected:
 			int NumPathSegs = bLoop ? Path.Num() : Path.Num() - 1;
 			for (int Idx = 0; Idx < NumPathSegs; Idx++)
 			{
-				float SegLen = float((Path[Idx], Path[(Idx + 1) % Path.Num()]).Distance((Path[Idx], Path[(Idx + 1) % Path.Num()])));
+				float SegLen = float(Path[Idx].Distance( Path[(Idx + 1) % Path.Num()]));
 				TotalPathLength += SegLen;
 				PathTexCoord.Add(TotalPathLength);
 			}
@@ -439,7 +441,8 @@ public:
 	bool bCapped = false;
 	bool bUVScaleMatchSidesAndCaps = true;
 	ECapType CapType = ECapType::FlatMidpointFan;
-
+#pragma warning( push )
+#pragma warning(disable: 4723)
 	static float ComputeSegLengths(const TArrayView<float>& Radii, const TArrayView<float>& Heights, TArray<float>& AlongPercents)
 	{
 		float LenAlong = 0;
@@ -448,17 +451,19 @@ public:
 		AlongPercents[0] = 0;
 		for (int XIdx = 0; XIdx+1 < NumX; XIdx++)
 		{
-			double Dist = ( FVector2d(Radii[XIdx], Heights[XIdx]), FVector2d(Radii[XIdx + 1], Heights[XIdx + 1]) ).Distance((FVector2d(Radii[XIdx], Heights[XIdx]), FVector2d(Radii[XIdx + 1], Heights[XIdx + 1])));
+			double Dist = FVector2d(Radii[XIdx], Heights[XIdx]).Distance( FVector2d(Radii[XIdx + 1], Heights[XIdx + 1]));
 			LenAlong += float(Dist);
 			AlongPercents[XIdx + 1] = LenAlong;
 		}
 		for (int XIdx = 0; XIdx+1 < NumX; XIdx++)
 		{
+
 			AlongPercents[XIdx+1] /= LenAlong;
+
 		}
 		return LenAlong;
 	}
-
+#pragma warning( pop )
 	bool GenerateVerticalCircleSweep(const TArrayView<float>& Radii, const TArrayView<float>& Heights, const TArrayView<int>& SharpNormalsAlongLength)
 	{
 		FPolygon2d X = FPolygon2d::MakeCircle(1.0, AngleSamples);
@@ -839,11 +844,12 @@ public:
 				Vertices[SubIdx + PathIdx * XNum] = C + X * XP.X + Y * XP.Y;
 				Normals[SubIdx + PathIdx * XNum] = (FVector3f)(X * XN.X + Y * XN.Y);
 			}
-
+#if	!PLATFORM_ANDROID
 			if (PathIdx < PathNum - 1)
 			{
-				AccumArcLength += (C, Path[PathIdx + 1]).Distance((C, Path[PathIdx + 1]));
+				AccumArcLength += C.Distance( Path[PathIdx + 1]);
 			}
+#endif
 		}
 		if (bCapped && !bLoop)
 		{

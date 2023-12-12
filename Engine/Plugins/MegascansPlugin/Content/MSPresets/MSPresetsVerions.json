@@ -1,0 +1,105 @@
+{
+	"materials" :
+	[
+		{
+			"materialName" : "Atlas_Material",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "Billboard_Material",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "BrushDecal_Material",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "Decal_MasterMaterial",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "Displacement_MasterMaterial",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "Foliage_Material",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "GlassMasterMaterial",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "Imperfection_MasterMaterial",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Cutout",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Cutout_CP",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Fade",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Fade_CP",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Fade_CP_UDIM",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Fade_UDIM",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Transparent",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Transparent_CP",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Transparent_CP_UDIM",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_Transparent_UDIM",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_DefaultMaterial",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_DefaultMaterial_CP",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_DefaultMaterial_CP_UDIM",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_DefaultMaterial_Displacement",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_DefaultMaterial_Fuzzy",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "MS_DefaultMaterial_UDIM",
+			"materialVersion" : 1.0
+		},
+		{
+			"materialName" : "SurfaceBlend_MasterMaterial",
+			"materialVersion" : 1.0
+		}
+	]
+}

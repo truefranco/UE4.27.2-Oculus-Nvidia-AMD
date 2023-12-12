@@ -753,7 +753,7 @@ void UDisplaceMeshTool::Setup()
 		DynamicMeshComponent->SetMaterial(k, MaterialSet.Materials[k]);
 	}
 
-	DynamicMeshComponent->TangentsType = EDynamicMeshTangentCalcType::AutoCalculated;
+	DynamicMeshComponent->SetTangentsType(EDynamicMeshTangentCalcType::AutoCalculated);
 	DynamicMeshComponent->InitializeMesh(ComponentTarget->GetMesh());
 	OriginalMesh.Copy(*DynamicMeshComponent->GetMesh());
 	OriginalMeshSpatial.SetMesh(&OriginalMesh, true);

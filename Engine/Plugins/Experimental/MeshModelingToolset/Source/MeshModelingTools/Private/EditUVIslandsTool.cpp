@@ -68,7 +68,7 @@ void UEditUVIslandsTool::Setup()
 	});
 
 	// dynamic mesh configuration settings
-	DynamicMeshComponent->TangentsType = EDynamicMeshTangentCalcType::AutoCalculated;
+	DynamicMeshComponent->SetTangentsType(EDynamicMeshTangentCalcType::AutoCalculated);
 	DynamicMeshComponent->InitializeMesh(ComponentTarget->GetMesh());
 	FMeshNormals::QuickComputeVertexNormals(*DynamicMeshComponent->GetMesh());
 	OnDynamicMeshComponentChangedHandle = DynamicMeshComponent->OnMeshChanged.Add(

@@ -17,10 +17,8 @@
 #include "Operations/MinimalHoleFiller.h"
 #include "Operations/PlanarFlipsOptimization.h"
 #include "Components/BrushComponent.h"
-
-#if WITH_EDITOR
 #include "Engine/Polys.h"
-#endif
+
 
 namespace VolumeToDynamicMeshLocals
 {

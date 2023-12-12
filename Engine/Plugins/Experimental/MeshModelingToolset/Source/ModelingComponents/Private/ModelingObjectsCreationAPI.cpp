@@ -162,7 +162,7 @@ FString UE::Modeling::GetComponentAssetBaseName(UPrimitiveComponent* Component, 
 	{
 		return TEXT("InvalidComponent");
 	}
-
+#if WITH_EDITOR
 	// default to the Actor Name (or Label in Editor) if this is the unique root component, otherwise use component name
 	FString ResultName = (Component->GetOwner()->GetRootComponent() == Component) ? 
 		Component->GetOwner()->GetActorNameOrLabel() : Component->GetName();
@@ -184,6 +184,9 @@ FString UE::Modeling::GetComponentAssetBaseName(UPrimitiveComponent* Component, 
 	}
 
 	return ResultName;
+#else
+	return TEXT("No Editor");
+#endif
 }
 
 

@@ -7,19 +7,6 @@ public class ModelingComponents : ModuleRules
 	public ModelingComponents(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		
-		PublicIncludePaths.AddRange(
-			new string[] {
-				// ... add public include paths required here ...
-			}
-			);
-				
-		
-		PrivateIncludePaths.AddRange(
-			new string[] {
-				// ... add other private include paths required here ...
-			}
-			);
 			
 		
 		PublicDependencyModuleNames.AddRange(
@@ -52,9 +39,7 @@ public class ModelingComponents : ModuleRules
 				"ImageWriteQueue",
 				"Slate",
 				"SlateCore",
-				"AssetTools",
-				"UnrealEd"
-
+				
 				//"MeshUtilities",    // temp for saving mesh asset
 				//"UnrealEd"
 				//"Slate",

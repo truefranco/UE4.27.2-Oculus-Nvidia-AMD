@@ -69,7 +69,7 @@ public:
 	TWeakObjectPtr<UBrushComponent> Component;
 	FAxisAlignedBox3d LocalBounds;
 	FTransform3d Transform;
-	FColliderMesh ColliderMesh;
+	
 	bool bDeferredRebuildPending;
 };
 
@@ -118,22 +118,7 @@ bool FSceneVolumeSpatial::FindNearestHit(
 		OnGeometryModified(false);
 		ensure(bDeferredRebuildPending == false);
 	}
-
-	FRay3d LocalRay = Transform.InverseTransformRay(WorldRay);
-	double RayHitT; int32 HitTID; FVector3d HitBaryCoords;
-	if ( ColliderMesh.FindNearestHitTriangle(LocalRay, RayHitT, HitTID) )
-	{
-		HitResultOut.Component = Component.Get();
-		HitResultOut.Actor = HitResultOut.Component->GetOwner();
-		HitResultOut.GeometryIndex = HitTID;
-		HitResultOut.GeometryType = EGeometryPointType::Triangle;
-		HitResultOut.PointBaryCoords = nullptr;
-		HitResultOut.LocalPoint = LocalRay.PointAt(RayHitT);
-		HitResultOut.WorldPoint = Transform.TransformPosition(HitResultOut.LocalPoint);
-		HitResultOut.Ray = WorldRay;
-		HitResultOut.RayDistance = WorldRay.GetParameter((FVector)HitResultOut.WorldPoint);
-		return true;
-	}
+	
 	return false;
 }
 
@@ -142,17 +127,8 @@ bool FSceneVolumeSpatial::GetGeometry(EGeometryPointType GeometryType, int32 Geo
 {
 	if (GeometryType == EGeometryPointType::Triangle)
 	{
-		if (ColliderMesh.IsTriangle(GeometryIndex))
-		{
-			ColliderMesh.GetTriVertices(GeometryIndex, A, B, C);
-			if (bWorldSpace)
-			{
-				A = Transform.TransformPosition(A);
-				B = Transform.TransformPosition(B);
-				C = Transform.TransformPosition(C);
-			}
-			return true;
-		}
+		return true;
+		
 	}
 	return false;
 }
@@ -160,7 +136,7 @@ bool FSceneVolumeSpatial::GetGeometry(EGeometryPointType GeometryType, int32 Geo
 
 void FSceneVolumeSpatial::OnGeometryModified(bool bDeferSpatialRebuild)
 {
-	ColliderMesh.Reset(false);
+	
 	if (IsValid() == false)
 	{
 		return;
@@ -185,7 +161,7 @@ void FSceneVolumeSpatial::OnGeometryModified(bool bDeferSpatialRebuild)
 		Options.bOptimizeMesh = false;
 		FDynamicMesh3 TmpMesh;
 		UE::Conversion::VolumeToDynamicMesh(Volume, TmpMesh, Options);
-		ColliderMesh.Initialize(TmpMesh);
+		
 	}
 
 	bDeferredRebuildPending = false;

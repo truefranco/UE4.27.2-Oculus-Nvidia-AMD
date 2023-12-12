@@ -212,6 +212,7 @@ void UCombineMeshesTool::CreateNewAsset()
 	AccumulateDMesh.EnableTriangleGroups();
 	AccumulateDMesh.EnableAttributes();
 	AccumulateDMesh.Attributes()->EnableMaterialID();
+	AccumulateDMesh.Attributes()->EnablePrimaryColors();
 	FTransform AccumToWorld(Box.GetCenter());
 	FTransform ToAccum(-Box.GetCenter());
 
@@ -362,6 +363,7 @@ void UCombineMeshesTool::UpdateExistingAsset()
 	AccumulateDMesh.EnableTriangleGroups();
 	AccumulateDMesh.EnableAttributes();
 	AccumulateDMesh.Attributes()->EnableMaterialID();
+	AccumulateDMesh.Attributes()->EnablePrimaryColors();
 
 	int32 SkipIndex = (BasicProperties->WriteOutputTo == ECombineTargetType::FirstInputAsset) ? 0 : (ComponentTargets.Num() - 1);
 	TUniquePtr<FPrimitiveComponentTarget>& UpdateTarget = ComponentTargets[SkipIndex];

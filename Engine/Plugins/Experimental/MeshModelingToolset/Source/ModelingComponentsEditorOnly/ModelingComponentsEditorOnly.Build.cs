@@ -48,6 +48,7 @@ public class ModelingComponentsEditorOnly : ModuleRules
                 "RenderCore",
 				"PhysicsCore",
 				"Slate",
+				"SlateCore",
                 "RHI",
 				"AssetTools",
 				"UnrealEd", 

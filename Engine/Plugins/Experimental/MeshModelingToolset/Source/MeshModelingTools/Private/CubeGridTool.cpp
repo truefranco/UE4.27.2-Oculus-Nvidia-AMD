@@ -127,7 +127,7 @@ namespace CubeGridToolLocals
 			bool bHaveStartSelectionBeforeIn, bool bHaveStartSelectionAfterIn,
 			const UCubeGridTool::FSelection& SelectionBeforeIn,
 			const UCubeGridTool::FSelection& SelectionAfterIn
-			)
+		)
 			: bHaveStartSelectionBefore(bHaveStartSelectionBeforeIn)
 			, bHaveStartSelectionAfter(bHaveStartSelectionAfterIn)
 			, SelectionBefore(SelectionBeforeIn)
@@ -201,10 +201,10 @@ namespace CubeGridToolLocals
 	class FCornerModeExtrudeAmountChange : public FToolCommandChange
 	{
 	public:
-		FCornerModeExtrudeAmountChange(int32 ExtrudeAmountBeforeIn, int32 ExtrudeAmountAfterIn) 
+		FCornerModeExtrudeAmountChange(int32 ExtrudeAmountBeforeIn, int32 ExtrudeAmountAfterIn)
 			: ExtrudeAmountBefore(ExtrudeAmountBeforeIn)
 			, ExtrudeAmountAfter(ExtrudeAmountAfterIn)
-		
+
 		{};
 
 		virtual bool HasExpired(UObject* Object) const override
@@ -287,7 +287,7 @@ namespace CubeGridToolLocals
 			return TEXT("CubeGridToolLocals::FCubeGridChangesMadeChange");
 		}
 	};
-	
+
 	// Attach a frame to the box such that Z points along the given direction.
 	// If we change the choices we make here, we may need to adjust how we pick the welded vertices in
 	// subtract mode (i.e., which way the values are mirrored when Z is flipped) and the output of
@@ -316,7 +316,7 @@ namespace CubeGridToolLocals
 		return FOrientedBox3d(FFrame3d(Box.Center(), GridSpaceX, GridSpaceY, GridSpaceZ), BoxExtents);
 	}
 
-	
+
 	// Based on direction of the operation, figures out how the faces of the opmesh need to be rotated
 	// relative to the UV plane to make the UV's always keep the same orientation relative to the grid.
 	// This depends on the choices we make in ConvertToOrientedBox, and is hard to reason through without
@@ -326,27 +326,27 @@ namespace CubeGridToolLocals
 	{
 		switch (Direction)
 		{
-			case FCubeGrid::EFaceDirection::NegativeZ:
-				return TArray<int32, TFixedAllocator<6>>{ 2, 2, 2, 2, 2, 2 };
-				break;
-			case FCubeGrid::EFaceDirection::PositiveX:
-				return TArray<int32, TFixedAllocator<6>>{ 0, 0, 3, 1, 3, 1 };
-				break;
-			case FCubeGrid::EFaceDirection::NegativeX:
-				return TArray<int32, TFixedAllocator<6>>{ 2, 2, 3, 1, 1, 3 };
-				break;
-			case FCubeGrid::EFaceDirection::PositiveY:
-				return TArray<int32, TFixedAllocator<6>>{ 2, 2, 0, 0, 1, 3 };
-				break;
-			case FCubeGrid::EFaceDirection::NegativeY:
-				return TArray<int32, TFixedAllocator<6>>{ 0, 0, 2, 2, 3, 1 };
-				break;
+		case FCubeGrid::EFaceDirection::NegativeZ:
+			return TArray<int32, TFixedAllocator<6>>{ 2, 2, 2, 2, 2, 2 };
+			break;
+		case FCubeGrid::EFaceDirection::PositiveX:
+			return TArray<int32, TFixedAllocator<6>>{ 0, 0, 3, 1, 3, 1 };
+			break;
+		case FCubeGrid::EFaceDirection::NegativeX:
+			return TArray<int32, TFixedAllocator<6>>{ 2, 2, 3, 1, 1, 3 };
+			break;
+		case FCubeGrid::EFaceDirection::PositiveY:
+			return TArray<int32, TFixedAllocator<6>>{ 2, 2, 0, 0, 1, 3 };
+			break;
+		case FCubeGrid::EFaceDirection::NegativeY:
+			return TArray<int32, TFixedAllocator<6>>{ 0, 0, 2, 2, 3, 1 };
+			break;
 		}
 		// FCubeGrid::EFaceDirection::PositiveZ:
 		return TArray<int32, TFixedAllocator<6>>{ 0, 0, 0, 0, 0, 0 };
 	}
 
-	void GetNewSelectionFaceInBox(const FCubeGrid& Grid, const FAxisAlignedBox3d& Box, 
+	void GetNewSelectionFaceInBox(const FCubeGrid& Grid, const FAxisAlignedBox3d& Box,
 		const FCubeGrid::FCubeFace& FaceIn, FCubeGrid::FCubeFace& FaceOut)
 	{
 		// Start at the corner of the selection and move a little bit to make sure
@@ -401,7 +401,7 @@ namespace CubeGridToolLocals
 		return false;
 	}
 
-	/** 
+	/**
 	 * @param CornerVector Lines to draw on the corners, for instance to show the depth direction
 	 */
 	void DrawGridRectangle(ULineSetComponent& LineSet, const FCubeGrid& Grid,
@@ -434,9 +434,9 @@ namespace CubeGridToolLocals
 
 	const int32 MAX_NUM_INTERIOR_GRID_LINES = 1000;
 
-	void DrawGridSection(ULineSetComponent& LineSet, const FCubeGrid& Grid, 
+	void DrawGridSection(ULineSetComponent& LineSet, const FCubeGrid& Grid,
 		const FAxisAlignedBox3d& BBox,
-		const FColor& Color, double Thickness, 
+		const FColor& Color, double Thickness,
 		double DepthBias, const FVector3d* CornerVector = nullptr)
 	{
 		// Draw the boundary
@@ -458,33 +458,33 @@ namespace CubeGridToolLocals
 		// Draws lines that lie in the DimToDrawAlong dimension, along border in DimToStepAlong dimension
 		auto DrawParallelInteriorLines = [&BBox, &LineSet, &Grid, &Color, &BoxDimensions, StepSize,
 			Thickness, DepthBias](int32 DimToStepAlong, int32 DimToDrawAlong)
-		{
-			FVector3d BorderDirection = FVector3d::Zero();
-			BorderDirection[DimToStepAlong] = StepSize;
-
-			int NumSteps = BoxDimensions[DimToStepAlong] / StepSize;
-			if (NumSteps * StepSize == BoxDimensions[DimToStepAlong])
 			{
-				--NumSteps;
-			}
+				FVector3d BorderDirection = FVector3d::Zero();
+				BorderDirection[DimToStepAlong] = StepSize;
 
-			for (int32 i = 0; i < NumSteps; ++i)
-			{
-				FVector3d SidePoint = BBox.Min + BorderDirection * (i + 1);
-				FVector3d OtherSidePoint = SidePoint;
-				OtherSidePoint[DimToDrawAlong] = BBox.Max[DimToDrawAlong];
+				int NumSteps = BoxDimensions[DimToStepAlong] / StepSize;
+				if (NumSteps * StepSize == BoxDimensions[DimToStepAlong])
+				{
+					--NumSteps;
+				}
+
+				for (int32 i = 0; i < NumSteps; ++i)
+				{
+					FVector3d SidePoint = BBox.Min + BorderDirection * (i + 1);
+					FVector3d OtherSidePoint = SidePoint;
+					OtherSidePoint[DimToDrawAlong] = BBox.Max[DimToDrawAlong];
 
 				LineSet.AddLine((FVector)SidePoint, (FVector)OtherSidePoint, Color, Thickness, DepthBias);
-			}
-		};
+				}
+			};
 		DrawParallelInteriorLines(Dim1, Dim2);
 		DrawParallelInteriorLines(Dim2, Dim1);
 	}
 
 	/** Given a world hit, get a hit face. */
-	void ConvertToFaceHit(const FCubeGrid& CubeGrid, ECubeGridToolFaceSelectionMode SelectionMode, 
-		 const FRay& WorldRay, double HitT, const FVector3d& Normal, FCubeGrid::FCubeFace& FaceOut,
-		 double Tolerance)
+	void ConvertToFaceHit(const FCubeGrid& CubeGrid, ECubeGridToolFaceSelectionMode SelectionMode,
+		const FRay& WorldRay, double HitT, const FVector3d& Normal, FCubeGrid::FCubeFace& FaceOut,
+		double Tolerance)
 	{
 		FVector3d WorldPoint = WorldRay.PointAt(HitT);
 		bool bSuccess = false;
@@ -508,14 +508,14 @@ namespace CubeGridToolLocals
 	}
 
 	/**
-	 * Given a world ray and a flat box in grid frame space, intersect the ray with the plane containing the box, 
-	 * find the selected cell in the cube grid, and project that cell onto the same plane to produce a new frame 
+	 * Given a world ray and a flat box in grid frame space, intersect the ray with the plane containing the box,
+	 * find the selected cell in the cube grid, and project that cell onto the same plane to produce a new frame
 	 * space box.
-	 * 
+	 *
 	 * @param bExpandBoxWithStartBox If true, the output is expanded to contain the original box.
 	 * @return true If the plane was actually hit.
 	 */
-	bool GetCoplanarFrameSpaceSelectedBox(const FCubeGrid& CubeGrid, const FRay& WorldRay, 
+	bool GetCoplanarFrameSpaceSelectedBox(const FCubeGrid& CubeGrid, const FRay& WorldRay,
 		const FAxisAlignedBox3d& StartBox, bool bExpandOutputBoxWithStartBox, FAxisAlignedBox3d& BoxOut)
 	{
 		FVector3d BoxDims = StartBox.Max - StartBox.Min;
@@ -534,7 +534,7 @@ namespace CubeGridToolLocals
 		GizmoMath::RayPlaneIntersectionPoint(
 			(FVector)CubeGrid.GetFrame().FromFramePoint(StartBox.Min),
 			(FVector)CubeGrid.GetFrame().GetAxis(FlatDim),
-			WorldRay.Origin, WorldRay.Direction, 
+			WorldRay.Origin, WorldRay.Direction,
 			bIntersects, IntersectionPoint);
 
 		if (!bIntersects)
@@ -656,7 +656,7 @@ TUniquePtr<FDynamicMeshOperator> UCubeGridTool::MakeNewOperator()
 		TransformFrame.Origin = TransformFrame.FromFramePoint(Selection.Box.Min);
 		Op->InputTransform = TransformFrame.ToTransform();
 	}
-	
+
 	Op->bKeepInputTransform = true;
 	Op->WorldBox = WorldBox;
 	Op->bSubtract = CurrentExtrudeAmount < 0;
@@ -792,11 +792,11 @@ void UCubeGridTool::Setup()
 	MaterialProperties = NewObject<UNewMeshMaterialProperties>(this);
 	// Change the default by setting it before restoring
 	MaterialProperties->bWorldSpaceUVScale = true;
-	MaterialProperties->RestoreProperties(this);
+	MaterialProperties->RestoreProperties(this, PropertyCacheIdentifier);
 	AddToolPropertySource(MaterialProperties);
 
 	CurrentMesh = MakeShared<FDynamicMesh3, ESPMode::ThreadSafe>();
-    CurrentMesh->EnableAttributes();
+	CurrentMesh->EnableAttributes();
 	CurrentMeshMaterials.Empty();
 
 	if (Target)
@@ -811,7 +811,7 @@ void UCubeGridTool::Setup()
 		
 	}
 
-    MeshSpatial = MakeShared<FDynamicMeshAABBTree3, ESPMode::ThreadSafe>();
+	MeshSpatial = MakeShared<FDynamicMeshAABBTree3, ESPMode::ThreadSafe>();
 	MeshSpatial->SetMesh(CurrentMesh.Get(), true);
 
 	Preview = NewObject<UMeshOpPreviewWithBackgroundCompute>(this);
@@ -836,9 +836,9 @@ void UCubeGridTool::Setup()
 			{
 				OpMeshAddSideGroups = Op->OpMeshSideGroups;
 			}
-			
+
 		}
-	});
+		});
 	UpdateOpMaterials();
 
 	CubeGrid = MakeShared<FCubeGrid, ESPMode::ThreadSafe>();
@@ -852,7 +852,7 @@ void UCubeGridTool::Setup()
 
 	GridGizmoTransformProxy = NewObject<UTransformProxy>(this);
 	GridGizmoTransformProxy->SetTransform(GridTransform);
-	GridGizmoTransformProxy->OnBeginTransformEdit.AddWeakLambda(this, [this](UTransformProxy* Proxy) 
+	GridGizmoTransformProxy->OnBeginTransformEdit.AddWeakLambda(this, [this](UTransformProxy* Proxy)
 		{
 			bInGizmoDrag = true;
 		});
@@ -883,7 +883,7 @@ void UCubeGridTool::Setup()
 	LineSets->SetAllLineSetsMaterial(ToolSetupUtil::GetDefaultLineComponentMaterial(GetToolManager(), /*bDepthTested*/ false));
 
 	LineSets->AddLineSet(GridLineSetID);
-	LineSets->SetLineSetMaterial(GridLineSetID, 
+	LineSets->SetLineSetMaterial(GridLineSetID,
 		ToolSetupUtil::GetDefaultLineComponentMaterial(GetToolManager(), /*bDepthTested*/ true));
 
 	UpdateGridLineSet();
@@ -905,16 +905,16 @@ void UCubeGridTool::Setup()
 	CtrlMiddleClickBehavior->SetUseMiddleMouseButton();
 	CtrlMiddleClickBehavior->ModifierCheckFunc = [this](const FInputDeviceState& InputState) {
 		return FInputDeviceState::IsCtrlKeyDown(InputState);
-	};
+		};
 	CtrlMiddleClickBehavior->IsHitByClickFunc = [this](const FInputDeviceRay& InputRay) {
 		FCubeGrid::FCubeFace Face;
 		FInputRayHit OutResult;
 		OutResult.bHit = GetHitGridFace(InputRay.WorldRay, Face);
 		return OutResult;
-	};
+		};
 	CtrlMiddleClickBehavior->OnClickedFunc = [this](const FInputDeviceRay& ClickPos) {
 		OnCtrlMiddleClick(ClickPos);
-	};
+		};
 	AddInputBehavior(CtrlMiddleClickBehavior);
 
 	MiddleClickDragBehavior = NewObject<ULocalClickDragInputBehavior>();
@@ -922,23 +922,23 @@ void UCubeGridTool::Setup()
 	MiddleClickDragBehavior->SetUseMiddleMouseButton();
 	MiddleClickDragBehavior->ModifierCheckFunc = [this](const FInputDeviceState& InputState) {
 		return !FInputDeviceState::IsCtrlKeyDown(InputState);
-	};
+		};
 	MiddleClickDragBehavior->CanBeginClickDragFunc = [this](const FInputDeviceRay& ClickPos) {
 		return CanBeginMiddleClickDrag(ClickPos);
-	};
+		};
 	MiddleClickDragBehavior->OnClickPressFunc = [this](const FInputDeviceRay& ClickPos) {
 		PrepForSelectionChange();
-		RayCastSelectionPlane(ClickPos.WorldRay, MiddleClickDragStart);
-	};
+		RayCastSelectionPlane((FRay3d)ClickPos.WorldRay, MiddleClickDragStart);
+		};
 	MiddleClickDragBehavior->OnClickDragFunc = [this](const FInputDeviceRay& ClickPos) {
 		OnMiddleClickDrag(ClickPos);
-	};
+		};
 	MiddleClickDragBehavior->OnClickReleaseFunc = [this](const FInputDeviceRay&) {
 		EndSelectionChange();
-	};
+		};
 	MiddleClickDragBehavior->OnTerminateFunc = [this]() {
 		EndSelectionChange();
-	};
+		};
 	AddInputBehavior(MiddleClickDragBehavior);
 
 	GridPowerWatcherIdx = Settings->WatchProperty(Settings->GridPower,
@@ -947,28 +947,28 @@ void UCubeGridTool::Setup()
 		});
 
 	auto ChangeCurrentBlockSize = [this](double BlockSizeIn)
-	{
-		ClearHover();
+		{
+			ClearHover();
 
-		CubeGrid->SetCurrentGridCellSize(BlockSizeIn);
+			CubeGrid->SetCurrentGridCellSize(BlockSizeIn);
 
-		// Update our views of size. The current block size may end up slightly different due to 
-		// rounding error, since it's actually the base block size that is authoratative in cubegrid.
-		Settings->CurrentBlockSize = CubeGrid->GetCurrentGridCellSize();
-		Settings->BlockBaseSize = CubeGrid->GetBaseGridCellSize();
+			// Update our views of size. The current block size may end up slightly different due to 
+			// rounding error, since it's actually the base block size that is authoratative in cubegrid.
+			Settings->CurrentBlockSize = CubeGrid->GetCurrentGridCellSize();
+			Settings->BlockBaseSize = CubeGrid->GetBaseGridCellSize();
 
-		Settings->SilentUpdateWatcherAtIndex(CurrentBlockSizeWatcherIdx);
-		Settings->SilentUpdateWatcherAtIndex(BlockBaseSizeWatcherIdx);
-		NotifyOfPropertyChangeByTool(Settings);
+			Settings->SilentUpdateWatcherAtIndex(CurrentBlockSizeWatcherIdx);
+			Settings->SilentUpdateWatcherAtIndex(BlockBaseSizeWatcherIdx);
+			NotifyOfPropertyChangeByTool(Settings);
 
-		UpdateSelectionLineSet();
-		UpdateGridLineSet();
-	};
+			UpdateSelectionLineSet();
+			UpdateGridLineSet();
+		};
 
 	Settings->WatchProperty(Settings->bPowerOfTwoBlockSizes,
 		[ChangeCurrentBlockSize, this](bool bOn) {
 			CubeGrid->SetGridPowerMode(Settings->bPowerOfTwoBlockSizes ? FCubeGrid::EPowerMode::PowerOfTwo : FCubeGrid::EPowerMode::FiveAndTen);
-			
+
 			// We reset grid power and cell size to default. The reason we do this is because a user is likely to
 			// only change this setting if they want the cube sizes to match up to editor grid snapping values. This
 			// requires the grid size to be set a particular way, and while a user could realize this and set it
@@ -995,7 +995,7 @@ void UCubeGridTool::Setup()
 			UpdateSelectionLineSet();
 			UpdateGridLineSet();
 		});
-	
+
 
 	Settings->WatchProperty(Settings->bShowGizmo,
 		[this](bool bOn) {
@@ -1052,7 +1052,7 @@ void UCubeGridTool::Setup()
 
 	if (Target)
 	{
-		GetToolManager()->DisplayMessage(LOCTEXT("EditingExistingAssetLabel", "Editing existing asset."), 
+		GetToolManager()->DisplayMessage(LOCTEXT("EditingExistingAssetLabel", "Editing existing asset."),
 			EToolMessageLevel::UserWarning);
 	}
 	else
@@ -1071,7 +1071,8 @@ void UCubeGridTool::UpdateOpMaterials()
 		OpMeshMaterialID = PreviewMaterials.Add(MaterialProperties->Material.Get());
 	}
 
-	Preview->ConfigureMaterials(PreviewMaterials, ToolSetupUtil::GetDefaultWorkingMaterial(GetToolManager()));
+	Preview->ConfigureMaterials(PreviewMaterials, 
+		ToolSetupUtil::GetDefaultWorkingMaterial(GetToolManager()));
 }
 
 void UCubeGridTool::UpdateComputeInputs()
@@ -1084,7 +1085,8 @@ void UCubeGridTool::Shutdown(EToolShutdownType ShutdownType)
 	using namespace CubeGridToolLocals;
 
 	Settings->SaveProperties(this);
-	MaterialProperties->SaveProperties(this);
+	MaterialProperties->SaveProperties(this, PropertyCacheIdentifier);
+	OutputTypeProperties->SaveProperties(this);
 
 	if (Mode == EMode::Corner)
 	{
@@ -1106,7 +1108,7 @@ void UCubeGridTool::Shutdown(EToolShutdownType ShutdownType)
 		EAppReturnType::Type Ret = FMessageDialog::Open(EAppMsgType::YesNo,
 			LOCTEXT("AcceptChangesQuestion", "The tool is being cancelled, which normally discards all changes. "
 				"Would you like to apply the changes instead?\n\n Selecting \"No\" or closing this window will "
-				"discard the tool's current work." 
+				"discard the tool's current work."
 			    "AcceptChangesTitle Accept changes instead?"));
 		if (Ret == EAppReturnType::Yes)
 		{
@@ -1136,7 +1138,7 @@ void UCubeGridTool::Shutdown(EToolShutdownType ShutdownType)
 						"operating on seems to no longer be valid (it was likely forcibly removed). "
 						"Would you like to recreate a new asset from the tool's current working "
 						"mesh? Selecting \"No\" or closing this window will discard the tool's "
-						"current work." 
+						"current work."
 					    "RecreateAssetTitle" "Recreate Mesh Asset?"));
 				if (Ret == EAppReturnType::Yes)
 				{
@@ -1164,19 +1166,6 @@ void UCubeGridTool::Shutdown(EToolShutdownType ShutdownType)
 
 			GetToolManager()->EndUndoTransaction();
 		}
-		/*{
-			GetToolManager()->BeginUndoTransaction(LOCTEXT("CubeGridToolCreateTransactionName", "Cube Grid Create New"));
-			AActor* NewActor = AssetGenerationUtil::GenerateStaticMeshActor(
-				AssetAPI, TargetWorld,
-				CurrentMesh.Get(), (FTransform3d)CurrentMeshTransform, TEXT("CubeGridToolOutput"), MaterialProperties->Material.Get());
-			if (NewActor != nullptr)
-			{
-				ToolSelectionUtil::SetNewActorSelection(GetToolManager(), NewActor);
-			}
-			
-
-			GetToolManager()->EndUndoTransaction();
-		}*/
 	}
 
 	Preview->OnOpCompleted.RemoveAll(this);
@@ -1206,7 +1195,7 @@ void UCubeGridTool::OnTick(float DeltaTime)
 		PendingAction = ECubeGridToolAction::NoAction;
 	}
 
-	if (bWaitingToApplyPreview && 
+	if (bWaitingToApplyPreview &&
 		// Note that the check for bPreviewMayDiffer is needed, because when we do a forced
 		// reset, HaveValidResult() returns false, yet we may still want to do an application
 		// to slide the selection.
@@ -1230,13 +1219,11 @@ void UCubeGridTool::ApplyPreview()
 	// See if we're actually making a change to the mesh.
 	if (CurrentExtrudeAmount > 0 || (CurrentExtrudeAmount < 0 && LastOpChangedTids.IsValid() && LastOpChangedTids->Num() > 0))
 	{
-		//FDynamicMesh3* Mesh = DynamicMeshComponent->GetMesh();
 		FDynamicMeshChangeTracker ChangeTracker(CurrentMesh.Get());
 		ChangeTracker.BeginChange();
 		ChangeTracker.SaveTriangles(*LastOpChangedTids, true /*bSaveVertices*/);
 
 		// Update current mesh
-		
 		bool bWasValid = Preview->ProcessCurrentMesh([this](const FDynamicMesh3& Mesh)
 			{
 				CurrentMesh->Copy(Mesh);
@@ -1251,7 +1238,7 @@ void UCubeGridTool::ApplyPreview()
 		if (!FTransform(CurrentMeshTransform).Equals(Preview->PreviewMesh->GetTransform()))
 		{
 			CurrentMeshTransform = (FTransform3d)Preview->PreviewMesh->GetTransform();
-			GridGizmoAlignmentMechanic->InitializeDeformedMeshRayCast([this]() { return MeshSpatial.Get(); }, 
+			GridGizmoAlignmentMechanic->InitializeDeformedMeshRayCast([this]() { return MeshSpatial.Get(); },
 				CurrentMeshTransform, nullptr);
 		}
 
@@ -1326,7 +1313,7 @@ void UCubeGridTool::OnPropertyModified(UObject* PropertySet, FProperty* Property
 {
 }
 
-void UCubeGridTool::ClearHover() 
+void UCubeGridTool::ClearHover()
 {
 	if (bHaveHoveredSelection)
 	{
@@ -1391,7 +1378,7 @@ void UCubeGridTool::OnCtrlMiddleClick(const FInputDeviceRay& ClickPos)
 	}
 
 	GetToolManager()->BeginUndoTransaction(LOCTEXT("QuickAdjustGizmo", "Transform Gizmo"));
-	
+
 	// Adjust the selection if needed
 	if (bHaveSelection)
 	{
@@ -1416,7 +1403,7 @@ void UCubeGridTool::OnCtrlMiddleClick(const FInputDeviceRay& ClickPos)
 }
 
 // Tries to intersect the selected box. Used for middle mouse dragging the selection.
-FInputRayHit UCubeGridTool::RayCastSelectionPlane(const FRay& WorldRay,
+FInputRayHit UCubeGridTool::RayCastSelectionPlane(const FRay3d& WorldRay,
 	FVector3d& HitPointOut)
 {
 	FVector3d Normal = CubeGrid->GetFrame().FromFrameVector(
@@ -1426,11 +1413,11 @@ FInputRayHit UCubeGridTool::RayCastSelectionPlane(const FRay& WorldRay,
 	FVector HitPoint;
 	GizmoMath::RayPlaneIntersectionPoint((FVector)CubeGrid->GetFrame().FromFramePoint(Selection.Box.Min), (FVector)Normal,
 		(FVector)WorldRay.Origin, (FVector)WorldRay.Direction, HitResult.bHit, HitPoint);
-	
+
 	if (HitResult.bHit)
 	{
 		HitPointOut = HitPoint;
-		HitResult = FInputRayHit(WorldRay.GetParameter((FVector)HitPointOut));
+		HitResult = FInputRayHit(WorldRay.GetParameter(HitPointOut));
 	}
 	return HitResult;
 }
@@ -1444,7 +1431,7 @@ FInputRayHit UCubeGridTool::CanBeginMiddleClickDrag(const FInputDeviceRay& Click
 	}
 
 	FVector3d WorldHitPoint;
-	HitResult = RayCastSelectionPlane(ClickPos.WorldRay, WorldHitPoint);
+	HitResult = RayCastSelectionPlane((FRay3d)ClickPos.WorldRay, WorldHitPoint);
 
 	int FlatDim = FCubeGrid::DirToFlatDim(Selection.Direction);
 
@@ -1463,16 +1450,16 @@ void UCubeGridTool::OnMiddleClickDrag(const FInputDeviceRay& DragPos)
 	}
 
 	FVector3d MiddleClickDragEnd;
-	RayCastSelectionPlane(DragPos.WorldRay, MiddleClickDragEnd);
-	FVector3d DisplacementInGridFrame = CubeGrid->GetFrame().ToFrameVector(MiddleClickDragEnd - MiddleClickDragStart); 
-	
+	RayCastSelectionPlane((FRay3d)DragPos.WorldRay, MiddleClickDragEnd);
+	FVector3d DisplacementInGridFrame = CubeGrid->GetFrame().ToFrameVector(MiddleClickDragEnd - MiddleClickDragStart);
+
 	// Clamp the relevant dimension in the displacement vector
 	DisplacementInGridFrame[FCubeGrid::DirToFlatDim(Selection.Direction)] = 0;
 
 	// Make the displacement be a multiple of the current grid cell size
 	DisplacementInGridFrame /= CubeGrid->GetCurrentGridCellSize();
 	DisplacementInGridFrame = FVector3d(
-		FMath::RoundToDouble(DisplacementInGridFrame.X), 
+		FMath::RoundToDouble(DisplacementInGridFrame.X),
 		FMath::RoundToDouble(DisplacementInGridFrame.Y),
 		FMath::RoundToDouble(DisplacementInGridFrame.Z));
 	DisplacementInGridFrame *= CubeGrid->GetCurrentGridCellSize();
@@ -1616,7 +1603,7 @@ bool UCubeGridTool::GetHitGridFace(const FRay& WorldRay, FCubeGrid::FCubeFace& F
 			&& HitResult.Distance < BestHitT)
 		{
 			BestHitT = HitResult.Distance;
-			ConvertToFaceHit(*CubeGrid, Settings->FaceSelectionMode, 
+			ConvertToFaceHit(*CubeGrid, Settings->FaceSelectionMode,
 				WorldRay, BestHitT, HitResult.ImpactNormal, FaceOut, Settings->PlaneTolerance);
 		}
 	}
@@ -1635,7 +1622,7 @@ bool UCubeGridTool::GetHitGridFace(const FRay& WorldRay, FCubeGrid::FCubeFace& F
 			{
 				BestHitT = HitT;
 				ConvertToFaceHit(*CubeGrid, Settings->FaceSelectionMode,
-					WorldRay, BestHitT, CurrentMeshTransform.TransformNormal(CurrentMesh->GetTriNormal(Tid)), 
+					WorldRay, BestHitT, CurrentMeshTransform.TransformNormal(CurrentMesh->GetTriNormal(Tid)),
 					FaceOut, Settings->PlaneTolerance);
 			}
 		}
@@ -1701,7 +1688,7 @@ void UCubeGridTool::OnClickPress(const FInputDeviceRay& PressPos)
 		{
 			UpdateSelectionLineSet();
 		}
-	} 
+	}
 	else if (GetHitGridFace(PressPos.WorldRay, HitFace))
 	{
 		// Reset start of the selection
@@ -1804,8 +1791,8 @@ void UCubeGridTool::OnClickRelease(const FInputDeviceRay& ReleasePos)
 		}
 		else if (Mode == EMode::Corner && CurrentExtrudeAmount != DragStartExtrudeAmount)
 		{
-			GetToolManager()->EmitObjectChange(this, 
-				MakeUnique<FCornerModeExtrudeAmountChange>(DragStartExtrudeAmount, CurrentExtrudeAmount), 
+			GetToolManager()->EmitObjectChange(this,
+				MakeUnique<FCornerModeExtrudeAmountChange>(DragStartExtrudeAmount, CurrentExtrudeAmount),
 				CornerModeExtrudeAmountChangeTransactionName);
 		}
 	}
@@ -1849,7 +1836,7 @@ void UCubeGridTool::AttemptToSelectCorner(const FRay3d& WorldRay)
 			// dividing our field of view into 90 visual angle degrees, we divide the plane into 90 units).
 			float OrthoTolerance = ToolSceneQueriesUtil::GetDefaultVisualAngleSnapThreshD() * CameraState.OrthoWorldCoordinateWidth / 90.0;
 			OrthoTolerance *= ToleranceScale;
-			return FVector::DistSquared((FVector)Position1, (FVector)Position2) < OrthoTolerance * OrthoTolerance;
+			return (Position1.DistanceSquared( Position2)) < OrthoTolerance * OrthoTolerance;
 		}
 		else
 		{
@@ -1884,7 +1871,7 @@ void UCubeGridTool::UpdateSelectionLineSet()
 			SelectionMainLineThickness, SelectionLineDepthBias);
 		DrawGridRectangle(*LineSet, *CubeGrid, Selection.Box.Min, Selection.Box.Max, SelectionLineColor,
 			SelectionMainLineThickness, SelectionLineDepthBias);
-		DrawGridSection(*LineSet, *CubeGrid, Selection.Box, SelectionLineColor, 
+		DrawGridSection(*LineSet, *CubeGrid, Selection.Box, SelectionLineColor,
 			SelectionGridLineThickness, SelectionLineDepthBias, &CornerVector);
 
 		if (Mode == EMode::Corner)
@@ -2030,7 +2017,7 @@ void UCubeGridTool::UpdateCornerModeLineSet()
 			DiagStartIdx = 1;
 		}
 		DiagStartIdx = Settings->bCrosswiseDiagonal ? 1 - DiagStartIdx : DiagStartIdx;
-		
+
 		bool bDiagonalWelded = CornerWelded[DiagStartIdx] && CornerWelded[DiagStartIdx + 2];
 		int DeletedVert = -1;
 		if (bDiagonalWelded)
@@ -2045,7 +2032,7 @@ void UCubeGridTool::UpdateCornerModeLineSet()
 			}
 		}
 
-		FVector3d CornerExtrudeVector = CubeGrid->GetCurrentGridCellSize() * CurrentExtrudeAmount 
+		FVector3d CornerExtrudeVector = CubeGrid->GetCurrentGridCellSize() * CurrentExtrudeAmount
 			* FCubeGrid::DirToNormal(Selection.Direction);
 
 		for (int i = 0; i < 4; ++i)
@@ -2157,7 +2144,7 @@ void UCubeGridTool::SetGridPowerClamped(int32 GridPower)
 
 	Settings->CurrentBlockSize = CubeGrid->GetCurrentGridCellSize();
 	Settings->SilentUpdateWatcherAtIndex(CurrentBlockSizeWatcherIdx);
-	
+
 	NotifyOfPropertyChangeByTool(Settings);
 
 	if (Mode == EMode::Corner)
@@ -2175,22 +2162,22 @@ void UCubeGridTool::SetGridPowerClamped(int32 GridPower)
 		{
 			// Needs to match behavior in CubeGrid.cpp. We would probably expose it if we used this code block.
 			auto GetMultiplierForGridPower = [](bool bPowerOfTwo, uint8 GridPower)
-			{
-				if (bPowerOfTwo)
 				{
-					// This is split up into two statements to avoid a static analysis warning about
-					// shifting a 32 bit value and casting to a 64 bit value.
-					uint32 ShiftedResult = static_cast<uint32>(1) << GridPower;
-					return static_cast<double>(ShiftedResult);
-				}
-				else
-				{
-					// For FiveAndTen, we multiply  by 2 half the time and by 5 the second half, rounding up for 2's.
-					uint8 FloorHalfGridPower = GridPower / 2;
-					uint32 TwoMultiplier = static_cast<uint32>(1) << (GridPower - FloorHalfGridPower);
-					return (double)TwoMultiplier * FMath::Pow(5.0, static_cast<double>(FloorHalfGridPower));
-				}
-			};
+					if (bPowerOfTwo)
+					{
+						// This is split up into two statements to avoid a static analysis warning about
+						// shifting a 32 bit value and casting to a 64 bit value.
+						uint32 ShiftedResult = static_cast<uint32>(1) << GridPower;
+						return static_cast<double>(ShiftedResult);
+					}
+					else
+					{
+						// For FiveAndTen, we multiply  by 2 half the time and by 5 the second half, rounding up for 2's.
+						uint8 FloorHalfGridPower = GridPower / 2;
+						uint32 TwoMultiplier = static_cast<uint32>(1) << (GridPower - FloorHalfGridPower);
+						return (double)TwoMultiplier * FMath::Pow(5.0, static_cast<double>(FloorHalfGridPower));
+					}
+				};
 
 			// This would be made a member in the tool
 			uint8 GridPowerPrevious = 0;
@@ -2263,7 +2250,7 @@ void UCubeGridTool::ApplyAction(ECubeGridToolAction ActionType)
 		break;
 	case ECubeGridToolAction::DecreaseGridPower:
 		// cast is just to be explicit
-		SetGridPowerClamped(static_cast<int32>(Settings->GridPower) - 1); 
+		SetGridPowerClamped(static_cast<int32>(Settings->GridPower) - 1);
 		break;
 	case ECubeGridToolAction::IncreaseGridPower:
 		SetGridPowerClamped(Settings->GridPower + 1);
@@ -2272,9 +2259,9 @@ void UCubeGridTool::ApplyAction(ECubeGridToolAction ActionType)
 	case ECubeGridToolAction::CornerMode:
 		StartCornerMode();
 		break;
-	//case ECubeGridToolAction::FitGrid:
-	//	StartFitGrid();
-	//	break;
+		//case ECubeGridToolAction::FitGrid:
+		//	StartFitGrid();
+		//	break;
 	case ECubeGridToolAction::Done:
 		if (Mode == EMode::Corner)
 		{

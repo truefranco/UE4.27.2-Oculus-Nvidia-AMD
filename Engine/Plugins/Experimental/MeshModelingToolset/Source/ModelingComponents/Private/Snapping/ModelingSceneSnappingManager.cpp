@@ -36,25 +36,7 @@ extern TAutoConsoleVariable<bool> CVarEnableModelingVolumeSnapping;
 
 void UModelingSceneSnappingManager::Initialize(UInteractiveToolsContext* ToolsContext)
 {
-	ParentContext = ToolsContext;
-
-	QueriesAPI = (ParentContext && ParentContext->ToolManager) ?
-		ParentContext->ToolManager->GetContextQueriesAPI() : nullptr;
-
-	SpatialCache = MakeShared<FSceneGeometrySpatialCache>();
-
-#if WITH_EDITOR
-	OnObjectModifiedHandler = FCoreUObjectDelegates::OnObjectModified.AddLambda([this](UObject* Object) { 
-		HandleGlobalObjectModifiedDelegate(Object);
-	});
-
-	if (GEngine)
-	{
-		OnComponentTransformChangedHandle = GEngine->OnComponentTransformChanged().AddLambda([this](USceneComponent* Component, ETeleportType) {
-			HandleGlobalComponentTransformChangedDelegate(Component);
-		});
-	}
-#endif
+	
 }
 
 void UModelingSceneSnappingManager::Shutdown()

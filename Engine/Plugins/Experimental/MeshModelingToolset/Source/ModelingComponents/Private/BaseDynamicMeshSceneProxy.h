@@ -371,8 +371,7 @@ public:
 	 */
 	virtual void GetActiveRenderBufferSets(TArray<FMeshRenderBufferSet*>& Buffers) const = 0;
 
-
-
+	
 	//
 	// RenderBuffer management
 	//
@@ -902,19 +901,23 @@ public:
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_OctreeDynamicMeshSceneProxy_GetDynamicMeshElements);
 
 		const bool bWireframe = (AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe)
-			|| ParentBaseComponent->EnableWireframeRenderPass();
-
+			|| ParentBaseComponent->GetEnableWireframeRenderPass();
+		
 		// set up wireframe material. Probably bad to reference GEngine here...also this material is very bad?
 		FMaterialRenderProxy* WireframeMaterialProxy = nullptr;
 		if (bWireframe)
 		{
-			FColoredMaterialRenderProxy* WireframeMaterialInstance = new FColoredMaterialRenderProxy(
+			    FLinearColor UseWireframeColor = (IsSelected() && (ParentBaseComponent->GetEnableWireframeRenderPass() == false 
+					|| (AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe))) ?
+				GEngine->GetSelectedMaterialColor() : ParentBaseComponent->WireframeColor;
+
+				FColoredMaterialRenderProxy* WireframeMaterialInstance = new FColoredMaterialRenderProxy(
 				GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : nullptr,
-				FLinearColor(0, 0.5f, 1.f)
+					UseWireframeColor
 			);
-			Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
-			WireframeMaterialProxy = WireframeMaterialInstance;
-		}
+				Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
+				WireframeMaterialProxy = WireframeMaterialInstance;
+			}
 
 		ESceneDepthPriorityGroup DepthPriority = SDPG_World;
 

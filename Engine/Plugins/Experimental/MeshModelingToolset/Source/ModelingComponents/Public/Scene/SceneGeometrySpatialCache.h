@@ -6,7 +6,6 @@
 #include "Spatial/SpatialInterfaces.h"
 #include "DynamicMesh3.h"
 #include "DynamicMeshAABBTree3.h"
-#include "ColliderMesh.h"
 #include "Spatial/SparseDynamicOctree3.h"
 #include "ToolContextInterfaces.h"		// only needed for FSceneQueryVisibilityFilter, maybe can wrap this?
 

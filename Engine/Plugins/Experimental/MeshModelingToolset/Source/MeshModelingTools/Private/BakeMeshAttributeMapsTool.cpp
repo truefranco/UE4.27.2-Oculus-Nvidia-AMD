@@ -109,7 +109,7 @@ void UBakeMeshAttributeMapsTool::Setup()
 		DynamicMeshComponent->SetMaterial(k, MaterialSet.Materials[k]);
 	}
 
-	DynamicMeshComponent->TangentsType = EDynamicMeshTangentCalcType::ExternallyCalculated;
+	DynamicMeshComponent->SetTangentsType(EDynamicMeshTangentCalcType::ExternallyCalculated);
 	DynamicMeshComponent->InitializeMesh(BaseMeshDescription.Get());
 	
 	BaseMesh.Copy(*DynamicMeshComponent->GetMesh());

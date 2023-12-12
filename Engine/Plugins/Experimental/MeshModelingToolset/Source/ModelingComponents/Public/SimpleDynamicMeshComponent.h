@@ -59,12 +59,6 @@ class MODELINGCOMPONENTS_API USimpleDynamicMeshComponent : public UBaseDynamicMe
 {
 	GENERATED_UCLASS_BODY()
 
-
-public:
-	/** How should Tangents be calculated/handled */
-	UPROPERTY()
-	EDynamicMeshTangentCalcType TangentsType = EDynamicMeshTangentCalcType::NoTangents;
-
 public:
 	/**
 	 * initialize the internal mesh from a MeshDescription
@@ -299,12 +293,6 @@ public:
 	FMeshVerticesModified OnMeshVerticesChanged;
 
 
-	/**
-	 * if true, we always show the wireframe on top of the shaded mesh, even when not in wireframe mode
-	 */
-	UPROPERTY()
-	bool bExplicitShowWireframe = false;
-
 protected:
 	
 	    /** Handle for OnMeshObjectChanged which is registered with MeshObject::OnMeshChanged delegate */
@@ -394,7 +382,9 @@ public:
 	const FMeshTangentsf* GetAutoCalculatedTangents();
 
 protected:
-
+	/** Tangent source defines whether we use the provided tangents on the Dynamic Mesh, autogenerate tangents, or do not use tangents */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, BlueprintSetter = SetTangentsType, BlueprintGetter = GetTangentsTypePure, Category = "Dynamic Mesh Component|Rendering")
+	EDynamicMeshTangentCalcType TangentsType = EDynamicMeshTangentCalcType::Default;
 	/** true if AutoCalculatedTangents has been computed for current mesh */
 	bool bAutoCalculatedTangentsValid = false;
 
@@ -488,7 +478,7 @@ protected:
 private:
 	
 
-	void ResetProxy();
+	
 	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	//~ End UPrimitiveComponent Interface.
@@ -596,6 +586,7 @@ public:
 	}
 
 protected:
+	void ResetProxy();
 
 	virtual FBaseDynamicMeshSceneProxy* GetBaseSceneProxy() override { return (FBaseDynamicMeshSceneProxy*)GetCurrentSceneProxy(); }
 	/**
@@ -623,7 +614,7 @@ protected:
 	virtual void OnChildDetached(USceneComponent* ChildComponent) override;
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
-	void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent);
 	virtual void BeginDestroy() override;
 
 public:

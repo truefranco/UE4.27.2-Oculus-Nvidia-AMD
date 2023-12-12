@@ -7,6 +7,7 @@
 #include "MeshDescriptionBuilder.h"
 #include "StaticMeshAttributes.h"
 #include "Async/Async.h"
+#include "Util/ColorConstants.h"
 
 
 struct FVertexUV
@@ -111,8 +112,50 @@ public:
 	}
 };
 
+struct FVertexColor
+{
+	int vid;
+	FVector4f Color;
+	bool operator==(const FVertexColor& o) const
+	{
+		return vid == o.vid && Color == o.Color;
+	}
+};
+FORCEINLINE uint32 GetTypeHash(const FVertexColor& Vector)
+{
+	return FCrc::MemCrc32(&Vector, sizeof(Vector));
+}
 
+class FColorWelder
+{
+public:
+	TMap<FVertexColor, int> UniqueVertexColors;
+	FDynamicMeshColorOverlay* ColorOverlay;
 
+	FColorWelder() : ColorOverlay(nullptr)
+	{
+	}
+
+	FColorWelder(FDynamicMeshColorOverlay* ColorOverlayIn)
+	{
+		check(ColorOverlayIn);
+		ColorOverlay = ColorOverlayIn;
+	}
+	int FindOrAddUnique(const FVector4f& Color, int VertexID)
+	{
+		FVertexColor VertColor = { VertexID, Color };
+
+		const int32* FoundIndex = UniqueVertexColors.Find(VertColor);
+		if (FoundIndex != nullptr)
+		{
+			return *FoundIndex;
+		}
+
+		int32 NewIndex = ColorOverlay->AppendElement(&Color.X);
+		UniqueVertexColors.Add(VertColor, NewIndex);
+		return NewIndex;
+	}
+};
 
 
 
@@ -147,6 +190,10 @@ void FMeshDescriptionToDynamicMesh::Convert(const FMeshDescription* MeshIn, FDyn
 
 	TPolygonAttributesConstRef<int> PolyGroups =
 		MeshIn->PolygonAttributes().GetAttributesRef<int>(ExtendedMeshAttribute::PolyTriGroups);
+
+	TVertexInstanceAttributesConstRef<FVector4> InstanceColors =
+		MeshIn->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+
 	if (bEnableOutputGroups)
 	{
 		MeshOut.EnableTriangleGroups(0);
@@ -291,7 +338,9 @@ void FMeshDescriptionToDynamicMesh::Convert(const FMeshDescription* MeshIn, FDyn
 	TArray<FDynamicMeshUVOverlay*> UVOverlays;
 	TArray<FUVWelder> UVWelders;
 	FDynamicMeshNormalOverlay* NormalOverlay = nullptr;
+	FDynamicMeshColorOverlay* ColorOverlay = nullptr;
 	FNormalWelder NormalWelder;
+	FColorWelder ColorWelder;
 	FDynamicMeshMaterialAttribute* MaterialIDAttrib = nullptr;
 	if (!bDisableAttributes)
 	{
@@ -308,6 +357,12 @@ void FMeshDescriptionToDynamicMesh::Convert(const FMeshDescription* MeshIn, FDyn
 
 		NormalOverlay = MeshOut.Attributes()->PrimaryNormals();
 		NormalWelder.NormalOverlay = NormalOverlay;
+
+		if (InstanceColors.IsValid())
+		{
+			MeshOut.Attributes()->EnablePrimaryColors();
+			ColorOverlay = MeshOut.Attributes()->PrimaryColors();
+		}
 
 		// always enable Material ID if there are any attributes
 		MeshOut.Attributes()->EnableMaterialID();
@@ -333,6 +388,8 @@ void FMeshDescriptionToDynamicMesh::Convert(const FMeshDescription* MeshIn, FDyn
 
 	if (!bDisableAttributes)
 	{
+		bool bFoundNonDefaultVertexInstanceColor = false;
+
 		for (int UVLayerIndex = 0; UVLayerIndex < NumUVLayers; UVLayerIndex++)
 		{
 			auto UVFuture = Async(EAsyncExecution::ThreadPool, [&, UVLayerIndex]() // must copy UVLayerIndex here!
@@ -373,7 +430,34 @@ void FMeshDescriptionToDynamicMesh::Convert(const FMeshDescription* MeshIn, FDyn
 			});
 			Pending.Add(MoveTemp(NormalFuture));
 		}
+		if (ColorOverlay != nullptr)
+		{
+			auto ColorTask = Async(EAsyncExecution::ThreadPool, [&]()
+				{
+					const FVector4 DefaultColor4 = InstanceColors.GetDefaultValue();
 
+					FColorWelder ColorWelder(ColorOverlay);
+					for (int32 TriangleID : MeshOut.TriangleIndicesItr())
+					{
+						const FIndex3i Tri = MeshOut.GetTriangle(TriangleID);
+						const FTriData& TriData = AddedTriangles[TriangleID];
+						FIndex3i TriVector;
+						for (int j = 0; j < 3; ++j)
+						{
+							FVector4 InstanceColor4 = InstanceColors.Get(TriData.TriInstances[j], 0);
+							ApplyVertexColorTransform((FVector4f&)InstanceColor4);
+
+							const FVector4f OverlayColor(InstanceColor4.X, InstanceColor4.Y, InstanceColor4.Z, InstanceColor4.W);
+							TriVector[j] = ColorWelder.FindOrAddUnique(OverlayColor, Tri[j]);
+
+							// need to detect if the vertex instance color actually held any real data..
+							bFoundNonDefaultVertexInstanceColor |= (InstanceColor4 != DefaultColor4);
+						}
+						ColorOverlay->SetTriangle(TriangleID, TriVector);
+					}
+				});
+			Pending.Add(MoveTemp(ColorTask));
+		}
 
 		if (MaterialIDAttrib != nullptr)
 		{
@@ -454,3 +538,22 @@ void FMeshDescriptionToDynamicMesh::CopyTangents(const FMeshDescription* SourceM
 
 
 
+void FMeshDescriptionToDynamicMesh::ApplyVertexColorTransform(FVector4f& Color) const
+{
+	if (bTransformVertexColorsLinearToSRGB)
+	{
+		// The corollary to bTransformVertexColorsSRGBToLinear in DynamicMeshToMeshDescription.
+		// See DynamicMeshToMeshDescription::ApplyVertexColorTransform(..).
+		//
+		// StaticMeshes store vertex colors as FColor. The StaticMesh build always encodes
+		// FColors as SRGB to ensure a good distribution of float values across the 8-bit range.
+		//
+		// Since there is no currently defined gamma space convention for vertex colors in
+		// engine, an option is provided to pre-transform vertex colors (SRGB To Linear) when
+		// writing out a MeshDescription.
+		//
+		// We similarly provide the inverse of that optional pre-transformation to maintain
+		// color space consistency in our usage.
+		LinearColors::LinearToSRGB(Color);
+	}
+}

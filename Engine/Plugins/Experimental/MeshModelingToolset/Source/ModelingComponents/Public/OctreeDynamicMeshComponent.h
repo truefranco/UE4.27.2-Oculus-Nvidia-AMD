@@ -116,11 +116,6 @@ public:
 	 */
 	FSimpleMulticastDelegate OnMeshChanged;
 
-	/**
-	 * if true, we always show the wireframe on top of the shaded mesh, even when not in wireframe mode
-	 */
-	UPROPERTY()
-	bool bExplicitShowWireframe = false;
 
 	/**
 	 * Configure whether wireframe rendering is enabled or not

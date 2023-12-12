@@ -2,7 +2,7 @@
 
 #include "BaseDynamicMeshComponent.h"
 #include "BaseDynamicMeshSceneProxy.h"
-#include "ConversionUtils/VolumeToDynamicMesh.h"
+//#include "ConversionUtils/VolumeToDynamicMesh.h"
 #include "Engine/Engine.h"
 #include "Materials/Material.h"
 #include "TargetInterfaces/MeshDescriptionCommitter.h"

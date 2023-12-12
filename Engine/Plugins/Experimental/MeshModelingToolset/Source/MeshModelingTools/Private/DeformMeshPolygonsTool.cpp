@@ -862,7 +862,7 @@ void UDeformMeshPolygonsTool::Setup()
 	}
 
 	// dynamic mesh configuration settings
-	DynamicMeshComponent->TangentsType = EDynamicMeshTangentCalcType::AutoCalculated;
+	DynamicMeshComponent->SetTangentsType(EDynamicMeshTangentCalcType::AutoCalculated);
 	DynamicMeshComponent->InitializeMesh(ComponentTarget->GetMesh());
 	OnDynamicMeshComponentChangedHandle =
 	    DynamicMeshComponent->OnMeshChanged.Add(FSimpleMulticastDelegate::FDelegate::CreateUObject(

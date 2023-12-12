@@ -223,10 +223,8 @@ protected:
 				CornerToVert[RightUp] = AppendVertex(Box.GetCorner(RightUp));
 			}
 
-			FaceWidth = (Box.GetCorner(LeftCorner).Distance(Box.GetCorner(LeftCorner)), Box.GetCorner(RightCorner).Distance(Box.GetCorner(RightCorner)));
-			FaceHeight = (Box.GetCorner(LeftCorner).Distance(Box.GetCorner(LeftCorner)), Box.GetCorner(LeftUp).Distance(Box.GetCorner(LeftUp)));
-			//FaceWidth = Distance(Box.GetCorner(LeftCorner), Box.GetCorner(RightCorner));
-			//FaceHeight = Distance(Box.GetCorner(LeftCorner), Box.GetCorner(LeftUp));
+			FaceWidth = Box.GetCorner(LeftCorner).Distance(Box.GetCorner(RightCorner));
+			FaceHeight = Box.GetCorner(LeftCorner).Distance(Box.GetCorner(LeftUp));
 			// The bottom two vertices will definitely need uv/normal elements
 			MakeUVsAndNormals(0, SideFaceBoxSpaceNormals[LeftCorner], CornerToVert[LeftCorner], HeightUVOffset, FaceUVOrientation);
 			MakeUVsAndNormals(1, SideFaceBoxSpaceNormals[LeftCorner], CornerToVert[RightCorner], HeightUVOffset, FaceUVOrientation);
@@ -285,8 +283,8 @@ protected:
 
 		// Triangulate the bottom:
 		// Prep for UVs
-		FaceWidth = (Box.GetCorner(0).Distance(Box.GetCorner(0)), Box.GetCorner(1).Distance(Box.GetCorner(1)));
-		FaceHeight = (Box.GetCorner(0).Distance(Box.GetCorner(0)), Box.GetCorner(3).Distance(Box.GetCorner(3)));
+		FaceWidth = Box.GetCorner(0).Distance(Box.GetCorner(1));
+		FaceHeight = Box.GetCorner(0).Distance(Box.GetCorner(3));
 		int FaceUVOrientation = FaceUVOrientations[0];
 
 		MakeUVsAndNormals(DiagFaceIdx1, (FVector3f)-Box.Frame.Z(), CornerToVert[DiagFaceIdx1], 0, FaceUVOrientation);
@@ -337,11 +335,11 @@ protected:
 		// Prep for setting up UV's. We'll still get stretching when we're not planar, 
 		// but that's probably not worth dealing with.
 		FaceWidth = FMath::Max(
-			(CornerPositions[0].Distance(CornerPositions[0])), CornerPositions[1].Distance(CornerPositions[1])),
-			(CornerPositions[2].Distance(CornerPositions[2]), CornerPositions[3].Distance(CornerPositions[3]));
+			CornerPositions[0].Distance(CornerPositions[1]),
+			CornerPositions[2].Distance(CornerPositions[3]));
 		FaceHeight = FMath::Max(
-			(CornerPositions[0].Distance(CornerPositions[0])), CornerPositions[3].Distance(CornerPositions[3])),
-			(CornerPositions[1].Distance(CornerPositions[1]), CornerPositions[2].Distance(CornerPositions[2]));
+			CornerPositions[0].Distance(CornerPositions[3]),
+			CornerPositions[1].Distance(CornerPositions[2]));
 		FaceUVOrientation = FaceUVOrientations[1];
 
 		// We're looking at things from the opposite direction, so our diagonal needs to

@@ -12,7 +12,6 @@
 #include "FrameTypes.h"
 #include "InteractiveTool.h"
 #include "InteractiveToolBuilder.h"
-//#include "InteractiveToolQueryInterfaces.h" // IInteractiveToolNestedAcceptCancelAPI, IInteractiveToolCameraFocusAPI
 #include "Mechanics/CubeGrid.h"
 #include "ModelingOperators.h"
 #include "OrientedBoxTypes.h"
@@ -43,7 +42,6 @@ class UNewMeshMaterialProperties;
 class UPreviewGeometry;
 class UTransformGizmo;
 class UTransformProxy;
-class USimpleDynamicMeshComponent;
 class UToolTarget;
 
 UCLASS()
@@ -52,14 +50,14 @@ class MESHMODELINGTOOLS_API UCubeGridToolBuilder : public UInteractiveToolWithTo
 	GENERATED_BODY()
 
 public:
-	IToolsContextAssetAPI* AssetAPI = nullptr;
+	IAssetGenerationAPI* AssetAPI = nullptr;
 
 	virtual bool CanBuildTool(const FToolBuilderState& SceneState) const override;
 	virtual UInteractiveTool* BuildTool(const FToolBuilderState& SceneState) const override;
+
 protected:
 
 	virtual const FToolTargetTypeRequirements& GetTargetRequirements() const override;
-
 };
 
 
@@ -108,9 +106,9 @@ public:
 		UIMin = "0", UIMax = "10", ClampMin = "0", ClampMax = "31"))
 	uint8 GridPower = DEFAULT_GRID_POWER;
 
-	/** 
-	 * Sets the size of a block at the current grid power. This is done by changing the 
-	 * base block size (i.e. the size at grid power 0) such that the target size is achieved at 
+	/**
+	 * Sets the size of a block at the current grid power. This is done by changing the
+	 * base block size (i.e. the size at grid power 0) such that the target size is achieved at
 	 * the the current value of Grid Power.
 	 */
 	UPROPERTY(EditAnywhere, Category = Options, meta = (
@@ -123,7 +121,7 @@ public:
 		UIMin = "0", ClampMin = "0", Delta = 1, LinearDeltaSensitivity = 50))
 	int32 BlocksPerStep = 1;
 
-	/** 
+	/**
 	 * When true, block sizes change by powers of two as grid power is changed. When false, block
 	 * sizes change by twos and fives, much like the default editor grid snapping options (for
 	 * instance, sizes might increase from 10 to 50 to 100 to 500).
@@ -157,9 +155,9 @@ public:
 
 	/** When performing selection, the tolerance to use when determining
 	 whether things lie in the same plane as a cube face. */
-	//~ This turned out to not be a useful setting, so it is no longer EditAnywhere. The only cases where it
-	//~ seems to have a noticeable effect were ones where it was set so high that it broke the selection
-	//~ behavior slightly.
+	 //~ This turned out to not be a useful setting, so it is no longer EditAnywhere. The only cases where it
+	 //~ seems to have a noticeable effect were ones where it was set so high that it broke the selection
+	 //~ behavior slightly.
 	UPROPERTY()
 	double PlaneTolerance = 0.01;
 
@@ -172,7 +170,7 @@ public:
 	 plane or pass through to the other geometry. */
 	UPROPERTY(EditAnywhere, Category = BlockSelection, AdvancedDisplay)
 	bool bHitGridGroundPlaneIfCloser = false;
-	
+
 	/** How the selected face is determined. */
 	UPROPERTY(EditAnywhere, Category = BlockSelection, AdvancedDisplay)
 	ECubeGridToolFaceSelectionMode FaceSelectionMode = ECubeGridToolFaceSelectionMode::OutsideBasedOnNormal;
@@ -278,14 +276,14 @@ public:
 	UPROPERTY(EditAnywhere, Category = GridReinitialization, meta = (TransientToolProperty))
 	AActor* GridSourceActor = nullptr;
 
-	/** 
-	 * Resets the grid position and orientation based on the actor in Grid Source Actor. This allows 
+	/**
+	 * Resets the grid position and orientation based on the actor in Grid Source Actor. This allows
 	 * grid positions/orientations to be saved by pasting them into the transform of some actor that
 	 * is later used, or by relying on the fact that the tool initializes transforms of newly created
 	 * meshes based on the grid used.
 	 */
 	UFUNCTION(CallInEditor, Category = GridReinitialization)
-	void ResetGridFromActor () { PostAction(ECubeGridToolAction::ResetFromActor); }
+	void ResetGridFromActor() { PostAction(ECubeGridToolAction::ResetFromActor); }
 };
 
 UCLASS()
@@ -313,9 +311,9 @@ public:
 UCLASS()
 class MESHMODELINGTOOLS_API UCubeGridTool : public UInteractiveTool,
 	public IClickDragBehaviorTarget, public IHoverBehaviorTarget,
-	public IDynamicMeshOperatorFactory
-	//public IInteractiveToolNestedAcceptCancelAPI,
-	//public IInteractiveToolCameraFocusAPI
+	public IDynamicMeshOperatorFactory,
+	public IInteractiveToolNestedAcceptCancelAPI,
+	public IInteractiveToolCameraFocusAPI
 {
 	GENERATED_BODY()
 protected:
@@ -374,9 +372,7 @@ public:
 	virtual void Shutdown(EToolShutdownType ShutdownType) override;
 
 	virtual void SetTarget(UToolTarget* TargetIn) { Target = TargetIn; }
-	
 	virtual void SetWorld(UWorld* World) { TargetWorld = World; }
-	//virtual void SetAssetAPI(IToolsContextAssetAPI* AssetAPI);
 
 	virtual void OnTick(float DeltaTime) override;
 	virtual void Render(IToolsContextRenderAPI* RenderAPI) override;
@@ -417,16 +413,16 @@ public:
 	virtual TUniquePtr<FDynamicMeshOperator> MakeNewOperator() override;
 
 	// IInteractiveToolNestedAcceptCancelAPI
-	virtual bool SupportsNestedCancelCommand(){ return true; }
-	virtual bool CanCurrentlyNestedCancel();
-	virtual bool ExecuteNestedCancelCommand();
-	virtual bool SupportsNestedAcceptCommand(){ return true; }
-	virtual bool CanCurrentlyNestedAccept();
-	virtual bool ExecuteNestedAcceptCommand();
+	virtual bool SupportsNestedCancelCommand() override { return true; }
+	virtual bool CanCurrentlyNestedCancel() override;
+	virtual bool ExecuteNestedCancelCommand() override;
+	virtual bool SupportsNestedAcceptCommand() override { return true; }
+	virtual bool CanCurrentlyNestedAccept() override;
+	virtual bool ExecuteNestedAcceptCommand() override;
 
 	// IInteractiveToolCameraFocusAPI
 	virtual bool SupportsWorldSpaceFocusBox() { return bHaveSelection; }
-	virtual FBox GetWorldSpaceFocusBox();
+	virtual FBox GetWorldSpaceFocusBox() override;
 
 protected:
 
@@ -471,10 +467,8 @@ protected:
 	UCreateMeshObjectTypeProperties* OutputTypeProperties = nullptr;
 
 	// Existing asset to modify, if one was selected
-	
+	UPROPERTY()
 	UToolTarget* Target = nullptr;
-
-	//IToolsContextAssetAPI* AssetAPI;
 
 	TSharedPtr<FCubeGrid, ESPMode::ThreadSafe> CubeGrid;
 
@@ -579,25 +573,25 @@ protected:
 	/*
 	 * Updates the gizmo controlling the cube grid transform. Only updates the cube grid itself if
 	 * bSilentlyUpdate is false.
-	 * 
+	 *
 	 * @param bSilentlyUpdate If true, gizmo is just repositioned without triggering any callback
 	 *   or emitting an undo transaction. If false, emits transactions and triggers the GridGizmoMoved
 	 *   callback (which will trigger UpdateGridTransform).
 	 */
 	void UpdateGridGizmo(const FTransform& NewTransform, bool bSilentlyUpdate = false);
-	
+
 	/*
 	* Updates the cube grid.
-	* 
+	*
 	 * @param bUpdateDetailPanel Not needed if updating from the detail panel, otherwise should be true.
-	 * @param bTriggerDetailPanelRebuild Should be false if updating from a drag to avoid the costly rebuild, 
+	 * @param bTriggerDetailPanelRebuild Should be false if updating from a drag to avoid the costly rebuild,
 	 * but otherwise should be true to update the edit conditions and "revert to default" arrows. Not relevant
 	 * if bUpdateDetailPanel is false.
 	 */
 	void UpdateGridTransform(const FTransform& NewTransform, bool bUpdateDetailPanel = true, bool bTriggerDetailPanelRebuild = true);
-	
+
 	FVector3d MiddleClickDragStart;
-	FInputRayHit RayCastSelectionPlane(const FRay& WorldRay, 
+	FInputRayHit RayCastSelectionPlane(const FRay3d& WorldRay,
 		FVector3d& HitPointOut);
 	FInputRayHit CanBeginMiddleClickDrag(const FInputDeviceRay& ClickPos);
 	void OnMiddleClickDrag(const FInputDeviceRay& DragPos);

@@ -30,8 +30,8 @@ static bool ReadTexture_PlatformData(
 		return false;
 	}
 
-	const int32 Width = TextureMap->GetPlatformMips()[0].SizeX;
-	const int32 Height = TextureMap->GetPlatformMips()[0].SizeY;
+	const int32 Width = TextureMap->PlatformData->Mips[0].SizeX;
+	const int32 Height = TextureMap->PlatformData->Mips[0].SizeY;
 	const FImageDimensions Dimensions = FImageDimensions(Width, Height);
 	DestImage.SetDimensions(Dimensions);
 	const int64 Num = Dimensions.Num();
@@ -66,7 +66,7 @@ static bool ReadTexture_PlatformData(
 #endif
 
 	// lock texture and read as FColor (RGBA8)
-	const FColor* FormattedImageData = reinterpret_cast<const FColor*>(TextureMap->GetPlatformMips()[0].BulkData.LockReadOnly());
+	const FColor* FormattedImageData = reinterpret_cast<const FColor*>(TextureMap->PlatformData->Mips[0].BulkData.LockReadOnly());
 
 	// maybe could be done more quickly by row?
 	for (int64 i = 0; i < Num; ++i)
@@ -78,7 +78,7 @@ static bool ReadTexture_PlatformData(
 		DestImage.SetPixel(i, ToVector4<float>(FloatColor));
 	}
 
-	TextureMap->GetPlatformMips()[0].BulkData.Unlock();
+	TextureMap->PlatformData->Mips[0].BulkData.Unlock();
 
 #if WITH_EDITOR
 	// restore built platform texture data to initial state, if we modified it

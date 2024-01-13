@@ -696,18 +696,6 @@ public:
 		UE4Tuple_Private::Assign(*this, MoveTemp(Other), TMakeIntegerSequence<uint32, sizeof...(OtherTypes)>{});
 		return *this;
 	}
-
-/*#if UE_TUPLE_STRUCTURED_BINDING_SUPPORT
-	// TTuple support for structured binding - not intended to be called directly
-	template <int N> friend decltype(auto) get(               TTuple&  val) { return static_cast<               TTuple& >(val).template Get<N>(); }
-	template <int N> friend decltype(auto) get(const          TTuple&  val) { return static_cast<const          TTuple& >(val).template Get<N>(); }
-	template <int N> friend decltype(auto) get(      volatile TTuple&  val) { return static_cast<      volatile TTuple& >(val).template Get<N>(); }
-	template <int N> friend decltype(auto) get(const volatile TTuple&  val) { return static_cast<const volatile TTuple& >(val).template Get<N>(); }
-	template <int N> friend decltype(auto) get(               TTuple&& val) { return static_cast<               TTuple&&>(val).template Get<N>(); }
-	template <int N> friend decltype(auto) get(const          TTuple&& val) { return static_cast<const          TTuple&&>(val).template Get<N>(); }
-	template <int N> friend decltype(auto) get(      volatile TTuple&& val) { return static_cast<      volatile TTuple&&>(val).template Get<N>(); }
-	template <int N> friend decltype(auto) get(const volatile TTuple&& val) { return static_cast<const volatile TTuple&&>(val).template Get<N>(); }	
-#endif*/
 };
 
 template <typename... Types>
@@ -927,25 +915,3 @@ decltype(auto) get(TupleType&& val)
 {
 	return ((TupleType&&)val).template Get<Idx>();
 }
-
-// TTuple support for structured bindings
-/*template <typename... ArgTypes>
-class std::tuple_size<TTuple<ArgTypes...>>
-	: public std::integral_constant<std::size_t, sizeof...(ArgTypes)>
-{
-};
-template <std::size_t N, typename... ArgTypes>
-class std::tuple_element<N, TTuple<ArgTypes...>>
-{
-public:
-	using type = typename TTupleElement<N, TTuple<ArgTypes...>>::Type;
-};*/
-//#endif
-/*template <size_t Idx, typename... Types> decltype(auto) get(const TTuple<Types...>& t) { return(t.template Get<Idx>()); }
-template <size_t Idx, typename... Types> decltype(auto) get(const TTuple<Types...>&& t) { return(t.template Get<Idx>()); }
-template <size_t Idx, typename... Types> decltype(auto) get(const volatile TTuple<Types...>& t) { return(t.template Get<Idx>()); }
-template <size_t Idx, typename... Types> decltype(auto) get(const volatile TTuple<Types...>&& t) { return(t.template Get<Idx>()); }
-template <size_t Idx, typename... Types> decltype(auto) get(TTuple<Types...>&& t) { return(t.template Get<Idx>()); }
-template <size_t Idx, typename... Types> decltype(auto) get(TTuple<Types...>& t) { return(t.template Get<Idx>()); }
-template <size_t Idx, typename... Types> decltype(auto) get(volatile TTuple<Types...>&& t) { return(t.template Get<Idx>()); }
-template <size_t Idx, typename... Types> decltype(auto) get(volatile TTuple<Types...>& t) { return(t.template Get<Idx>()); }*/

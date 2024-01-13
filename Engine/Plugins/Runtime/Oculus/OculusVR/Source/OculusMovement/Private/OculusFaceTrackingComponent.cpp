@@ -16,8 +16,8 @@ int UOculusFaceTrackingComponent::TrackingInstanceCount = 0;
 UOculusFaceTrackingComponent::UOculusFaceTrackingComponent()
 	: TargetMeshComponentName(NAME_None)
 	, InvalidFaceDataResetTime(2.0f)
-	, TargetMeshComponent(nullptr)
 	, bUpdateFace(true)
+	, TargetMeshComponent(nullptr)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = true;

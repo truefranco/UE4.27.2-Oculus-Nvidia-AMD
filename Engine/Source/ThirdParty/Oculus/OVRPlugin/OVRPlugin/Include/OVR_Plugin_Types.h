@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-
 #ifndef OVR_Plugin_Types_h
 #define OVR_Plugin_Types_h
 
@@ -30,7 +29,7 @@
 // Note: OVRP_MINOR_VERSION == OCULUS_SDK_VERSION + 32
 
 #define OVRP_MAJOR_VERSION 1
-#define OVRP_MINOR_VERSION 89
+#define OVRP_MINOR_VERSION 92
 #define OVRP_PATCH_VERSION 0
 
 #define OVRP_VERSION OVRP_MAJOR_VERSION, OVRP_MINOR_VERSION, OVRP_PATCH_VERSION
@@ -144,7 +143,8 @@ typedef enum {
   ovrpFailure_DeprecatedOperation = -1009,
   ovrpFailure_ErrorLimitReached = -1010,
   ovrpFailure_ErrorInitializationFailed = -1011,
-  ovprFailure_RuntimeUnavailable = -1012,
+  ovrpFailure_RuntimeUnavailable = -1012,
+  ovrpFailure_HandleInvalid = -1013,
 
   /// Space error cases
   ovrpFailure_SpaceCloudStorageDisabled = -2000,
@@ -152,6 +152,29 @@ typedef enum {
   ovrpFailure_SpaceLocalizationFailed = -2002,
   ovrpFailure_SpaceNetworkTimeout = -2003,
   ovrpFailure_SpaceNetworkRequestFailed = -2004,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1545,104 +1568,99 @@ typedef enum ovrpBoneId_ {
   ovrpBoneId_Body_RightHandLittleTip          = ovrpBoneId_Body_Start + 69,
   ovrpBoneId_Body_End                         = ovrpBoneId_Body_Start + 70,
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  // full body bones
+  ovrpBoneId_FullBody_Start                       = 0,
+  ovrpBoneId_FullBody_Root                        = ovrpBoneId_FullBody_Start + 0,
+  ovrpBoneId_FullBody_Hips                        = ovrpBoneId_FullBody_Start + 1,
+  ovrpBoneId_FullBody_SpineLower                  = ovrpBoneId_FullBody_Start + 2,
+  ovrpBoneId_FullBody_SpineMiddle                 = ovrpBoneId_FullBody_Start + 3,
+  ovrpBoneId_FullBody_SpineUpper                  = ovrpBoneId_FullBody_Start + 4,
+  ovrpBoneId_FullBody_Chest                       = ovrpBoneId_FullBody_Start + 5,
+  ovrpBoneId_FullBody_Neck                        = ovrpBoneId_FullBody_Start + 6,
+  ovrpBoneId_FullBody_Head                        = ovrpBoneId_FullBody_Start + 7,
+  ovrpBoneId_FullBody_LeftShoulder                = ovrpBoneId_FullBody_Start + 8,
+  ovrpBoneId_FullBody_LeftScapula                 = ovrpBoneId_FullBody_Start + 9,
+  ovrpBoneId_FullBody_LeftArmUpper                = ovrpBoneId_FullBody_Start + 10,
+  ovrpBoneId_FullBody_LeftArmLower                = ovrpBoneId_FullBody_Start + 11,
+  ovrpBoneId_FullBody_LeftHandWristTwist          = ovrpBoneId_FullBody_Start + 12,
+  ovrpBoneId_FullBody_RightShoulder               = ovrpBoneId_FullBody_Start + 13,
+  ovrpBoneId_FullBody_RightScapula                = ovrpBoneId_FullBody_Start + 14,
+  ovrpBoneId_FullBody_RightArmUpper               = ovrpBoneId_FullBody_Start + 15,
+  ovrpBoneId_FullBody_RightArmLower               = ovrpBoneId_FullBody_Start + 16,
+  ovrpBoneId_FullBody_RightHandWristTwist         = ovrpBoneId_FullBody_Start + 17,
+  ovrpBoneId_FullBody_LeftHandPalm                = ovrpBoneId_FullBody_Start + 18,
+  ovrpBoneId_FullBody_LeftHandWrist               = ovrpBoneId_FullBody_Start + 19,
+  ovrpBoneId_FullBody_LeftHandThumbMetacarpal     = ovrpBoneId_FullBody_Start + 20,
+  ovrpBoneId_FullBody_LeftHandThumbProximal       = ovrpBoneId_FullBody_Start + 21,
+  ovrpBoneId_FullBody_LeftHandThumbDistal         = ovrpBoneId_FullBody_Start + 22,
+  ovrpBoneId_FullBody_LeftHandThumbTip            = ovrpBoneId_FullBody_Start + 23,
+  ovrpBoneId_FullBody_LeftHandIndexMetacarpal     = ovrpBoneId_FullBody_Start + 24,
+  ovrpBoneId_FullBody_LeftHandIndexProximal       = ovrpBoneId_FullBody_Start + 25,
+  ovrpBoneId_FullBody_LeftHandIndexIntermediate   = ovrpBoneId_FullBody_Start + 26,
+  ovrpBoneId_FullBody_LeftHandIndexDistal         = ovrpBoneId_FullBody_Start + 27,
+  ovrpBoneId_FullBody_LeftHandIndexTip            = ovrpBoneId_FullBody_Start + 28,
+  ovrpBoneId_FullBody_LeftHandMiddleMetacarpal    = ovrpBoneId_FullBody_Start + 29,
+  ovrpBoneId_FullBody_LeftHandMiddleProximal      = ovrpBoneId_FullBody_Start + 30,
+  ovrpBoneId_FullBody_LeftHandMiddleIntermediate  = ovrpBoneId_FullBody_Start + 31,
+  ovrpBoneId_FullBody_LeftHandMiddleDistal        = ovrpBoneId_FullBody_Start + 32,
+  ovrpBoneId_FullBody_LeftHandMiddleTip           = ovrpBoneId_FullBody_Start + 33,
+  ovrpBoneId_FullBody_LeftHandRingMetacarpal      = ovrpBoneId_FullBody_Start + 34,
+  ovrpBoneId_FullBody_LeftHandRingProximal        = ovrpBoneId_FullBody_Start + 35,
+  ovrpBoneId_FullBody_LeftHandRingIntermediate    = ovrpBoneId_FullBody_Start + 36,
+  ovrpBoneId_FullBody_LeftHandRingDistal          = ovrpBoneId_FullBody_Start + 37,
+  ovrpBoneId_FullBody_LeftHandRingTip             = ovrpBoneId_FullBody_Start + 38,
+  ovrpBoneId_FullBody_LeftHandLittleMetacarpal    = ovrpBoneId_FullBody_Start + 39,
+  ovrpBoneId_FullBody_LeftHandLittleProximal      = ovrpBoneId_FullBody_Start + 40,
+  ovrpBoneId_FullBody_LeftHandLittleIntermediate  = ovrpBoneId_FullBody_Start + 41,
+  ovrpBoneId_FullBody_LeftHandLittleDistal        = ovrpBoneId_FullBody_Start + 42,
+  ovrpBoneId_FullBody_LeftHandLittleTip           = ovrpBoneId_FullBody_Start + 43,
+  ovrpBoneId_FullBody_RightHandPalm               = ovrpBoneId_FullBody_Start + 44,
+  ovrpBoneId_FullBody_RightHandWrist              = ovrpBoneId_FullBody_Start + 45,
+  ovrpBoneId_FullBody_RightHandThumbMetacarpal    = ovrpBoneId_FullBody_Start + 46,
+  ovrpBoneId_FullBody_RightHandThumbProximal      = ovrpBoneId_FullBody_Start + 47,
+  ovrpBoneId_FullBody_RightHandThumbDistal        = ovrpBoneId_FullBody_Start + 48,
+  ovrpBoneId_FullBody_RightHandThumbTip           = ovrpBoneId_FullBody_Start + 49,
+  ovrpBoneId_FullBody_RightHandIndexMetacarpal    = ovrpBoneId_FullBody_Start + 50,
+  ovrpBoneId_FullBody_RightHandIndexProximal      = ovrpBoneId_FullBody_Start + 51,
+  ovrpBoneId_FullBody_RightHandIndexIntermediate  = ovrpBoneId_FullBody_Start + 52,
+  ovrpBoneId_FullBody_RightHandIndexDistal        = ovrpBoneId_FullBody_Start + 53,
+  ovrpBoneId_FullBody_RightHandIndexTip           = ovrpBoneId_FullBody_Start + 54,
+  ovrpBoneId_FullBody_RightHandMiddleMetacarpal   = ovrpBoneId_FullBody_Start + 55,
+  ovrpBoneId_FullBody_RightHandMiddleProximal     = ovrpBoneId_FullBody_Start + 56,
+  ovrpBoneId_FullBody_RightHandMiddleIntermediate = ovrpBoneId_FullBody_Start + 57,
+  ovrpBoneId_FullBody_RightHandMiddleDistal       = ovrpBoneId_FullBody_Start + 58,
+  ovrpBoneId_FullBody_RightHandMiddleTip          = ovrpBoneId_FullBody_Start + 59,
+  ovrpBoneId_FullBody_RightHandRingMetacarpal     = ovrpBoneId_FullBody_Start + 60,
+  ovrpBoneId_FullBody_RightHandRingProximal       = ovrpBoneId_FullBody_Start + 61,
+  ovrpBoneId_FullBody_RightHandRingIntermediate   = ovrpBoneId_FullBody_Start + 62,
+  ovrpBoneId_FullBody_RightHandRingDistal         = ovrpBoneId_FullBody_Start + 63,
+  ovrpBoneId_FullBody_RightHandRingTip            = ovrpBoneId_FullBody_Start + 64,
+  ovrpBoneId_FullBody_RightHandLittleMetacarpal   = ovrpBoneId_FullBody_Start + 65,
+  ovrpBoneId_FullBody_RightHandLittleProximal     = ovrpBoneId_FullBody_Start + 66,
+  ovrpBoneId_FullBody_RightHandLittleIntermediate = ovrpBoneId_FullBody_Start + 67,
+  ovrpBoneId_FullBody_RightHandLittleDistal       = ovrpBoneId_FullBody_Start + 68,
+  ovrpBoneId_FullBody_RightHandLittleTip          = ovrpBoneId_FullBody_Start + 69,
+  ovrpBoneId_FullBody_LeftUpperLeg                = ovrpBoneId_FullBody_Start + 70,
+  ovrpBoneId_FullBody_LeftLowerLeg                = ovrpBoneId_FullBody_Start + 71,
+  ovrpBoneId_FullBody_LeftFootAnkleTwist          = ovrpBoneId_FullBody_Start + 72,
+  ovrpBoneId_FullBody_LeftFootAnkle               = ovrpBoneId_FullBody_Start + 73,
+  ovrpBoneId_FullBody_LeftFootSubtalar            = ovrpBoneId_FullBody_Start + 74,
+  ovrpBoneId_FullBody_LeftFootTransverse          = ovrpBoneId_FullBody_Start + 75,
+  ovrpBoneId_FullBody_LeftFootBall                = ovrpBoneId_FullBody_Start + 76,
+  ovrpBoneId_FullBody_RightUpperLeg               = ovrpBoneId_FullBody_Start + 77,
+  ovrpBoneId_FullBody_RightLowerLeg               = ovrpBoneId_FullBody_Start + 78,
+  ovrpBoneId_FullBody_RightFootAnkleTwist         = ovrpBoneId_FullBody_Start + 79,
+  ovrpBoneId_FullBody_RightFootAnkle              = ovrpBoneId_FullBody_Start + 80,
+  ovrpBoneId_FullBody_RightFootSubtalar           = ovrpBoneId_FullBody_Start + 81,
+  ovrpBoneId_FullBody_RightFootTransverse         = ovrpBoneId_FullBody_Start + 82,
+  ovrpBoneId_FullBody_RightFootBall               = ovrpBoneId_FullBody_Start + 83,
+  ovrpBoneId_FullBody_End                         = ovrpBoneId_FullBody_Start + 84,
+
+  // The new OpenXR extension has invalid mapped to FullBody_End + 1 to avoid using negative values
+  ovrpBoneId_FullBody_Invalid                     = ovrpBoneId_FullBody_Start + 85,
 
   // add other skeleton bone definitions here...
-
-
-
-
-  ovrpBoneId_Max                     = (ovrpBoneId_Hand_End > ovrpBoneId_Body_End) ? ovrpBoneId_Hand_End : ovrpBoneId_Body_End,
+  ovrpBoneId_Max                     = ovrpBoneId_FullBody_End,
 
   ovrpBoneId_EnumSize = 0x7fff
 } ovrpBoneId;
@@ -1681,16 +1699,35 @@ typedef struct ovrpBone_ {
   ovrpPosef Pose;
 } ovrpBone;
 
+
+
+
+
+
+
+
+
+
+
+typedef enum ovrpBodyTrackingCalibrationState_ {
+  orvpBodyTrackingCalibrationState_Valid = 1,
+  orvpBodyTrackingCalibrationState_Calibrating = 2,
+  orvpBodyTrackingCalibrationState_Invalid = 3,
+
+  orvpBodyTrackingCalibrationState_EnumSize = 0x7fffffff
+} ovrpBodyTrackingCalibrationState;
+
+typedef struct ovrpBodyTrackingCalibrationInfo_ {
+  float bodyHeight;
+} ovrpBodyTrackingCalibrationInfo;
+
 typedef enum ovrpSkeletonConstants_ {
   ovrpSkeletonConstants_MaxHandBones = ovrpBoneId_Hand_End,
   ovrpSkeletonConstants_MaxBodyBones = ovrpBoneId_Body_End,
-
-
-
-
+  ovrpSkeletonConstants_MaxFullBodyBones = ovrpBoneId_FullBody_End,
+  ovrpSkeletonConstants_MaxUpperBodyBones = ovrpBoneId_Body_End,
   ovrpSkeletonConstants_MaxBones = ovrpBoneId_Max,
   ovrpSkeletonConstants_MaxBoneCapsules = 19,
-  ovrpSkeletonConstants_MaxNumMicrogestures = 5,
   ovrpSkeletonConstants_EnumSize = 0x7fffffff
 } ovrpSkeletonConstants;
 
@@ -1700,31 +1737,23 @@ typedef enum ovrpSkeletonType_ {
   ovrpSkeletonType_HandLeft = 0,
   ovrpSkeletonType_HandRight = 1,
   ovrpSkeletonType_Body = 2,
-
-
-
+  ovrpSkeletonType_FullBody = 3,
   ovrpSkeletonType_Count,
   ovrpSkeletonType_EnumSize = 0x7fffffff
 } ovrpSkeletonType;
 
-
-
-
-
-
-
-
-
-
+typedef struct ovrpSkeleton3_ {
+  ovrpSkeletonType SkeletonType;
+  unsigned int NumBones;
+  unsigned int NumBoneCapsules;
+  ovrpBone Bones[ovrpSkeletonConstants_MaxBones];
+  ovrpBoneCapsule BoneCapsules[ovrpSkeletonConstants_MaxBoneCapsules];
+} ovrpSkeleton3;
 typedef struct ovrpSkeleton2_ {
   ovrpSkeletonType SkeletonType;
   unsigned int NumBones;
   unsigned int NumBoneCapsules;
-
-
-
-  ovrpBone Bones[ovrpSkeletonConstants_MaxBones];
-
+  ovrpBone Bones[ovrpSkeletonConstants_MaxUpperBodyBones];
   ovrpBoneCapsule BoneCapsules[ovrpSkeletonConstants_MaxBoneCapsules];
 } ovrpSkeleton2;
 
@@ -1831,6 +1860,12 @@ typedef struct ovrpBodyState_ {
   ovrpBodyJointLocation JointLocations[ovrpBoneId_Body_End];
 } ovrpBodyState;
 
+typedef enum ovrpBodyJointSet_ {
+  ovrpBodyJointSet_None = -1,
+  ovrpBodyJointSet_UpperBody = 0,
+  ovrpBodyJointSet_FullBody = 1,
+  ovrpBodyJointSet_Count = 2
+} ovrpBodyJointSet;
 
 
 
@@ -1847,11 +1882,32 @@ typedef struct ovrpBodyState_ {
 
 
 
+typedef enum ovrpBodyTrackingFidelity2_ {
+  ovrpBodyTrackingFidelity2_Low = 1,
+  ovrpBodyTrackingFidelity2_High = 2,
+  ovrpBodyTrackingFidelity2_MaxEnum = 0xf7777777
+} ovrpBodyTrackingFidelity2;
 
 
 
 
 
+
+
+
+
+
+
+
+typedef struct ovrpBodyState4_ {
+  ovrpBool IsActive;
+  float Confidence;
+  ovrpUInt32 SkeletonChangedCount;
+  double Time;
+  ovrpBodyJointLocation JointLocations[ovrpBoneId_Max];
+  ovrpBodyTrackingCalibrationState calibrationStatus;
+  ovrpBodyTrackingFidelity2 fidelity;
+} ovrpBodyState4;
 
 typedef enum ovrpFaceExpression_ {
   ovrpFaceExpression_Invalid = -1,
@@ -1932,6 +1988,88 @@ typedef enum ovrpFaceExpression_ {
   ovrpFaceExpression_EnumSize = 0x7FFFFFFF
 } ovrpFaceExpression;
 
+typedef enum ovrpFaceExpression2_ {
+  ovrpFaceExpression2_Invalid = -1,
+  ovrpFaceExpression2_Brow_Lowerer_L = 0,
+  ovrpFaceExpression2_Brow_Lowerer_R = 1,
+  ovrpFaceExpression2_Cheek_Puff_L = 2,
+  ovrpFaceExpression2_Cheek_Puff_R = 3,
+  ovrpFaceExpression2_Cheek_Raiser_L = 4,
+  ovrpFaceExpression2_Cheek_Raiser_R = 5,
+  ovrpFaceExpression2_Cheek_Suck_L = 6,
+  ovrpFaceExpression2_Cheek_Suck_R = 7,
+  ovrpFaceExpression2_Chin_Raiser_B = 8,
+  ovrpFaceExpression2_Chin_Raiser_T = 9,
+  ovrpFaceExpression2_Dimpler_L = 10,
+  ovrpFaceExpression2_Dimpler_R = 11,
+  ovrpFaceExpression2_Eyes_Closed_L = 12,
+  ovrpFaceExpression2_Eyes_Closed_R = 13,
+  ovrpFaceExpression2_Eyes_Look_Down_L = 14,
+  ovrpFaceExpression2_Eyes_Look_Down_R = 15,
+  ovrpFaceExpression2_Eyes_Look_Left_L = 16,
+  ovrpFaceExpression2_Eyes_Look_Left_R = 17,
+  ovrpFaceExpression2_Eyes_Look_Right_L = 18,
+  ovrpFaceExpression2_Eyes_Look_Right_R = 19,
+  ovrpFaceExpression2_Eyes_Look_Up_L = 20,
+  ovrpFaceExpression2_Eyes_Look_Up_R = 21,
+  ovrpFaceExpression2_Inner_Brow_Raiser_L = 22,
+  ovrpFaceExpression2_Inner_Brow_Raiser_R = 23,
+  ovrpFaceExpression2_Jaw_Drop = 24,
+  ovrpFaceExpression2_Jaw_Sideways_Left = 25,
+  ovrpFaceExpression2_Jaw_Sideways_Right = 26,
+  ovrpFaceExpression2_Jaw_Thrust = 27,
+  ovrpFaceExpression2_Lid_Tightener_L = 28,
+  ovrpFaceExpression2_Lid_Tightener_R = 29,
+  ovrpFaceExpression2_Lip_Corner_Depressor_L = 30,
+  ovrpFaceExpression2_Lip_Corner_Depressor_R = 31,
+  ovrpFaceExpression2_Lip_Corner_Puller_L = 32,
+  ovrpFaceExpression2_Lip_Corner_Puller_R = 33,
+  ovrpFaceExpression2_Lip_Funneler_LB = 34,
+  ovrpFaceExpression2_Lip_Funneler_LT = 35,
+  ovrpFaceExpression2_Lip_Funneler_RB = 36,
+  ovrpFaceExpression2_Lip_Funneler_RT = 37,
+  ovrpFaceExpression2_Lip_Pressor_L = 38,
+  ovrpFaceExpression2_Lip_Pressor_R = 39,
+  ovrpFaceExpression2_Lip_Pucker_L = 40,
+  ovrpFaceExpression2_Lip_Pucker_R = 41,
+  ovrpFaceExpression2_Lip_Stretcher_L = 42,
+  ovrpFaceExpression2_Lip_Stretcher_R = 43,
+  ovrpFaceExpression2_Lip_Suck_LB = 44,
+  ovrpFaceExpression2_Lip_Suck_LT = 45,
+  ovrpFaceExpression2_Lip_Suck_RB = 46,
+  ovrpFaceExpression2_Lip_Suck_RT = 47,
+  ovrpFaceExpression2_Lip_Tightener_L = 48,
+  ovrpFaceExpression2_Lip_Tightener_R = 49,
+  ovrpFaceExpression2_Lips_Toward = 50,
+  ovrpFaceExpression2_Lower_Lip_Depressor_L = 51,
+  ovrpFaceExpression2_Lower_Lip_Depressor_R = 52,
+  ovrpFaceExpression2_Mouth_Left = 53,
+  ovrpFaceExpression2_Mouth_Right = 54,
+  ovrpFaceExpression2_Nose_Wrinkler_L = 55,
+  ovrpFaceExpression2_Nose_Wrinkler_R = 56,
+  ovrpFaceExpression2_Outer_Brow_Raiser_L = 57,
+  ovrpFaceExpression2_Outer_Brow_Raiser_R = 58,
+  ovrpFaceExpression2_Upper_Lid_Raiser_L = 59,
+  ovrpFaceExpression2_Upper_Lid_Raiser_R = 60,
+  ovrpFaceExpression2_Upper_Lip_Raiser_L = 61,
+  ovrpFaceExpression2_Upper_Lip_Raiser_R = 62,
+  ovrpFaceExpression2_Tongue_Tip_Interdental = 63,
+  ovrpFaceExpression2_Tongue_Tip_Alveolar = 64,
+  ovrpFaceExpression2_Tongue_Front_Dorsal_Palate = 65,
+  ovrpFaceExpression2_Tongue_Mid_Dorsal_Palate = 66,
+  ovrpFaceExpression2_Tongue_Back_Dorsal_Velar = 67,
+  ovrpFaceExpression2_Tongue_Out = 68,
+  ovrpFaceExpression2_Tongue_Retreat = 69,
+  ovrpFaceExpression2_Max = 70,
+  ovrpFaceExpression2_EnumSize = 0x7FFFFFFF
+} ovrpFaceExpression2;
+
+typedef enum ovrpFaceTrackingDataSource2_ {
+  ovrpFaceTrackingDataSource2_Visual = 0,
+  ovrpFaceTrackingDataSource2_Audio = 1,
+  ovrpFaceTrackingDataSource2_EnumSize = 0x7FFFFFFF
+} ovrpFaceTrackingDataSource2;
+
 typedef enum ovrpFaceConfidence_ {
   ovrpFaceConfidence_Lower = 0,
   ovrpFaceConfidence_Upper = 1,
@@ -1945,6 +2083,7 @@ typedef enum ovrpFaceConstants_ {
 
 
 
+  ovrpFaceConstants_FaceTrackingDataSourcesCount = 2,
   ovrpFaceConstants_MaxFaceExpressionsWithoutTongue = ovrpFaceExpression_Max,
   ovrpFaceConstants_MaxFaceConfidenceWeights = ovrpFaceConfidence_Max,
   ovrpFaceConstants_EnumSize = 0x7fffffff
@@ -1962,14 +2101,13 @@ typedef struct ovrpFaceState_ {
   double Time;
 } ovrpFaceState;
 
-
-
-
-
-
-
-
-
+typedef struct ovrpFaceState2_ {
+  float ExpressionWeights[ovrpFaceExpression2_Max];
+  float ExpressionWeightConfidences[ovrpFaceConstants_MaxFaceConfidenceWeights];
+  ovrpFaceExpressionStatus Status;
+  ovrpFaceTrackingDataSource2 DataSource;
+  double Time;
+} ovrpFaceState2;
 
 typedef struct ovrpEyeGazeState_ {
   ovrpPosef Pose;
@@ -2144,6 +2282,8 @@ typedef enum ovrpEventType_ {
   ovrpEventType_SpaceShareResult = 56,
   ovrpEventType_SpaceListSaveResult = 57,
   ovrpEventType_SceneCaptureComplete = 100,
+
+
 
 
 
@@ -2344,7 +2484,7 @@ typedef struct ovrpRenderModelProperies_ {
 } ovrpRenderModelProperties;
 
 // Enum defining the level of GLTF model supported by the application.
-// Must match flags defined in arvr/projects/pcsdk/LibOVR/Client/OpenXR/Extensions/fb_render_model.h
+// Must match flags defined in openxr/openxr.h
 typedef enum {
   ovrpRenderModelFlags_SupportsGltf20Subset1 = 1,
   ovrpRenderModelFlags_SupportsGltf20Subset2 = 2,
@@ -2892,6 +3032,31 @@ typedef struct ovrpSceneCaptureRequest_ {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 typedef struct ovrpTriangleMesh_ {
   // Input, capacity of the vertex buffer.
   int vertexCapacityInput;
@@ -2958,81 +3123,6 @@ typedef struct ovrpPassthroughPreferences_ {
   ovrpPassthroughPreferenceFields Fields;
   ovrpPassthroughPreferenceFlags Flags;
 } ovrpPassthroughPreferences;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

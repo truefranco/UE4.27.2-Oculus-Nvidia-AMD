@@ -19,14 +19,18 @@ namespace OculusAnchors
 		static EOculusResult::Type DestroySpace(uint64 Space);
 		static EOculusResult::Type SetSpaceComponentStatus(uint64 Space, EOculusSpaceComponentType SpaceComponentType, bool Enable,float Timeout, uint64& OutRequestId);
 		static EOculusResult::Type GetSpaceComponentStatus(uint64 Space, EOculusSpaceComponentType SpaceComponentType, bool &OutEnabled, bool &OutChangePending);
+		static EOculusResult::Type GetSupportedAnchorComponents(uint64 Handle, TArray<EOculusSpaceComponentType>& OutSupportedTypes);
 		static EOculusResult::Type SaveAnchor(uint64 Space, EOculusSpaceStorageLocation StorageLocation, EOculusSpaceStoragePersistenceMode StoragePersistenceMode, uint64& OutRequestId);
 		static EOculusResult::Type SaveAnchorList(const TArray<uint64>& Spaces, EOculusSpaceStorageLocation StorageLocation, uint64& OutRequestId);
 		static EOculusResult::Type EraseAnchor(uint64 AnchorHandle, EOculusSpaceStorageLocation StorageLocation, uint64& OutRequestId);
 		static EOculusResult::Type QuerySpaces(const FOculusSpaceQueryInfo& QueryInfo, uint64& OutRequestId);
 		static EOculusResult::Type ShareSpaces(const TArray<uint64>& Spaces, const TArray<FString>& UserIds, uint64& OutRequestId);
+		static EOculusResult::Type GetSpaceContainerUUIDs(uint64 Space, TArray<FUUID>& OutUUIDs);
 		static EOculusResult::Type GetSpaceScenePlane(uint64 Space, FVector& OutPos, FVector& OutSize);
 		static EOculusResult::Type GetSpaceSceneVolume(uint64 Space, FVector& OutPos, FVector& OutSize);
 		static EOculusResult::Type GetSpaceSemanticClassification(uint64 Space, TArray<FString>& OutSemanticClassification);
+		static EOculusResult::Type GetSpaceContainer(uint64 Space, TArray<FUUID>& OutContainerUuids);
+		static EOculusResult::Type GetSpaceBoundary2D(uint64 Space, TArray<FVector2D>& OutVertices);
 
 		static void OnPollEvent(ovrpEventDataBuffer* EventDataBuffer, bool& EventPollResult);
 	};

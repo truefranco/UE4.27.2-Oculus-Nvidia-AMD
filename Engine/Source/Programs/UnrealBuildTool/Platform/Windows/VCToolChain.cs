@@ -156,7 +156,7 @@ namespace UnrealBuildTool
 			// Suppress generation of object code for unreferenced inline functions. Enabling this option is more standards compliant, and causes a big reduction
 			// in object file sizes (and link times) due to the amount of stuff we inline.
 			Arguments.Add("/Zc:inline");
-
+			Arguments.Add("/std:c++17");
 			if (Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
 			{
 				Arguments.Add("-fms-compatibility-version=19.1");

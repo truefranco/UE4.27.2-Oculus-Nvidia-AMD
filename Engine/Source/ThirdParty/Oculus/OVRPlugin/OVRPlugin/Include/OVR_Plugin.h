@@ -782,27 +782,42 @@ OVRP_EXPORT ovrpResult ovrp_GetHandState2(ovrpStep step, int frameIndex, ovrpHan
 
 
 OVRP_EXPORT ovrpResult ovrp_GetSkeleton2(ovrpSkeletonType skeletonType, ovrpSkeleton2* skeleton);
-
-
-
+OVRP_EXPORT ovrpResult ovrp_GetSkeleton3(ovrpSkeletonType skeletonType, ovrpSkeleton3* skeleton);
 OVRP_EXPORT ovrpResult ovrp_GetMesh(ovrpMeshType meshType, ovrpMesh* mesh);
 
 OVRP_EXPORT ovrpResult ovrp_GetBodyState(ovrpStep step, int frameIndex, ovrpBodyState* bodyState);
 
 
 
+
+OVRP_EXPORT ovrpResult ovrp_GetBodyState4(ovrpStep step, int frameIndex, ovrpBodyState4* bodyState);
 OVRP_EXPORT ovrpResult ovrp_GetBodyTrackingEnabled(ovrpBool* enabled);
 OVRP_EXPORT ovrpResult ovrp_GetBodyTrackingSupported(ovrpBool* supported);
-
-
-
+OVRP_EXPORT ovrpResult ovrp_GetFullBodyTrackingEnabled(ovrpBool* enabled);
 
 OVRP_EXPORT ovrpResult ovrp_StartFaceTracking();
 OVRP_EXPORT ovrpResult ovrp_StopFaceTracking();
+OVRP_EXPORT ovrpResult ovrp_GetFaceTracking2Enabled(ovrpBool* faceTracking2Enabled);
+OVRP_EXPORT ovrpResult ovrp_GetFaceTracking2Supported(ovrpBool* faceTracking2Supported);
+OVRP_EXPORT ovrpResult ovrp_StartFaceTracking2(
+    const ovrpFaceTrackingDataSource2* const requestedDataSources,
+    unsigned int requestedDataSourcesCount);
+OVRP_EXPORT ovrpResult ovrp_StopFaceTracking2();
 OVRP_EXPORT ovrpResult ovrp_StartBodyTracking();
 
 
 
+
+OVRP_EXPORT ovrpResult ovrp_StartBodyTracking2(ovrpBodyJointSet jointSet);
+
+OVRP_EXPORT ovrpResult ovrp_RequestBodyTrackingFidelity(ovrpBodyTrackingFidelity2 bodyTrackingFidelity);
+
+
+
+
+
+OVRP_EXPORT ovrpResult ovrp_SuggestBodyTrackingCalibrationOverride(ovrpBodyTrackingCalibrationInfo calibrationInfo);
+OVRP_EXPORT ovrpResult ovrp_ResetBodyTrackingCalibration();
 
 OVRP_EXPORT ovrpResult ovrp_StopBodyTracking();
 OVRP_EXPORT ovrpResult ovrp_StartEyeTracking();
@@ -856,6 +871,7 @@ OVRP_EXPORT ovrpResult
 ovrp_GetVirtualKeyboardTextureData(ovrpUInt64 textureId, ovrpVirtualKeyboardTextureData* textureData);
 OVRP_EXPORT ovrpResult ovrp_SetVirtualKeyboardModelVisibility(const ovrpVirtualKeyboardModelVisibility* visibility);
 
+OVRP_EXPORT ovrpResult ovrp_QplSetConsent(ovrpBool qplConsent);
 OVRP_EXPORT ovrpResult ovrp_QplMarkerStart(int markerId, int instanceKey, ovrpInt64 timestampMs);
 OVRP_EXPORT ovrpResult ovrp_QplMarkerEnd(int markerId, ovrpInt16 actionId, int instanceKey, ovrpInt64 timestampMs);
 OVRP_EXPORT ovrpResult ovrp_QplMarkerPoint(int markerId, const char* name, int instanceKey, ovrpInt64 timestampMs);
@@ -878,6 +894,10 @@ ovrp_AreHandPosesGeneratedByControllerData(ovrpStep step, ovrpNode nodeId, ovrpB
 
 OVRP_EXPORT ovrpResult ovrp_SetSimultaneousHandsAndControllersEnabled(ovrpBool enabled);
 OVRP_EXPORT ovrpResult ovrp_GetControllerIsInHand(ovrpStep step, ovrpNode nodeId, ovrpBool* isInHand);
+
+
+
+
 
 OVRP_EXPORT ovrpResult ovrp_GetRenderModelPaths(unsigned int index, char* path);
 OVRP_EXPORT ovrpResult ovrp_GetRenderModelProperties(const char* path, ovrpRenderModelProperties* properties);
@@ -985,6 +1005,14 @@ OVRP_EXPORT ovrpResult ovrp_GetSpaceTriangleMesh(const ovrpSpace* space, ovrpTri
 
 
 
+
+
+
+
+
+
+
+
 OVRP_EXPORT ovrpResult ovrp_GetFaceTrackingEnabled(ovrpBool* faceTrackingEnabled);
 
 OVRP_EXPORT ovrpResult ovrp_GetFaceTrackingSupported(ovrpBool* faceTrackingSupported);
@@ -995,9 +1023,7 @@ OVRP_EXPORT ovrpResult ovrp_GetFaceTrackingSupported(ovrpBool* faceTrackingSuppo
 
 OVRP_EXPORT ovrpResult ovrp_GetFaceState(ovrpStep step, int frameIndex, ovrpFaceState* faceState);
 
-
-
-
+OVRP_EXPORT ovrpResult ovrp_GetFaceState2(ovrpStep step, int frameIndex, ovrpFaceState2* faceState);
 
 OVRP_EXPORT ovrpResult ovrp_GetEyeTrackingEnabled(ovrpBool* eyeTrackingEnabled);
 
@@ -1091,13 +1117,21 @@ OVRP_EXPORT ovrpResult ovrp_GetEyeLayerRecommendedResolution(ovrpSizei* recommen
 
 
 
+
+
+
+
+
 OVRP_EXPORT ovrpResult ovrp_IsLayerShapeSupported(ovrpShape shape, ovrpBool* isLayerShapeSupported);
 
+OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthSupported(ovrpBool* supported);
+OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthHandRemovalSupported(ovrpBool* supported);
 OVRP_EXPORT ovrpResult ovrp_InitializeEnvironmentDepth(int createFlags);
 OVRP_EXPORT ovrpResult ovrp_DestroyEnvironmentDepth();
 OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthTextureDesc(ovrpEnvironmentDepthTextureDesc* desc);
 OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthTextureStageCount(int* stageCount);
 OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthTexture(int stage, ovrpEye eyeId, ovrpTextureHandle* texture);
+OVRP_EXPORT ovrpResult ovrp_SetEnvironmentDepthHandRemoval(ovrpBool enabled);
 OVRP_EXPORT ovrpResult ovrp_StartEnvironmentDepth();
 OVRP_EXPORT ovrpResult ovrp_StopEnvironmentDepth();
 OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthFrameDesc(ovrpEye eyeId, ovrpEnvironmentDepthFrameDesc* frameDesc);

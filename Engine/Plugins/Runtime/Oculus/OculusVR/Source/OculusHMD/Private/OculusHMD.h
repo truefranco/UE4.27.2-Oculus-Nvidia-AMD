@@ -255,6 +255,8 @@ protected:
 	void EyeTrackedFoveatedRenderingFallback();
 
 public:
+	OCULUSHMD_API static FOculusHMD* GetOculusHMD();
+
 	bool IsHMDActive() const;
 
 	FSplash* GetSplash() const { return Splash.Get(); }

@@ -4,7 +4,7 @@
 
 #include "../HAL/PreprocessorHelpers.h"
 
-
+#define _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS
 // This file is included in some resource files, which issue a warning:
 //
 // warning RC4011: identifier truncated to 'PLATFORM_CAN_SUPPORT_EDITORONLY'

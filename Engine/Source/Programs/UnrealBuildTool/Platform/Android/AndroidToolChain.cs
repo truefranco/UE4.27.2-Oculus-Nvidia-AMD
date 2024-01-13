@@ -679,7 +679,6 @@ namespace UnrealBuildTool
 			Result += " -Wall";
 			Result += " -Wdelete-non-virtual-dtor";
 			Result += " -fno-PIE";
-
 			Result += " -Wno-unused-variable";
 			// this will hide the warnings about static functions in headers that aren't used in every single .cpp file
 			Result += " -Wno-unused-function";
@@ -695,6 +694,7 @@ namespace UnrealBuildTool
 			Result += " -Wno-unknown-pragmas";          // probably should kill this one, sign of another issue in PhysX?
 			Result += " -Wno-invalid-offsetof";         // needed to suppress warnings about using offsetof on non-POD types.
 			Result += " -Wno-logical-op-parentheses";   // needed for external headers we can't change
+			Result += " -Wno-c++17-extensions";
 			if (enableW)
 			{
 				Result += " -Wno-bitwise-instead-of-logical";

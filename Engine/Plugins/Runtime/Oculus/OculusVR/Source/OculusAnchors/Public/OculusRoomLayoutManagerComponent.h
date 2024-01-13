@@ -10,18 +10,8 @@ LICENSE file in the root directory of this source tree.
 
 #include "CoreMinimal.h"
 #include "OculusSpatialAnchorComponent.h"
+#include "OculusAnchorBPFunctionLibrary.h"
 #include "OculusRoomLayoutManagerComponent.generated.h"
-
-// Represents a room layout within a specific space
-USTRUCT(BlueprintType)
-struct OCULUSANCHORS_API FRoomLayout
-{
-	GENERATED_USTRUCT_BODY()
-
-	FUUID FloorUuid;
-	FUUID CeilingUuid;
-	TArray<FUUID> WallsUuid;
-};
 
 UCLASS(meta = (DisplayName = "Oculus Room Layout Manager Component", BlueprintSpawnableComponent))
 class OCULUSANCHORS_API UOculusRoomLayoutManagerComponent : public UActorComponent
@@ -53,11 +43,18 @@ public:
 
 	// Gets room layout for a specific space
 	UFUNCTION(BlueprintCallable, Category = "Oculus|Room Layout Manager")
-	bool GetRoomLayout(FUInt64 Space, UPARAM(ref) FRoomLayout& RoomLayoutOut, int32 MaxWallsCapacity = 64);
+	bool GetRoomLayout(FUInt64 Space, UPARAM(ref) FOculusRoomLayout& RoomLayoutOut, int32 MaxWallsCapacity = 64);
+
+	// Loads mesh data (vertices, indeces) associated with the space into UProceduralMeshComponent
+	UFUNCTION(BlueprintCallable, Category = "OculusVR|Room Layout Manager")
+	bool LoadTriangleMesh(FUInt64 Space, class UProceduralMeshComponent* Mesh, bool CreateCollision) const;
 
 protected:
 	UPROPERTY(Transient)
 	TSet<uint64> EntityRequestList;
+
+	UPROPERTY(Transient)
+	TMap<FUInt64, FOculusRoomLayout> RoomLayouts;
 
 private:
 	UFUNCTION()

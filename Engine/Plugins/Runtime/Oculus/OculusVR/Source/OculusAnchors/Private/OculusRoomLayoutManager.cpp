@@ -6,6 +6,7 @@ This source code is licensed under the license found in the
 LICENSE file in the root directory of this source tree.
 */
 #include "OculusRoomLayoutManager.h"
+#include "Algo/Transform.h"
 #include "OculusHMD.h"
 #include "OculusAnchorDelegates.h"
 #include "OculusAnchorsModule.h"
@@ -114,6 +115,42 @@ namespace OculusAnchors
 		}
 
 		return true;
+	}
+
+	bool FOculusRoomLayoutManager::GetSpaceTriangleMesh(uint64 Space, TArray<FVector>& Vertices, TArray<int32>& Triangles)
+	{
+		ovrpTriangleMesh OVRPMesh = { 0, 0, nullptr, 0, 0, nullptr };
+
+		ovrpResult CountResult = FOculusHMDModule::GetPluginWrapper().GetSpaceTriangleMesh(&Space, &OVRPMesh);
+		if (OVRP_FAILURE(CountResult))
+		{
+			UE_LOG(LogOculusAnchors, Warning, TEXT("Failed to load TriangleMesh info - Space: %llu - Result: %d"), Space, CountResult);
+			return false;
+		}
+		OVRPMesh.indexCapacityInput = OVRPMesh.indexCountOutput;
+		OVRPMesh.vertexCapacityInput = OVRPMesh.vertexCountOutput;
+
+		TArray<ovrpVector3f> OVRPVertices;
+		OVRPVertices.SetNum(OVRPMesh.vertexCapacityInput);
+		OVRPMesh.vertices = OVRPVertices.GetData();
+		Triangles.SetNum(OVRPMesh.indexCapacityInput);
+		check(sizeof(TRemoveReference<decltype(Triangles)>::Type::ElementType) == sizeof(TRemovePointer<decltype(OVRPMesh.indices)>::Type));
+		OVRPMesh.indices = Triangles.GetData();
+
+		const ovrpResult MeshResult = FOculusHMDModule::GetPluginWrapper().GetSpaceTriangleMesh(&Space, &OVRPMesh);
+		if (OVRP_FAILURE(MeshResult))
+		{
+			UE_LOG(LogOculusAnchors, Warning, TEXT("Failed to load TriangleMesh data - Space: %llu - Result: %d"), Space, MeshResult);
+			return false;
+		}
+
+		UE_LOG(LogOculusAnchors, Verbose, TEXT("Loaded TriangleMesh data - Space: %llu - Vertices: %d - Faces: %d"),
+			Space, OVRPMesh.vertexCapacityInput, OVRPMesh.indexCapacityInput);
+
+		Vertices.Empty(OVRPVertices.Num());
+		Algo::Transform(OVRPVertices, Vertices, [](const auto& Vertex) { return OculusHMD::ToFVector(Vertex); });
+		return true;
+		return false;
 	}
 }
 

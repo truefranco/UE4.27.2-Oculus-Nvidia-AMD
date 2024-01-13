@@ -539,7 +539,41 @@ namespace OculusAnchors
 	
 		return static_cast<EOculusResult::Type>(Result);
 	}
-	
+	EOculusResult::Type FOculusAnchorManager::GetSupportedAnchorComponents(uint64 Handle, TArray<EOculusSpaceComponentType>& OutSupportedTypes)
+	{
+		if (!FOculusHMDModule::GetPluginWrapper().GetInitialized())
+		{
+			return EOculusResult::Failure;
+		}
+
+		ovrpSpace ovrSpace = Handle;
+		TArray<ovrpSpaceComponentType> ovrComponentTypes;
+		ovrpUInt32 input = 0;
+		ovrpUInt32 output = 0;
+
+		ovrpResult enumerateResult = FOculusHMDModule::GetPluginWrapper().EnumerateSpaceSupportedComponents(&ovrSpace, input, &output, nullptr);
+		if (!OVRP_SUCCESS(enumerateResult))
+		{
+			return static_cast<EOculusResult::Type>(enumerateResult);
+		}
+
+		input = output;
+		ovrComponentTypes.SetNumZeroed(output);
+
+		enumerateResult = FOculusHMDModule::GetPluginWrapper().EnumerateSpaceSupportedComponents(&ovrSpace, input, &output, ovrComponentTypes.GetData());
+		if (!OVRP_SUCCESS(enumerateResult))
+		{
+			return static_cast<EOculusResult::Type>(enumerateResult);
+		}
+
+		OutSupportedTypes.SetNumZeroed(ovrComponentTypes.Num());
+		for (int i = 0; i < ovrComponentTypes.Num(); ++i)
+		{
+			OutSupportedTypes[i] = ConvertToUe4ComponentType(ovrComponentTypes[i]);
+		}
+
+		return static_cast<EOculusResult::Type>(enumerateResult);
+	}
 	/**
 	 * @brief Saves a space to the given storage location
 	 * @param Space The space handle
@@ -757,7 +791,43 @@ namespace OculusAnchors
 
 		return static_cast<EOculusResult::Type>(ShareSpacesResult);
 	}
+	EOculusResult::Type FOculusAnchorManager::GetSpaceContainerUUIDs(uint64 Space, TArray<FUUID>& OutUUIDs)
+	{
+		TArray<ovrpUuid> ovrUuidArray;
 
+		// Get the number of elements in the container
+		ovrpSpaceContainer ovrSpaceContainer;
+		ovrSpaceContainer.uuidCapacityInput = 0;
+		ovrSpaceContainer.uuidCountOutput = 0;
+		ovrSpaceContainer.uuids = nullptr;
+		ovrpResult result = FOculusHMDModule::GetPluginWrapper().GetSpaceContainer(&Space, &ovrSpaceContainer);
+		if (OVRP_FAILURE(result))
+		{
+			UE_LOG(LogOculusAnchors, Warning, TEXT("Failed to get space container %d"), result);
+			return static_cast<EOculusResult::Type>(result);
+		}
+
+		// Retrieve the actual array of UUIDs
+		ovrUuidArray.SetNum(ovrSpaceContainer.uuidCountOutput);
+		ovrSpaceContainer.uuidCapacityInput = ovrSpaceContainer.uuidCountOutput;
+		ovrSpaceContainer.uuids = ovrUuidArray.GetData();
+
+		result = FOculusHMDModule::GetPluginWrapper().GetSpaceContainer(&Space, &ovrSpaceContainer);
+		if (OVRP_FAILURE(result))
+		{
+			UE_LOG(LogOculusAnchors, Warning, TEXT("Failed to get space container %d"), result);
+			return static_cast<EOculusResult::Type>(result);
+		}
+
+		// Write out the remaining UUIDs
+		OutUUIDs.Reserve(ovrUuidArray.Num());
+		for (auto& it : ovrUuidArray)
+		{
+			OutUUIDs.Add(FUUID(it.data));
+		}
+
+		return EOculusResult::Success;
+	}
 	/**
 	 * @brief Gets bounds of a specific space
 	 * @param Handle The handle of the space
@@ -840,6 +910,73 @@ namespace OculusAnchors
 		}
 		
 		return static_cast<EOculusResult::Type>(Result);
+	}
+	EOculusResult::Type FOculusAnchorManager::GetSpaceContainer(uint64 Space, TArray<FUUID>& OutContainerUuids)
+	{
+		OutContainerUuids.Empty();
+
+		ovrpSpaceContainer container;
+
+		ovrpResult Result = FOculusHMDModule::GetPluginWrapper().GetSpaceContainer(&Space, &container);
+
+		if (OVRP_SUCCESS(Result))
+		{
+			TArray<ovrpUuid> uuids;
+			size_t size = container.uuidCountOutput;
+			uuids.InsertZeroed(0, size);
+			container.uuidCapacityInput = size;
+			container.uuids = uuids.GetData();
+			Result = FOculusHMDModule::GetPluginWrapper().GetSpaceContainer(&Space, &container);
+			if (OVRP_SUCCESS(Result))
+			{
+				OutContainerUuids.InsertZeroed(0, size);
+				for (size_t i = 0; i < size; i++)
+				{
+					OutContainerUuids[i] = FUUID(uuids[i].data);
+				}
+			}
+		}
+
+		return static_cast<EOculusResult::Type>(Result);
+	}
+
+	EOculusResult::Type FOculusAnchorManager::GetSpaceBoundary2D(uint64 Space, TArray<FVector2D>& OutVertices)
+	{
+		TArray<ovrpVector2f> vertices;
+
+		// Get the number of elements in the container
+		ovrpBoundary2D boundary;
+		boundary.vertexCapacityInput = 0;
+		boundary.vertexCountOutput = 0;
+		boundary.vertices = nullptr;
+
+		ovrpResult result = FOculusHMDModule::GetPluginWrapper().GetSpaceBoundary2D(&Space, &boundary);
+		if (OVRP_FAILURE(result))
+		{
+			UE_LOG(LogOculusAnchors, Warning, TEXT("Failed to get space boundary 2d %d"), result);
+			return static_cast<EOculusResult::Type>(result);
+		}
+
+		// Retrieve the actual array of vertices
+		vertices.SetNum(boundary.vertexCountOutput);
+		boundary.vertexCapacityInput = boundary.vertexCountOutput;
+		boundary.vertices = vertices.GetData();
+
+		result = FOculusHMDModule::GetPluginWrapper().GetSpaceBoundary2D(&Space, &boundary);
+		if (OVRP_FAILURE(result))
+		{
+			UE_LOG(LogOculusAnchors, Warning, TEXT("Failed to get space boundary 2d %d"), result);
+			return static_cast<EOculusResult::Type>(result);
+		}
+
+		// Write out the vertices
+		OutVertices.Reserve(vertices.Num());
+		for (const auto& it : vertices)
+		{
+			OutVertices.Add(FVector2D(it.x, it.y));
+		}
+
+		return EOculusResult::Success;
 	}
 }
 

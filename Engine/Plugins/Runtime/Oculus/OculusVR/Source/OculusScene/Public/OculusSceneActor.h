@@ -106,6 +106,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Oculus|Scene Actor")
 	bool bPopulateSceneOnBeginPlay = true;
 
+	// If true then when the scene model is loaded we will only attempt to populate the room the user is standing in.
+	// Otherwise all rooms and all scene anchors will be loaded.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Oculus|Scene Actor")
+	bool bActiveRoomOnly = true;
+
 	UPROPERTY(EditAnywhere, Category = "Oculus|Scene Actor")
 	TMap<FString, FSpawnedSceneAnchorProperties> ScenePlaneSpawnedSceneAnchorProperties;
 
@@ -121,11 +126,19 @@ public:
 
 
 private:
-	// Event delegate handlers
-	void AnchorQueryComplete_Handler(EOculusResult::Type Result, const TArray<FOculusSpaceQueryResult>& Results);
+	EOculusResult::Type QueryAllRooms();
+	void RoomLayoutQueryComplete(EOculusResult::Type AnchorResult, const TArray<FOculusSpaceQueryResult>& QueryResults);
 
-	void SpatialAnchorQueryResult_Handler(FUInt64 RequestId, FUInt64 Space, FUUID Uuid);
-	void SpatialAnchorQueryComplete_Handler(FUInt64 RequestId, bool bResult);
+	EOculusResult::Type QueryRoomUUIDs(const FUInt64 RoomSpaceID, const TArray<FUUID>& RoomUUIDs);
+	void SceneRoomQueryComplete(EOculusResult::Type AnchorResult, const TArray<FOculusSpaceQueryResult>& QueryResults, const FUInt64 RoomSpaceID);
+
+	void StartSingleRoomQuery(FUInt64 RoomSpaceID, FOculusRoomLayout RoomLayout);
+	EOculusResult::Type QueryFloorForActiveRoom(FUInt64 RoomSpaceID, FOculusRoomLayout RoomLayout);
+	void ActiveRoomFloorQueryComplete(EOculusResult::Type AnchorResult, const TArray<FOculusSpaceQueryResult>& QueryResults, FUInt64 RoomSpaceID, FOculusRoomLayout RoomLayout);
+	bool PointInPolygon2D(FVector2D PointToTest, const TArray<FVector2D>& PolyVerts) const;
+
+	void GetSemanticClassifications(uint64 Space, TArray<FString>& OutSemanticLabels) const;
+
 	void SceneCaptureComplete_Handler(FUInt64 RequestId, bool bResult);
 
 	// Launches Capture Flow if (based on LauchCaptureFlowWhenMissingScene member value)
@@ -134,17 +147,20 @@ private:
 	// Resets states of the Actor
 	void ResetStates();
 
-	// Handles logic for making a spatial anchors request
-	bool QuerySpatialAnchors(const bool bRoomLayoutOnly);
-
 	// Validates UUID
 	bool IsValidUuid(const FUUID& Uuid);
 
 	// Spawns a scene anchor
-	bool SpawnSceneAnchor(const FUInt64& Space, const FVector& BoundedSize, const TArray<FString>& SemanticClassifications, const EOculusSpaceComponentType AnchorComponentType);
-	
+	//bool SpawnSceneAnchor(const FUInt64& Space, const FVector& BoundedSize, const TArray<FString>& SemanticClassifications, const EOculusSpaceComponentType AnchorComponentType);
+	AActor* SpawnActorWithSceneComponent(const FUInt64& Space, const FUInt64& RoomSpaceID, const TArray<FString>& SemanticClassifications, UClass* sceneAnchorComponentInstanceClass);
+
+	// Spawns a scene anchor
+	AActor* SpawnOrUpdateSceneAnchor(AActor* Anchor, const FUInt64& Space, const FUInt64& RoomSpaceID, const FVector& BoundedPos, const FVector& BoundedSize, const TArray<FString>& SemanticClassifications, const EOculusSpaceComponentType AnchorComponentType);
+
 	// Components for room layout and spatial anchors functionalities
 	UOculusRoomLayoutManagerComponent* RoomLayoutManagerComponent = nullptr;
+
+	class UOculusSceneGlobalMeshComponent* SceneGlobalMeshComponent = nullptr;
 
 	// Whether Capture Flow was already launched once
 	bool bCaptureFlowWasLaunched;
@@ -154,4 +170,7 @@ private:
 
 	// Whether we found a captured scene
 	bool bFoundCapturedScene;
+
+	UPROPERTY(Transient)
+	TMap<FUInt64, FOculusRoomLayout> RoomLayouts;
 };

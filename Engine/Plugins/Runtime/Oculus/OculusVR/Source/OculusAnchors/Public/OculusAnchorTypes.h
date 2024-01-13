@@ -125,6 +125,7 @@ enum class EOculusSpaceComponentType : uint8
 	RoomLayout = 6				UMETA(DisplayName = "RoomLayout"),
 	SpaceContainer = 7			UMETA(DisplayName = "SpaceContainer"),
 	Undefined = 8				UMETA(DisplayName = "Not defined"),
+	TriangleMesh = 9            UMETA(DisplayName = "TriangleMesh"),
 };
 
 USTRUCT(BlueprintType)
@@ -183,4 +184,16 @@ struct OCULUSANCHORS_API FOculusSpaceQueryFilterValues
 public:
 	TArray<FUUID> Uuids; // used if filtering by UUIDs
 	TArray<EOculusSpaceComponentType> ComponentTypes; // used if filtering by component types
+};
+
+// Represents a room layout within a specific space
+USTRUCT(BlueprintType)
+struct OCULUSANCHORS_API FOculusRoomLayout
+{
+	GENERATED_USTRUCT_BODY()
+
+	FUUID FloorUuid;
+	FUUID CeilingUuid;
+	TArray<FUUID> WallsUuid;
+	TArray<FUUID> RoomObjectUUIDs;
 };

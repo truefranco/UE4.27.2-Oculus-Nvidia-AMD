@@ -8,6 +8,7 @@ LICENSE file in the root directory of this source tree.
 
 #include "OculusAnchorLatentActions.h"
 #include "OculusAnchorsPrivate.h"
+#include "OculusAnchorDelegates.h"
 #include "OculusHMD.h"
 
 //
@@ -28,7 +29,7 @@ void UOculusAsyncAction_CreateSpatialAnchor::Activate()
 		AnchorTransform,
 		TargetActor,
 		FOculusSpatialAnchorCreateDelegate::CreateUObject(this, &UOculusAsyncAction_CreateSpatialAnchor::HandleCreateComplete),
-		&Result
+		Result
 	);
 
 	if (!bStartedAsync)
@@ -97,7 +98,7 @@ void UOculusAsyncAction_EraseAnchor::Activate()
 	bool bStartedAsync = OculusAnchors::FOculusAnchors::EraseAnchor(
 		AnchorComponent,
 		FOculusAnchorEraseDelegate::CreateUObject(this, &UOculusAsyncAction_EraseAnchor::HandleEraseAnchorComplete),
-		&Result
+		Result
 	);
 
 	if (!bStartedAsync)
@@ -167,7 +168,7 @@ void UOculusAsyncAction_SaveAnchor::Activate()
 		AnchorComponent,
 		StorageLocation,
 		FOculusAnchorSaveDelegate::CreateUObject(this, &UOculusAsyncAction_SaveAnchor::HandleSaveAnchorComplete),
-		&Result
+		Result
 	);
 
 	if (!bStartedAsync)
@@ -229,7 +230,7 @@ void UOculusAsyncAction_SaveAnchors::Activate()
 		TargetAnchors,
 		StorageLocation,
 		FOculusAnchorSaveListDelegate::CreateUObject(this, &UOculusAsyncAction_SaveAnchors::HandleSaveAnchorsComplete),
-		&Result
+		Result
 	);
 
 	if (!bStartedAsync)
@@ -295,7 +296,7 @@ void UOculusAsyncAction_QueryAnchors::Activate()
 	bool bStartedAsync = OculusAnchors::FOculusAnchors::QueryAnchorsAdvanced(
 		QueryInfo,
 		FOculusAnchorQueryDelegate::CreateUObject(this, &UOculusAsyncAction_QueryAnchors::HandleQueryAnchorsResults),
-		&Result
+		Result
 	);
 
 	if (!bStartedAsync)
@@ -358,8 +359,8 @@ void UOculusAsyncAction_SetAnchorComponentStatus::Activate()
 		return;
 	}
 
-	UOculusAnchorComponent* AnchorComponent = TargetActor->FindComponentByClass<UOculusAnchorComponent>();
-	if (AnchorComponent == nullptr)
+	TargetAnchorComponent = TargetActor->FindComponentByClass<UOculusAnchorComponent>();
+	if (TargetAnchorComponent == nullptr)
 	{
 		Failure.Broadcast(EOculusResult::Failure);
 		return;
@@ -367,12 +368,12 @@ void UOculusAsyncAction_SetAnchorComponentStatus::Activate()
 
 	EOculusResult::Type Result;
 	bool bStartedAsync = OculusAnchors::FOculusAnchors::SetAnchorComponentStatus(
-		AnchorComponent,
+		TargetAnchorComponent,
 		ComponentType,
 		bEnabled,
 		0,
 		FOculusAnchorSetComponentStatusDelegate::CreateUObject(this, &UOculusAsyncAction_SetAnchorComponentStatus::HandleSetComponentStatusComplete),
-		&Result
+		Result
 	);
 
 	if (!bStartedAsync)
@@ -402,11 +403,11 @@ UOculusAsyncAction_SetAnchorComponentStatus* UOculusAsyncAction_SetAnchorCompone
 	return Action;
 }
 
-void UOculusAsyncAction_SetAnchorComponentStatus::HandleSetComponentStatusComplete(EOculusResult::Type SetStatusResult, UOculusAnchorComponent* Anchor, EOculusSpaceComponentType SpaceComponentType, bool bResultEnabled)
+void UOculusAsyncAction_SetAnchorComponentStatus::HandleSetComponentStatusComplete(EOculusResult::Type SetStatusResult, uint64 AnchorHandle, EOculusSpaceComponentType SpaceComponentType, bool bResultEnabled)
 {
 	if (UOculusFunctionLibrary::IsResultSuccess(SetStatusResult))
 	{
-		Success.Broadcast(Anchor, SpaceComponentType, bResultEnabled, SetStatusResult);
+		Success.Broadcast(TargetAnchorComponent, SpaceComponentType, bResultEnabled, SetStatusResult);
 	}
 	else
 	{
@@ -443,7 +444,7 @@ void UOculusAsyncAction_ShareAnchors::Activate()
 		TargetAnchors,
 		ToShareWithIds,
 		FOculusAnchorShareDelegate::CreateUObject(this, &UOculusAsyncAction_ShareAnchors::HandleShareAnchorsComplete),
-		&Result
+		Result
 	);
 
 	if (!bStartedAsync)

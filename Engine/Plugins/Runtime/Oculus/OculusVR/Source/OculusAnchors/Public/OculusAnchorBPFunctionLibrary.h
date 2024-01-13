@@ -9,6 +9,8 @@ LICENSE file in the root directory of this source tree.
 #pragma once
 
 #include "OculusAnchorTypes.h"
+#include "OculusFunctionLibrary.h"
+#include "OculusAnchorComponents.h"
 #include "OculusAnchorBPFunctionLibrary.generated.h"
 
 //Helper
@@ -43,4 +45,13 @@ public:
 
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "FUUID equal", CompactNodeTitle = "==", Keywords = "equal", BlueprintAutocast), Category = "Oculus|SpatialAnchor")
 	static bool IsEqual_FUUID(const FUUID& Left, const FUUID& Right) { return Left.IsEqual(Right); };
+
+	UFUNCTION(BlueprintCallable, Category = "OculusXR|SpatialAnchor")
+	static bool IsAnchorResultSuccess(EOculusResult::Type result);
+
+	UFUNCTION(BlueprintCallable, Category = "OculusXR|SpatialAnchor")
+	static const UOculusBaseAnchorComponent* GetAnchorComponent(const FOculusSpaceQueryResult& QueryResult, EOculusSpaceComponentType ComponentType, UObject* Outer);
+
+	UFUNCTION(BlueprintCallable, Category = "OculusXR|SpatialAnchor")
+	static bool GetRoomLayout(FUInt64 Space, FOculusRoomLayout& RoomLayoutOut, int32 MaxWallsCapacity = 64);
 };

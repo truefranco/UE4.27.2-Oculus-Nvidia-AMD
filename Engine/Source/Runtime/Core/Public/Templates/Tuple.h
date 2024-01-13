@@ -13,6 +13,7 @@
 #include "Templates/TypeHash.h"
 #include "Templates/IsConstructible.h"
 #include <tuple>
+#include <type_traits>
 
 // This workaround exists because Visual Studio causes false positives for code like this during static analysis:
 //
@@ -696,7 +697,7 @@ public:
 		return *this;
 	}
 
-#if UE_TUPLE_STRUCTURED_BINDING_SUPPORT
+/*#if UE_TUPLE_STRUCTURED_BINDING_SUPPORT
 	// TTuple support for structured binding - not intended to be called directly
 	template <int N> friend decltype(auto) get(               TTuple&  val) { return static_cast<               TTuple& >(val).template Get<N>(); }
 	template <int N> friend decltype(auto) get(const          TTuple&  val) { return static_cast<const          TTuple& >(val).template Get<N>(); }
@@ -705,8 +706,8 @@ public:
 	template <int N> friend decltype(auto) get(               TTuple&& val) { return static_cast<               TTuple&&>(val).template Get<N>(); }
 	template <int N> friend decltype(auto) get(const          TTuple&& val) { return static_cast<const          TTuple&&>(val).template Get<N>(); }
 	template <int N> friend decltype(auto) get(      volatile TTuple&& val) { return static_cast<      volatile TTuple&&>(val).template Get<N>(); }
-	template <int N> friend decltype(auto) get(const volatile TTuple&& val) { return static_cast<const volatile TTuple&&>(val).template Get<N>(); }
-#endif
+	template <int N> friend decltype(auto) get(const volatile TTuple&& val) { return static_cast<const volatile TTuple&&>(val).template Get<N>(); }	
+#endif*/
 };
 
 template <typename... Types>
@@ -880,15 +881,55 @@ FORCEINLINE void VisitTupleElements(FuncType&& Func, FirstTupleType&& FirstTuple
  *
  * // Now Ret1, Ret2 and Ret3 contain the unpacked return values.
  */
+
+#define UE_REQUIRES(...) , std::enable_if_t<(__VA_ARGS__), int> = 0
+
+template <typename T> constexpr bool TIsTuple_V = false;
+
+template <typename... Types> constexpr bool TIsTuple_V<               TTuple<Types...>> = true;
+template <typename... Types> constexpr bool TIsTuple_V<const          TTuple<Types...>> = true;
+template <typename... Types> constexpr bool TIsTuple_V<      volatile TTuple<Types...>> = true;
+template <typename... Types> constexpr bool TIsTuple_V<const volatile TTuple<Types...>> = true;
+
+template <typename T>
+struct TIsTuple
+{
+	enum { Value = TIsTuple_V<T> };
+};
+
 template <typename... Types>
 FORCEINLINE TTuple<Types&...> Tie(Types&... Args)
 {
 	return TTuple<Types&...>(Args...);
 }
 
-#if UE_TUPLE_STRUCTURED_BINDING_SUPPORT
+//#if UE_TUPLE_STRUCTURED_BINDING_SUPPORT
+
+template <typename... Types>
+struct std::tuple_size<TTuple<Types...>> 
+		: std::integral_constant<std::size_t, sizeof...(Types)>
+{
+};
+template <std::size_t Idx, typename... Types>
+class std::tuple_element<Idx, TTuple<Types...>>
+		
+{
+public:
+	using type = typename TTupleElement<Idx, TTuple<Types...>>::Type;
+};
+	
+template <
+	int Idx, 
+	typename TupleType 
+	UE_REQUIRES(TIsTuple_V<std::decay_t<TupleType>>)
+>
+decltype(auto) get(TupleType&& val)
+{
+	return ((TupleType&&)val).template Get<Idx>();
+}
+
 // TTuple support for structured bindings
-template <typename... ArgTypes>
+/*template <typename... ArgTypes>
 class std::tuple_size<TTuple<ArgTypes...>>
 	: public std::integral_constant<std::size_t, sizeof...(ArgTypes)>
 {
@@ -898,5 +939,13 @@ class std::tuple_element<N, TTuple<ArgTypes...>>
 {
 public:
 	using type = typename TTupleElement<N, TTuple<ArgTypes...>>::Type;
-};
-#endif
+};*/
+//#endif
+/*template <size_t Idx, typename... Types> decltype(auto) get(const TTuple<Types...>& t) { return(t.template Get<Idx>()); }
+template <size_t Idx, typename... Types> decltype(auto) get(const TTuple<Types...>&& t) { return(t.template Get<Idx>()); }
+template <size_t Idx, typename... Types> decltype(auto) get(const volatile TTuple<Types...>& t) { return(t.template Get<Idx>()); }
+template <size_t Idx, typename... Types> decltype(auto) get(const volatile TTuple<Types...>&& t) { return(t.template Get<Idx>()); }
+template <size_t Idx, typename... Types> decltype(auto) get(TTuple<Types...>&& t) { return(t.template Get<Idx>()); }
+template <size_t Idx, typename... Types> decltype(auto) get(TTuple<Types...>& t) { return(t.template Get<Idx>()); }
+template <size_t Idx, typename... Types> decltype(auto) get(volatile TTuple<Types...>&& t) { return(t.template Get<Idx>()); }
+template <size_t Idx, typename... Types> decltype(auto) get(volatile TTuple<Types...>& t) { return(t.template Get<Idx>()); }*/

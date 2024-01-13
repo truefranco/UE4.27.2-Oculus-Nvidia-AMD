@@ -137,6 +137,13 @@ public:
 	// Experimental Features
 	bool bSupportExperimentalFeatures;
 
+	EProcessorFavor ProcessorFavor;
+
+	EOculusXRHMDBodyTrackingFidelity BodyTrackingFidelity;
+	EOculusXRHMDBodyJointSet BodyTrackingJointSet;
+
+	TSet<EFaceTrackingDataSourceConfig> FaceTrackingDataSource;
+
 public:
 	FSettings();
 	virtual ~FSettings() {}

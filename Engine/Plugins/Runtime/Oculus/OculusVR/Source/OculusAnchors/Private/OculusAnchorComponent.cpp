@@ -60,7 +60,8 @@ void UOculusAnchorComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 	if (HasValidHandle())
 	{
-		OculusAnchors::FOculusAnchors::DestroyAnchor(AnchorHandle.GetValue());
+		EOculusResult::Type AnchorResult;
+		OculusAnchors::FOculusAnchors::DestroyAnchor(AnchorHandle.GetValue(), AnchorResult);
 	}
 }
 

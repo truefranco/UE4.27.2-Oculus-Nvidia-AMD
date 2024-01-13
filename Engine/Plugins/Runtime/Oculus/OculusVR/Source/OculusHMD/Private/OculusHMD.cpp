@@ -3397,6 +3397,19 @@ namespace OculusHMD
 	}
 #endif // #if !UE_BUILD_SHIPPING
 
+	FOculusHMD* FOculusHMD::GetOculusHMD()
+	{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+		if (GEngine && GEngine->XRSystem.IsValid())
+		{
+			if (GEngine->XRSystem->GetSystemName() == OculusHMD::FOculusHMD::OculusSystemName)
+			{
+				return static_cast<OculusHMD::FOculusHMD*>(GEngine->XRSystem.Get());
+			}
+		}
+#endif
+		return nullptr;
+	}
 
 	bool FOculusHMD::IsHMDActive() const
 	{

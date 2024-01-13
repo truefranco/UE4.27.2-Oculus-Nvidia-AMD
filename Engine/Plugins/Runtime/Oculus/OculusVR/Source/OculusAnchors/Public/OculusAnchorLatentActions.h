@@ -11,6 +11,7 @@ LICENSE file in the root directory of this source tree.
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "OculusAnchorTypes.h"
 #include "OculusAnchorComponent.h"
+#include "OculusAnchorComponents.h"
 #include "OculusFunctionLibrary.h"
 #include "OculusAnchorLatentActions.generated.h"
 
@@ -207,11 +208,14 @@ public:
 	UPROPERTY(Transient)
 	AActor* TargetActor;
 
+	UPROPERTY(Transient)
+	UOculusAnchorComponent* TargetAnchorComponent;
+
 	EOculusSpaceComponentType ComponentType;
 	bool bEnabled;
 
 private:
-	void HandleSetComponentStatusComplete(EOculusResult::Type SetStatusResult, UOculusAnchorComponent* Anchor, EOculusSpaceComponentType SpaceComponentType, bool bResultEnabled);
+	void HandleSetComponentStatusComplete(EOculusResult::Type SetStatusResult, uint64 AnchorHandle, EOculusSpaceComponentType SpaceComponentType, bool bResultEnabled);
 };
 
 

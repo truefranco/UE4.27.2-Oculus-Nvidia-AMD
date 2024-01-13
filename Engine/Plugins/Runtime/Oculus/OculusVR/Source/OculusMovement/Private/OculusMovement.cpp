@@ -26,8 +26,8 @@ bool OculusMovement::GetBodyState(FOculusBodyState& outOculusBodyState, float Wo
 
 	checkf(outOculusBodyState.Joints.Num() >= ovrpBoneId_Body_End, TEXT("Not enough joints in FOculusBodyState::Joints array. You must have at least %d joints"), ovrpBoneId_Body_End);
 
-	ovrpBodyState OVRBodyState;
-	ovrpResult OVRBodyStateResult = FOculusHMDModule::GetPluginWrapper().GetBodyState(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, &OVRBodyState);
+	ovrpBodyState4 OVRBodyState;
+	ovrpResult OVRBodyStateResult = FOculusHMDModule::GetPluginWrapper().GetBodyState4(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, &OVRBodyState);
 	ensureMsgf(OVRBodyStateResult != ovrpFailure_NotYetImplemented, TEXT("Body tracking is not implemented on this platform."));
 
 	if (OVRP_SUCCESS(OVRBodyStateResult))
@@ -87,7 +87,7 @@ bool OculusMovement::IsBodyTrackingSupported()
 
 bool OculusMovement::StartBodyTracking()
 {
-	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StartBodyTracking());
+	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StartBodyTracking2(ovrpBodyJointSet::ovrpBodyJointSet_UpperBody));
 }
 
 bool OculusMovement::StopBodyTracking()
@@ -102,8 +102,8 @@ bool OculusMovement::GetFaceState(FOculusFaceState& outOculusFaceState)
 	checkf(outOculusFaceState.ExpressionWeightConfidences.Num() >= ovrpFaceConfidence_Max, TEXT("Not enough expression weight confidences in FOculusFaceState::ExpressionWeightConfidences. Requires %d available elements in the array."), ovrpFaceConfidence_Max);
 	checkf(outOculusFaceState.ExpressionWeights.Num() >= ovrpFaceExpression_Max, TEXT("Not enough expression weights in FOculusFaceState::ExpressionWeights. Requires %d available elements in the array."), ovrpFaceExpression_Max);
 
-	ovrpFaceState OVRFaceState;
-	ovrpResult OVRFaceStateResult = FOculusHMDModule::GetPluginWrapper().GetFaceState(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, &OVRFaceState);
+	ovrpFaceState2 OVRFaceState;
+	ovrpResult OVRFaceStateResult = FOculusHMDModule::GetPluginWrapper().GetFaceState2(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, &OVRFaceState);
 	ensureMsgf(OVRFaceStateResult != ovrpFailure_NotYetImplemented, TEXT("Face tracking is not implemented on this platform."));
 
 	if (OVRP_SUCCESS(OVRFaceStateResult))
@@ -133,7 +133,7 @@ bool OculusMovement::IsFaceTrackingEnabled()
 	bool bResult = false;
 
 	ovrpBool IsEnabled = ovrpBool_False;
-	ovrpResult TrackingEnabledResult = FOculusHMDModule::GetPluginWrapper().GetFaceTrackingEnabled(&IsEnabled);
+	ovrpResult TrackingEnabledResult = FOculusHMDModule::GetPluginWrapper().GetFaceTracking2Enabled(&IsEnabled);
 
 	if (OVRP_SUCCESS(TrackingEnabledResult))
 	{
@@ -148,7 +148,7 @@ bool OculusMovement::IsFaceTrackingSupported()
 	bool bResult = false;
 
 	ovrpBool IsSupported = ovrpBool_False;
-	ovrpResult TrackingSupportedResult = FOculusHMDModule::GetPluginWrapper().GetFaceTrackingSupported(&IsSupported);
+	ovrpResult TrackingSupportedResult = FOculusHMDModule::GetPluginWrapper().GetFaceTracking2Supported(&IsSupported);
 
 	if (OVRP_SUCCESS(TrackingSupportedResult))
 	{
@@ -160,13 +160,24 @@ bool OculusMovement::IsFaceTrackingSupported()
 
 bool OculusMovement::StartFaceTracking()
 {
-	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StartFaceTracking());
+	const auto* OculusXRHMD = OculusHMD::FOculusHMD::GetOculusHMD();
+	if (OculusXRHMD)
+	{
+		ovrpFaceTrackingDataSource2 dataSources[ovrpFaceConstants_FaceTrackingDataSourcesCount];
+		int count = 0;
+		for (auto Iterator = OculusXRHMD->GetSettings()->FaceTrackingDataSource.CreateConstIterator(); Iterator; ++Iterator)
+		{
+			dataSources[count++] = static_cast<ovrpFaceTrackingDataSource2>(*Iterator);
+		}
+		return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StartFaceTracking2(dataSources, count));
+	}
+	return false;
 }
 
 bool OculusMovement::StopFaceTracking()
 {
 
-	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StopFaceTracking());
+	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StopFaceTracking2());
 }
 
 bool OculusMovement::GetEyeGazesState(FOculusEyeGazesState& outOculusEyeGazesState, float WorldToMeters)

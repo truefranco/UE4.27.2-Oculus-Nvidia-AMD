@@ -232,26 +232,12 @@ struct OculusPluginWrapper
 	OCULUS_DECLARE_ENTRY_POINT(GetHandState2);
 	OCULUS_DECLARE_ENTRY_POINT(GetSkeleton2);
 	OCULUS_DECLARE_ENTRY_POINT(GetMesh);
-	OCULUS_DECLARE_ENTRY_POINT(GetBodyState);
-	OCULUS_DECLARE_ENTRY_POINT(GetBodyTrackingEnabled);
-	OCULUS_DECLARE_ENTRY_POINT(GetBodyTrackingSupported);
-	OCULUS_DECLARE_ENTRY_POINT(StartBodyTracking);
-	OCULUS_DECLARE_ENTRY_POINT(StopBodyTracking);
-	OCULUS_DECLARE_ENTRY_POINT(GetFaceTrackingEnabled);
-	OCULUS_DECLARE_ENTRY_POINT(GetFaceTrackingSupported);
-	OCULUS_DECLARE_ENTRY_POINT(GetFaceState);
-	OCULUS_DECLARE_ENTRY_POINT(StartFaceTracking);
-	OCULUS_DECLARE_ENTRY_POINT(StopFaceTracking);
-	OCULUS_DECLARE_ENTRY_POINT(GetEyeTrackingEnabled);
-	OCULUS_DECLARE_ENTRY_POINT(GetEyeTrackingSupported);
-	OCULUS_DECLARE_ENTRY_POINT(GetEyeGazesState);
-	OCULUS_DECLARE_ENTRY_POINT(StartEyeTracking);
-	OCULUS_DECLARE_ENTRY_POINT(StopEyeTracking);
 	OCULUS_DECLARE_ENTRY_POINT(GetLocalTrackingSpaceRecenterCount);
 	OCULUS_DECLARE_ENTRY_POINT(GetSystemHmd3DofModeEnabled);
 	OCULUS_DECLARE_ENTRY_POINT(SetClientColorDesc);
 	OCULUS_DECLARE_ENTRY_POINT(GetHmdColorDesc);
 	OCULUS_DECLARE_ENTRY_POINT(PollEvent);
+
 	OCULUS_DECLARE_ENTRY_POINT(GetNativeXrApiType);
 	OCULUS_DECLARE_ENTRY_POINT(GetLocalDimmingSupported);
 	OCULUS_DECLARE_ENTRY_POINT(SetLocalDimming);
@@ -259,6 +245,17 @@ struct OculusPluginWrapper
 	OCULUS_DECLARE_ENTRY_POINT(GetLayerRecommendedResolution);
 	OCULUS_DECLARE_ENTRY_POINT(IsLayerShapeSupported);
 	OCULUS_DECLARE_ENTRY_POINT(SetEyeBufferSharpenType);
+
+	OCULUS_DECLARE_ENTRY_POINT(InitializeEnvironmentDepth);
+	OCULUS_DECLARE_ENTRY_POINT(DestroyEnvironmentDepth);
+	OCULUS_DECLARE_ENTRY_POINT(GetEnvironmentDepthTextureDesc);
+	OCULUS_DECLARE_ENTRY_POINT(GetEnvironmentDepthTextureStageCount);
+	OCULUS_DECLARE_ENTRY_POINT(GetEnvironmentDepthTexture);
+	OCULUS_DECLARE_ENTRY_POINT(SetEnvironmentDepthHandRemoval);
+	OCULUS_DECLARE_ENTRY_POINT(StartEnvironmentDepth);
+	OCULUS_DECLARE_ENTRY_POINT(StopEnvironmentDepth);
+	OCULUS_DECLARE_ENTRY_POINT(GetEnvironmentDepthFrameDesc);
+
 	OCULUS_DECLARE_ENTRY_POINT(SetMultimodalHandsControllersSupported);
 	OCULUS_DECLARE_ENTRY_POINT(SetSimultaneousHandsAndControllersEnabled);
 	OCULUS_DECLARE_ENTRY_POINT(GetControllerIsInHand);
@@ -294,7 +291,40 @@ struct OculusPluginWrapper
 	OCULUS_DECLARE_ENTRY_POINT(GetSpaceRoomLayout);
 	OCULUS_DECLARE_ENTRY_POINT(GetSpaceBoundary2D);
 	OCULUS_DECLARE_ENTRY_POINT(RequestSceneCapture);
+	OCULUS_DECLARE_ENTRY_POINT(GetSpaceTriangleMesh);
+
+	// MovementSDK
+	OCULUS_DECLARE_ENTRY_POINT(GetBodyTrackingEnabled);
+	OCULUS_DECLARE_ENTRY_POINT(GetBodyTrackingSupported);
+	OCULUS_DECLARE_ENTRY_POINT(StopBodyTracking);
+	OCULUS_DECLARE_ENTRY_POINT(GetBodyState4);
+	OCULUS_DECLARE_ENTRY_POINT(GetFullBodyTrackingEnabled);
+	OCULUS_DECLARE_ENTRY_POINT(StartBodyTracking2);
+	OCULUS_DECLARE_ENTRY_POINT(RequestBodyTrackingFidelity);
+	OCULUS_DECLARE_ENTRY_POINT(ResetBodyTrackingCalibration);
+	OCULUS_DECLARE_ENTRY_POINT(SuggestBodyTrackingCalibrationOverride);
+
+	OCULUS_DECLARE_ENTRY_POINT(GetFaceTracking2Enabled);
+	OCULUS_DECLARE_ENTRY_POINT(GetFaceTracking2Supported);
+	OCULUS_DECLARE_ENTRY_POINT(GetFaceState2);
+	OCULUS_DECLARE_ENTRY_POINT(StartFaceTracking2);
+	OCULUS_DECLARE_ENTRY_POINT(StopFaceTracking2);
+	OCULUS_DECLARE_ENTRY_POINT(GetEyeTrackingEnabled);
+	OCULUS_DECLARE_ENTRY_POINT(GetEyeTrackingSupported);
+	OCULUS_DECLARE_ENTRY_POINT(GetEyeGazesState);
+	OCULUS_DECLARE_ENTRY_POINT(StartEyeTracking);
+	OCULUS_DECLARE_ENTRY_POINT(StopEyeTracking);
 	
+	// QPL
+	OCULUS_DECLARE_ENTRY_POINT(QplMarkerStart);
+	OCULUS_DECLARE_ENTRY_POINT(QplMarkerEnd);
+	OCULUS_DECLARE_ENTRY_POINT(QplMarkerPoint);
+	OCULUS_DECLARE_ENTRY_POINT(QplMarkerPointCached);
+	OCULUS_DECLARE_ENTRY_POINT(QplMarkerAnnotation);
+	OCULUS_DECLARE_ENTRY_POINT(QplCreateMarkerHandle);
+	OCULUS_DECLARE_ENTRY_POINT(QplDestroyMarkerHandle);
+	OCULUS_DECLARE_ENTRY_POINT(OnEditorShutdown);
+	OCULUS_DECLARE_ENTRY_POINT(QplSetConsent);
 
 	//OVR_Plugin_Insight.h
 
@@ -308,7 +338,13 @@ struct OculusPluginWrapper
 	OCULUS_DECLARE_ENTRY_POINT(DestroyInsightPassthroughGeometryInstance);
 	OCULUS_DECLARE_ENTRY_POINT(UpdateInsightPassthroughGeometryTransform);
 	OCULUS_DECLARE_ENTRY_POINT(SetInsightPassthroughStyle);
+	OCULUS_DECLARE_ENTRY_POINT(SetInsightPassthroughStyle2);
 	OCULUS_DECLARE_ENTRY_POINT(GetPassthroughCapabilityFlags);
+	OCULUS_DECLARE_ENTRY_POINT(CreatePassthroughColorLut);
+	OCULUS_DECLARE_ENTRY_POINT(DestroyPassthroughColorLut);
+	OCULUS_DECLARE_ENTRY_POINT(UpdatePassthroughColorLut);
+	OCULUS_DECLARE_ENTRY_POINT(GetPassthroughCapabilities);
+	OCULUS_DECLARE_ENTRY_POINT(GetPassthroughPreferences);
 
 	//OVR_Plugin_MixedReality.h
 

@@ -9,6 +9,10 @@ LICENSE file in the root directory of this source tree.
 #include "OculusHMD.h"
 #include "OculusRoomLayoutManager.h"
 #include "OculusAnchorDelegates.h"
+#include "OculusAnchorManager.h"
+#include "OculusAnchorBPFunctionLibrary.h"
+#include "ProceduralMeshComponent.h"
+#include "OculusAnchorsModule.h"
 
 UOculusRoomLayoutManagerComponent::UOculusRoomLayoutManagerComponent(const FObjectInitializer& ObjectInitializer)
 {
@@ -51,31 +55,29 @@ bool UOculusRoomLayoutManagerComponent::LaunchCaptureFlow()
 	return bSuccess;
 }
 
-bool UOculusRoomLayoutManagerComponent::GetRoomLayout(FUInt64 Space, FRoomLayout& RoomLayoutOut, int32 MaxWallsCapacity)
+bool UOculusRoomLayoutManagerComponent::GetRoomLayout(FUInt64 Space, FOculusRoomLayout& RoomLayoutOut, int32 MaxWallsCapacity)
 {
-	if (MaxWallsCapacity <= 0)
+	return UOculusAnchorBPFunctionLibrary::GetRoomLayout(Space, RoomLayoutOut, MaxWallsCapacity);
+}
+
+bool UOculusRoomLayoutManagerComponent::LoadTriangleMesh(FUInt64 Space, UProceduralMeshComponent* Mesh, bool CreateCollision) const
+{
+	ensure(Mesh);
+	TArray<FVector> Vertices;
+	TArray<int32> Triangles;
+
+	bool Success = OculusAnchors::FOculusRoomLayoutManager::GetSpaceTriangleMesh(Space, Vertices, Triangles);
+	if (!Success)
 	{
 		return false;
 	}
 
-	FUUID OutCeilingUuid;
-	FUUID OutFloorUuid;
-	TArray<FUUID> OutWallsUuid;
+	// Mesh->bUseAsyncCooking = true;
+	TArray<FVector> EmptyNormals;
+	TArray<FVector2D> EmptyUV;
+	TArray<FColor> EmptyVertexColors;
+	TArray<FProcMeshTangent> EmptyTangents;
+	Mesh->CreateMeshSection(0, Vertices, Triangles, EmptyNormals, EmptyUV, EmptyVertexColors, EmptyTangents, CreateCollision);
 
-	const bool bSuccess = OculusAnchors::FOculusRoomLayoutManager::GetSpaceRoomLayout(Space.Value, static_cast<uint32>(MaxWallsCapacity), OutCeilingUuid, OutFloorUuid, OutWallsUuid);
-
-	if (bSuccess)
-	{
-		RoomLayoutOut.CeilingUuid = OutCeilingUuid;
-		
-		RoomLayoutOut.FloorUuid = OutFloorUuid;
-
-		RoomLayoutOut.WallsUuid.InsertZeroed(0, OutWallsUuid.Num());
-		for (int32 i = 0; i < OutWallsUuid.Num(); ++i)
-		{
-			RoomLayoutOut.WallsUuid[i]= OutWallsUuid[i];
-		}
-	}
-
-	return bSuccess;
+	return true;
 }

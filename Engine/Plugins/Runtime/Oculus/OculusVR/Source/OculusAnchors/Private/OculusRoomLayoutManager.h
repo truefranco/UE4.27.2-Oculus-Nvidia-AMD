@@ -18,6 +18,7 @@ namespace OculusAnchors
 		static bool RequestSceneCapture(uint64& OutRequestID);
 		static bool GetSpaceRoomLayout(const uint64 Space, const uint32 MaxWallsCapacity,
 									   FUUID &OutCeilingUuid, FUUID &OutFloorUuid, TArray<FUUID>& OutWallsUuid);
+		static bool GetSpaceTriangleMesh(uint64 Space, TArray<FVector>& Vertices, TArray<int32>& Triangles);
 		
 		static void OnPollEvent(ovrpEventDataBuffer* EventDataBuffer, bool& EventPollResult);
 	};

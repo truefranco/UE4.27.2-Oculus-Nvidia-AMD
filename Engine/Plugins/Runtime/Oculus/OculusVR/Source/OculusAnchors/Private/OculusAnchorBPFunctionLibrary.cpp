@@ -10,6 +10,9 @@ LICENSE file in the root directory of this source tree.
 #include "OculusHMD.h"
 #include "OculusSpatialAnchorComponent.h"
 #include "OculusAnchorsPrivate.h"
+#include "OculusRoomLayoutManager.h"
+#include "OculusAnchorManager.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 
 AActor* UOculusAnchorBPFunctionLibrary::SpawnActorWithAnchorHandle(UObject* WorldContextObject, FUInt64 Handle, FUUID UUID, EOculusSpaceStorageLocation Location, UClass* ActorClass,
 	AActor* Owner, APawn* Instigator, ESpawnActorCollisionHandlingMethod CollisionHandlingMethod)
@@ -71,7 +74,8 @@ bool UOculusAnchorBPFunctionLibrary::GetAnchorComponentStatus(AActor* TargetActo
 	bool bOutIsEnabled = false;
 	bool bIsChangePending = false;
 
-	bool bDidCallStart = OculusAnchors::FOculusAnchors::GetAnchorComponentStatus(AnchorComponent, ComponentType, bOutIsEnabled, bIsChangePending);
+	EOculusResult::Type AnchorResult;
+	bool bDidCallStart = OculusAnchors::FOculusAnchors::GetAnchorComponentStatus(AnchorComponent, ComponentType, bOutIsEnabled, bIsChangePending, AnchorResult);
 	if (!bDidCallStart)
 	{
 		UE_LOG(LogOculusAnchors, Warning, TEXT("Failed to start call to internal GetAnchorComponentStatus"));
@@ -136,4 +140,75 @@ FUUID UOculusAnchorBPFunctionLibrary::StringToAnchorUUID(const FString& Value)
 	HexToBytes(Value, newID.data);
 
 	return FUUID(newID.data);
+}
+
+bool UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(EOculusResult::Type result)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	return OVRP_SUCCESS(result);
+#endif
+	return false;
+}
+
+const UOculusBaseAnchorComponent* UOculusAnchorBPFunctionLibrary::GetAnchorComponent(const FOculusSpaceQueryResult& QueryResult, EOculusSpaceComponentType ComponentType, UObject* Outer)
+{
+	switch (ComponentType)
+	{
+	case EOculusSpaceComponentType::Locatable:
+		return UOculusBaseAnchorComponent::FromSpace<UOculusLocatableAnchorComponent>(QueryResult.Space.Value, Outer);
+	case EOculusSpaceComponentType::ScenePlane:
+		return UOculusBaseAnchorComponent::FromSpace<UOculusPlaneAnchorComponent>(QueryResult.Space.Value, Outer);
+	case EOculusSpaceComponentType::SceneVolume:
+		return UOculusBaseAnchorComponent::FromSpace<UOculusVolumeAnchorComponent>(QueryResult.Space.Value, Outer);
+	case EOculusSpaceComponentType::SemanticClassification:
+		return UOculusBaseAnchorComponent::FromSpace<UOculusSemanticClassificationAnchorComponent>(QueryResult.Space.Value, Outer);
+	case EOculusSpaceComponentType::RoomLayout:
+		return UOculusBaseAnchorComponent::FromSpace<UOculusXRRoomLayoutAnchorComponent>(QueryResult.Space.Value, Outer);
+	case EOculusSpaceComponentType::SpaceContainer:
+		return UOculusBaseAnchorComponent::FromSpace<UOculusSpaceContainerAnchorComponent>(QueryResult.Space.Value, Outer);
+	case EOculusSpaceComponentType::Sharable:
+		return UOculusBaseAnchorComponent::FromSpace<UOculusXRSharableAnchorComponent>(QueryResult.Space.Value, Outer);
+	case EOculusSpaceComponentType::Storable:
+		return UOculusBaseAnchorComponent::FromSpace<UOculusStorableAnchorComponent>(QueryResult.Space.Value, Outer);
+	case EOculusSpaceComponentType::TriangleMesh:
+		return UOculusBaseAnchorComponent::FromSpace<UOculusTriangleMeshAnchorComponent>(QueryResult.Space.Value, Outer);
+	default:
+		return nullptr;
+	}
+}
+
+bool UOculusAnchorBPFunctionLibrary::GetRoomLayout(FUInt64 Space, FOculusRoomLayout& RoomLayoutOut, int32 MaxWallsCapacity)
+{
+	if (MaxWallsCapacity <= 0)
+	{
+		return false;
+	}
+
+	FUUID OutCeilingUuid;
+	FUUID OutFloorUuid;
+	TArray<FUUID> OutWallsUuid;
+
+	const bool bSuccess = OculusAnchors::FOculusRoomLayoutManager::GetSpaceRoomLayout(Space.Value, static_cast<uint32>(MaxWallsCapacity), OutCeilingUuid, OutFloorUuid, OutWallsUuid);
+
+	if (bSuccess)
+	{
+		RoomLayoutOut.CeilingUuid = OutCeilingUuid;
+		RoomLayoutOut.FloorUuid = OutFloorUuid;
+		RoomLayoutOut.WallsUuid.InsertZeroed(0, OutWallsUuid.Num());
+
+		for (int32 i = 0; i < OutWallsUuid.Num(); ++i)
+		{
+			RoomLayoutOut.WallsUuid[i] = OutWallsUuid[i];
+		}
+
+		TArray<FUUID> spaceUUIDs;
+		EOculusResult::Type result = OculusAnchors::FOculusAnchorManager::GetSpaceContainerUUIDs(Space, spaceUUIDs);
+
+		if (UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(result))
+		{
+			RoomLayoutOut.RoomObjectUUIDs = spaceUUIDs;
+		}
+	}
+
+	return bSuccess;
 }

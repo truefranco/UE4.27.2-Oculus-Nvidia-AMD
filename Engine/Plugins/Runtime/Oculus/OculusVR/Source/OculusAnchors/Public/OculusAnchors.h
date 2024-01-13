@@ -14,7 +14,7 @@ LICENSE file in the root directory of this source tree.
 
 DECLARE_DELEGATE_TwoParams(FOculusSpatialAnchorCreateDelegate, EOculusResult::Type /*Result*/, UOculusAnchorComponent* /*Anchor*/);
 DECLARE_DELEGATE_TwoParams(FOculusAnchorEraseDelegate, EOculusResult::Type /*Result*/, FUUID /*AnchorUUID*/);
-DECLARE_DELEGATE_FourParams(FOculusAnchorSetComponentStatusDelegate, EOculusResult::Type /*Result*/, UOculusAnchorComponent* /*Anchor*/, EOculusSpaceComponentType /*ComponentType*/, bool /*Enabled*/);
+DECLARE_DELEGATE_FourParams(FOculusAnchorSetComponentStatusDelegate, EOculusResult::Type /*Result*/, uint64 /*Anchor*/, EOculusSpaceComponentType /*ComponentType*/, bool /*Enabled*/);
 DECLARE_DELEGATE_TwoParams(FOculusAnchorSaveDelegate, EOculusResult::Type /*Result*/, UOculusAnchorComponent* /*Anchor*/);
 DECLARE_DELEGATE_TwoParams(FOculusAnchorSaveListDelegate, EOculusResult::Type /*Result*/, const TArray<UOculusAnchorComponent*>& /*SavedAnchors*/);
 DECLARE_DELEGATE_TwoParams(FOculusAnchorQueryDelegate, EOculusResult::Type /*Result*/, const TArray<FOculusSpaceQueryResult>& /*Results*/);
@@ -30,24 +30,31 @@ struct OCULUSANCHORS_API FOculusAnchors
 
 	static FOculusAnchors* GetInstance();
 
-	static bool CreateSpatialAnchor(const FTransform& InTransform, AActor* TargetActor, const FOculusSpatialAnchorCreateDelegate& ResultCallback, EOculusResult::Type* OutResult = nullptr);
-	static bool EraseAnchor(UOculusAnchorComponent* Anchor, const FOculusAnchorEraseDelegate& ResultCallback, EOculusResult::Type* OutResult = nullptr);
-	static bool DestroyAnchor(uint64 AnchorHandle, EOculusResult::Type* OutResult = nullptr);
+	static bool CreateSpatialAnchor(const FTransform& InTransform, AActor* TargetActor, const FOculusSpatialAnchorCreateDelegate& ResultCallback, EOculusResult::Type& OutResult);
+	static bool EraseAnchor(UOculusAnchorComponent* Anchor, const FOculusAnchorEraseDelegate& ResultCallback, EOculusResult::Type& OutResult);
+	static bool DestroyAnchor(uint64 AnchorHandle, EOculusResult::Type& OutResult);
 
-	static bool SetAnchorComponentStatus(UOculusAnchorComponent* Anchor, EOculusSpaceComponentType SpaceComponentType, bool Enable, float Timeout, const FOculusAnchorSetComponentStatusDelegate& ResultCallback, EOculusResult::Type* OutResult = nullptr);
-	static bool GetAnchorComponentStatus(UOculusAnchorComponent* Anchor, EOculusSpaceComponentType SpaceComponentType, bool& OutEnabled, bool& OutChangePending, EOculusResult::Type* OutResult = nullptr);
+	static bool SetAnchorComponentStatus(UOculusAnchorComponent* Anchor, EOculusSpaceComponentType SpaceComponentType, bool Enable, float Timeout, const FOculusAnchorSetComponentStatusDelegate& ResultCallback, EOculusResult::Type& OutResult);
+	static bool GetAnchorComponentStatus(UOculusAnchorComponent* Anchor, EOculusSpaceComponentType SpaceComponentType, bool& OutEnabled, bool& OutChangePending, EOculusResult::Type& OutResult);
+	static bool GetAnchorSupportedComponents(UOculusAnchorComponent* Anchor, TArray<EOculusSpaceComponentType>& OutSupportedComponents, EOculusResult::Type& OutResult);
 
-	static bool SaveAnchor(UOculusAnchorComponent* Anchor, EOculusSpaceStorageLocation StorageLocation, const FOculusAnchorSaveDelegate& ResultCallback, EOculusResult::Type* OutResult = nullptr);
-	static bool SaveAnchorList(const TArray<UOculusAnchorComponent*>& Anchors, EOculusSpaceStorageLocation StorageLocation, const FOculusAnchorSaveListDelegate& ResultCallback, EOculusResult::Type* OutResult = nullptr);
+	static bool SetComponentStatus(uint64 Space, EOculusSpaceComponentType SpaceComponentType, bool Enable, float Timeout, const FOculusAnchorSetComponentStatusDelegate& ResultCallback, EOculusResult::Type& OutResult);
+	static bool GetComponentStatus(uint64 AnchorHandle, EOculusSpaceComponentType SpaceComponentType, bool& OutEnabled, bool& OutChangePending, EOculusResult::Type& OutResult);
+	static bool GetSupportedComponents(uint64 AnchorHandle, TArray<EOculusSpaceComponentType>& OutSupportedComponents, EOculusResult::Type& OutResult);
+	
+	static bool SaveAnchor(UOculusAnchorComponent* Anchor, EOculusSpaceStorageLocation StorageLocation, const FOculusAnchorSaveDelegate& ResultCallback, EOculusResult::Type& OutResult);
+	static bool SaveAnchorList(const TArray<UOculusAnchorComponent*>& Anchors, EOculusSpaceStorageLocation StorageLocation, const FOculusAnchorSaveListDelegate& ResultCallback, EOculusResult::Type& OutResult);
 
-	static bool QueryAnchors(const TArray<FUUID>& AnchorUUIDs, EOculusSpaceStorageLocation Location, const FOculusAnchorQueryDelegate& ResultCallback, EOculusResult::Type* OutResult = nullptr);
-	static bool QueryAnchorsAdvanced(const FOculusSpaceQueryInfo& QueryInfo, const FOculusAnchorQueryDelegate& ResultCallback, EOculusResult::Type* OutResult = nullptr);
+	static bool QueryAnchors(const TArray<FUUID>& AnchorUUIDs, EOculusSpaceStorageLocation Location, const FOculusAnchorQueryDelegate& ResultCallback, EOculusResult::Type& OutResult);
+	static bool QueryAnchorsAdvanced(const FOculusSpaceQueryInfo& QueryInfo, const FOculusAnchorQueryDelegate& ResultCallback, EOculusResult::Type& OutResult);
 
-	static bool ShareAnchors(const TArray<UOculusAnchorComponent*>& Anchors, const TArray<FString>& OculusUserIDs, const FOculusAnchorShareDelegate& ResultCallback, EOculusResult::Type* OutResult = nullptr);
+	static bool ShareAnchors(const TArray<UOculusAnchorComponent*>& Anchors, const TArray<FString>& OculusUserIDs, const FOculusAnchorShareDelegate& ResultCallback, EOculusResult::Type& OutResult);
 
-	static bool GetSpaceScenePlane(uint64 Space, FVector& OutPos, FVector& OutSize, EOculusResult::Type* OutResult = nullptr);
-	static bool GetSpaceSceneVolume(uint64 Space, FVector& OutPos, FVector& OutSize, EOculusResult::Type* OutResult = nullptr);
-	static bool GetSpaceSemanticClassification(uint64 Space, TArray<FString>& OutSemanticClassifications, EOculusResult::Type* OutResult = nullptr);
+	static bool GetSpaceContainerUUIDs(uint64 Space, TArray<FUUID>& OutUUIDs, EOculusResult::Type& OutResult);
+	static bool GetSpaceScenePlane(uint64 Space, FVector& OutPos, FVector& OutSize, EOculusResult::Type& OutResult);
+	static bool GetSpaceSceneVolume(uint64 Space, FVector& OutPos, FVector& OutSize, EOculusResult::Type& OutResult);
+	static bool GetSpaceSemanticClassification(uint64 Space, TArray<FString>& OutSemanticClassifications, EOculusResult::Type& OutResult);
+	static bool GetSpaceBoundary2D(uint64 Space, TArray<FVector2D>& OutVertices, EOculusResult::Type& OutResult);
 
 private:
 	void HandleSpatialAnchorCreateComplete(FUInt64 RequestId, int Result, FUInt64 Space, FUUID UUID);
@@ -75,7 +82,7 @@ private:
 	{
 		FUInt64 RequestId;
 		FOculusAnchorSetComponentStatusDelegate Binding;
-		TWeakObjectPtr<UOculusAnchorComponent> Anchor;
+		uint64 AnchorHandle;
 	};
 
 	struct CreateAnchorBinding

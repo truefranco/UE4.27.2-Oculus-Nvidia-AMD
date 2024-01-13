@@ -15,6 +15,7 @@ namespace UnrealBuildTool.Rules
 					"OculusHMD",
 					"OculusAnchors",
 					"OVRPlugin",
+					"ProceduralMeshComponent",
 				});
 
 			PrivateIncludePaths.AddRange(

@@ -164,6 +164,44 @@ enum class EProcessorPerformanceLevel : uint8
 	Boost = 3 UMETA(DisplayName = "Boost(*)", ToolTip = "Allow XR Runtime to step up beyond the thermally sustainable range for short period. (Currently equivalent to SustainedHigh and not recommended to be used on Quest)")
 };
 
+UENUM()
+enum class EProcessorFavor : int8
+{
+	FavorEqually = 0 UMETA(DisplayName = "Favor Equally"),
+	FavorCPU = 1 UMETA(DisplayName = "Favor CPU"),
+	FavorGPU = 2 UMETA(DisplayName = "Favor GPU"),
+};
+
+UENUM(BlueprintType)
+enum class EOculusXRHMDBodyTrackingFidelity : uint8
+{
+	Unset = 0 UMETA(Hidden),
+	Low = 1,
+	High = 2,
+};
+
+UENUM(BlueprintType)
+enum class EOculusXRHMDBodyJointSet : uint8
+{
+	UpperBody = 0,
+	FullBody = 1,
+};
+
+UENUM()
+enum class EFaceTrackingDataSourceConfig : int8
+{
+	Visual = 0 UMETA(DisplayName = "Visual"),
+	Audio = 1 UMETA(DisplayName = "Audio"),
+	MAX = 2 UMETA(Hidden),
+};
+
+UENUM()
+enum class ESystemSplashBackgroundType : int8
+{
+	Black = 0 UMETA(DisplayName = "Black"),
+	Contextual = 1 UMETA(DisplayName = "Passthrough (Contextual)"),
+};
+
 UENUM(BlueprintType)
 enum class EOculusDeviceType : uint8
 {

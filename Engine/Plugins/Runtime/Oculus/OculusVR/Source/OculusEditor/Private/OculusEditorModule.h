@@ -32,6 +32,16 @@ public:
 	void PluginButtonClicked();
 	FReply PluginClickFn(bool text);
 
+	void PluginOpenPlatWindow();
+
+	void ToggleOpenXRRuntime();
+
+	void CreateSESSubMenus(FMenuBuilder& MenuBuilder);
+	void LaunchSESGameRoom();
+	void LaunchSESLivingRoom();
+	void LaunchSESBedroom();
+	void StopSESServer();
+
 public:
 	static const FName OculusPerfTabName;
 	static const FName OculusPlatToolTabName;
@@ -39,6 +49,8 @@ public:
 private:
 
 	void AddToolbarExtension(FToolBarBuilder& Builder);
+	TSharedRef<SWidget> CreateToolbarEntryMenu(TSharedPtr<class FUICommandList> Commands);
+	TSharedRef<SWidget> CreateXrSimToolbarEntryMenu(TSharedPtr<class FUICommandList> Commands);
 	void AddMenuExtension(FMenuBuilder& Builder);
 
 	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);

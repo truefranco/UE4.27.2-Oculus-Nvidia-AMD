@@ -87,6 +87,7 @@ public:
 		// Enables qualty sharpen filtering for the layer if supported by the device and/or runtime.
 		LAYER_FLAG_QUALITY_SHARPEN = 0x0000400,
 		// END META SECTION - XR Layer GSR
+		LAYER_FLAG_AUTO_FILTERING = 0x0000800,
 	};
 
 

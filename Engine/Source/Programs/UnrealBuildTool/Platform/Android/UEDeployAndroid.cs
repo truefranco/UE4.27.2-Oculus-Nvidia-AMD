@@ -269,6 +269,10 @@ namespace UnrealBuildTool
 
 				// make sure it is at least android-23
 				int SDKLevelInt = GetApiLevelInt(SDKLevel);
+				if (SDKLevelInt == 0)
+				{
+					Log.TraceWarning("Unable to parse SDK API level '{0}', it is expected to be of the form 'android-NN'", SDKLevel);
+				}
 				if (SDKLevelInt < MinimumSDKLevel)
 				{
 					Log.TraceInformation("Requires at least SDK API level {0}, currently set to '{1}'", MinimumSDKLevel, SDKLevel);

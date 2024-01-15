@@ -8,7 +8,7 @@ LICENSE file in the root directory of this source tree.
 #pragma once
 
 #include "CoreMinimal.h"
-
+#include "OculusFunctionLibrary.h"
 #include "OculusMovementTypes.generated.h"
 
 UENUM(BlueprintType)
@@ -84,7 +84,21 @@ enum class EOculusBoneID : uint8
 	BodyRightHandLittleIntermediate = 67,
 	BodyRightHandLittleDistal = 68,
 	BodyRightHandLittleTip = 69,
-	COUNT = 70,
+	BodyLeftUpperLeg = 70,
+	BodyLeftLowerLeg = 71,
+	BodyLeftFootAnkleTwist = 72,
+	BodyLeftFootAnkle = 73,
+	BodyLeftFootSubtalar = 74,
+	BodyLeftFootTransverse = 75,
+	BodyLeftFootBall = 76,
+	BodyRightUpperLeg = 77,
+	BodyRightLowerLeg = 78,
+	BodyRightFootAnkleTwist = 79,
+	BodyRightFootAnkle = 80,
+	BodyRightFootSubtalar = 81,
+	BodyRightFootTransverse = 82,
+	BodyRightFootBall = 83,
+	COUNT = 84
 };
 
 USTRUCT(BlueprintType)
@@ -196,7 +210,14 @@ enum class EOculusFaceExpression : uint8
 	UpperLidRaiserR = 60,
 	UpperLipRaiserL = 61,
 	UpperLipRaiserR = 62,
-	COUNT = 63,
+	TongueTipInterdental = 63,
+	TongueTipAlveolar = 64,
+	TongueFrontDorsalPalate = 65,
+	TongueMidDorsalPalate = 66,
+	TongueBackDorsalVelar = 67,
+	TongueOut = 68,
+	TongueRetreat = 69,
+	COUNT = 70,
 };
 
 UENUM(BlueprintType)
@@ -228,6 +249,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Oculus|Movement")
 	float Time;
+
+	UPROPERTY(BlueprintReadOnly, Category = "OculusXR|Movement")
+	EFaceTrackingDataSourceConfig DataSource;
 };
 
 UENUM(BlueprintType)

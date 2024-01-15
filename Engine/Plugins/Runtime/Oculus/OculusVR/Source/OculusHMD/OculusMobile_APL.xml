@@ -43,6 +43,7 @@
 		<setBoolFromProperty result="bInsightPassthroughEnabled" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bInsightPassthroughEnabled" default="false"/>
 		<setBoolFromProperty result="bAnchorSupportEnabled" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bAnchorSupportEnabled" default="false"/>
 		<setBoolFromProperty result="bAnchorSharingEnabled" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bAnchorSharingEnabled" default="false"/>
+		<setBoolFromProperty result="bSceneSupportEnabled" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bSceneSupportEnabled" default="false"/>
 
 		<setBoolFromProperty result="bSupportExperimentalFeatures" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bSupportExperimentalFeatures" default="false"/>
 		<setBoolFromProperty result="bSupportEyeTrackedFoveatedRendering" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bSupportEyeTrackedFoveatedRendering" default="false"/>
@@ -50,6 +51,10 @@
 		<setBoolFromProperty result="bBodyTrackingEnabled" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bBodyTrackingEnabled" default="false"/>
 		<setBoolFromProperty result="bEyeTrackingEnabled" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bEyeTrackingEnabled" default="false"/>
 		<setBoolFromProperty result="bFaceTrackingEnabled" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="bFaceTrackingEnabled" default="false"/>
+
+		<setStringFromProperty result="SystemSplashBackground" ini="Engine" section="/Script/OculusHMD.OculusHMDRuntimeSettings" property="SystemSplashBackground" default="Black"/>
+		<setBoolIsEqual result="bSystemSplashImageContextualPassthrough" arg1="$S(SystemSplashBackground)" arg2="Contextual"/>
+		<setBoolIsEqual result="bSystemSplashImageBlack" arg1="$S(SystemSplashBackground)" arg2="Black"/>
 		
 		<!-- get packaging for Oculus Mobile from ini and reset it if architecture not supported -->
 		<setBool result="bPackageForMetaQuest" value="false"/>
@@ -202,6 +207,7 @@
 					<true>
 						<log text="Adding face tracking feature and permission tags to manifest"/>
 						<addPermission android:name="com.oculus.permission.FACE_TRACKING" />
+						<addPermission android:name="android.permission.RECORD_AUDIO"/>
 						<addFeature android:name="oculus.software.face_tracking" android:required="true"/>
 					</true>
 				</if>
@@ -319,6 +325,83 @@
 							</if>
 						</false>
 					</if>
+				</true>
+			</if>
+
+			<!-- Add System Splash Image Background -->
+			<setString result="splashBackground" value=""/>
+			<if condition="bSystemSplashImageContextualPassthrough">
+				<true>
+					<setString result="splashBackground" value="passthrough-contextual"/>
+				</true>
+			</if>
+			<if condition="bSystemSplashImageBlack">
+				<true>
+					<setString result="splashBackground" value="black"/>
+				</true>
+			</if>
+			<setIntLength result="splashBackgroundLength" source="$S(splashBackground)"/>
+			<setBoolIsGreater result="bHasSplashBackground" arg1="$I(splashBackgroundLength)" arg2="0"/>
+			<if condition="bHasSplashBackground">
+				<true>
+					<setElement result="contextualPassthrough" value="meta-data"/>
+					<addAttribute tag="$contextualPassthrough" name="android:name" value="com.oculus.ossplash.background"/>
+					<addAttribute tag="$contextualPassthrough" name="android:value" value="$S(splashBackground)"/>
+					<addElement tag="application" name="contextualPassthrough"/>
+				</true>
+			</if>
+
+			<!-- Add Oculus Splash Screen -->
+			<if condition="bShowLaunchImage">
+				<true>
+					<setElement result="showOculusSplash" value="meta-data"/>
+					<addAttribute tag="$showOculusSplash" name="android:name" value="com.oculus.ossplash"/>
+					<addAttribute tag="$showOculusSplash" name="android:value" value="true"/>
+					<addElement tag="application" name="showOculusSplash"/>
+					<!-- Add Oculus Splash Screen colorspace setting -->
+					<setElement result="oculusSplashColorspace" value="meta-data"/>
+					<addAttribute tag="$oculusSplashColorspace" name="android:name" value="com.oculus.ossplash.colorspace"/>
+					<if condition="bColorSpaceUnmanaged">
+						<true>
+							<addAttribute tag="$oculusSplashColorspace" name="android:value" value="!Unmanaged"/>
+						</true>
+					</if>
+					<if condition="bColorSpaceRec2020">
+						<true>
+							<addAttribute tag="$oculusSplashColorspace" name="android:value" value="Rec.2020"/>
+						</true>
+					</if>
+					<if condition="bColorSpaceRec709">
+						<true>
+							<addAttribute tag="$oculusSplashColorspace" name="android:value" value="Rec.709"/>
+						</true>
+					</if>
+					<if condition="bColorSpaceRiftCV1">
+						<true>
+							<addAttribute tag="$oculusSplashColorspace" name="android:value" value="!RiftCV1"/>
+						</true>
+					</if>
+					<if condition="bColorSpaceRiftS">
+						<true>
+							<addAttribute tag="$oculusSplashColorspace" name="android:value" value="!RiftS"/>
+						</true>
+					</if>
+					<if condition="bColorSpaceQuest">
+						<true>
+							<addAttribute tag="$oculusSplashColorspace" name="android:value" value="!Quest"/>
+						</true>
+					</if>
+					<if condition="bColorSpaceP3">
+						<true>
+							<addAttribute tag="$oculusSplashColorspace" name="android:value" value="!P3"/>
+						</true>
+					</if>
+					<if condition="bColorSpaceAdobeRGB">
+						<true>
+							<addAttribute tag="$oculusSplashColorspace" name="android:value" value="!Adobe"/>
+						</true>
+					</if>
+					<addElement tag="application" name="oculusSplashColorspace"/>
 				</true>
 			</if>
 		</loopElements>

@@ -102,6 +102,20 @@ UOculusBodyTrackingComponent::UOculusBodyTrackingComponent()
 	BoneNames.Add(EOculusBoneID::BodyRightHandLittleIntermediate, "RightHandLittleIntermediate");
 	BoneNames.Add(EOculusBoneID::BodyRightHandLittleDistal, "RightHandLittleDistal");
 	BoneNames.Add(EOculusBoneID::BodyRightHandLittleTip, "RightHandLittleTip");
+	BoneNames.Add(EOculusBoneID::BodyLeftUpperLeg, "LeftUpperLeg");
+	BoneNames.Add(EOculusBoneID::BodyLeftLowerLeg, "LeftLowerLeg");
+	BoneNames.Add(EOculusBoneID::BodyLeftFootAnkleTwist, "LeftFootAnkleTwist");
+	BoneNames.Add(EOculusBoneID::BodyLeftFootAnkle, "LeftFootAnkle");
+	BoneNames.Add(EOculusBoneID::BodyLeftFootSubtalar, "LeftFootSubtalar");
+	BoneNames.Add(EOculusBoneID::BodyLeftFootTransverse, "LeftFootTransverse");
+	BoneNames.Add(EOculusBoneID::BodyLeftFootBall, "LeftFootBall");
+	BoneNames.Add(EOculusBoneID::BodyRightUpperLeg, "RightUpperLeg");
+	BoneNames.Add(EOculusBoneID::BodyRightLowerLeg, "RightLowerLeg");
+	BoneNames.Add(EOculusBoneID::BodyRightFootAnkleTwist, "RightFootAnkleTwist");
+	BoneNames.Add(EOculusBoneID::BodyRightFootAnkle, "RightFootAnkle");
+	BoneNames.Add(EOculusBoneID::BodyRightFootSubtalar, "RightFootSubtalar");
+	BoneNames.Add(EOculusBoneID::BodyRightFootTransverse, "RightFootTransverse");
+	BoneNames.Add(EOculusBoneID::BodyRightFootBall, "RightFootBall");
 }
 
 void UOculusBodyTrackingComponent::BeginPlay()

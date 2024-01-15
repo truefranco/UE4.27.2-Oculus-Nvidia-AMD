@@ -78,6 +78,9 @@ public:
 			/** Whether Anchor Sharing can be used with the app */
 			uint64				bAnchorSharingEnabled : 1;
 
+			/** Whether Scene can be used with the app */
+			uint64              bSceneSupportEnabled : 1;
+
 			/** Whether body tracking functionality can be used with the app */
 			uint64				bBodyTrackingEnabled : 1;
 
@@ -86,6 +89,9 @@ public:
 
 			/** Whether face tracking functionality can be used with the app */
 			uint64				bFaceTrackingEnabled : 1;
+
+			/** Whether tile turn off can be used with the app */
+			uint64              bTileTurnOffEnabled : 1;
 		};
 		uint64 Raw;
 	} Flags;
@@ -118,6 +124,8 @@ public:
 	bool bDynamicFoveatedRendering;
 	bool bSupportEyeTrackedFoveatedRendering;
 
+	ESystemSplashBackgroundType SystemSplashBackground;
+
 	EOculusXrApi XrApi;
 	EColorSpace ColorSpace;
 	EOculusControllerPoseAlignment ControllerPoseAlignment;
@@ -139,8 +147,8 @@ public:
 
 	EProcessorFavor ProcessorFavor;
 
-	EOculusXRHMDBodyTrackingFidelity BodyTrackingFidelity;
-	EOculusXRHMDBodyJointSet BodyTrackingJointSet;
+	EOculusHMDBodyTrackingFidelity BodyTrackingFidelity;
+	EOculusHMDBodyJointSet BodyTrackingJointSet;
 
 	TSet<EFaceTrackingDataSourceConfig> FaceTrackingDataSource;
 

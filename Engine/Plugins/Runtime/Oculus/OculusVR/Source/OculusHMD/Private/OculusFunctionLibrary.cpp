@@ -900,4 +900,21 @@ void UOculusFunctionLibrary::SetEyeBufferSharpenType(EOculusEyeBufferSharpenType
 #endif
 }
 
+bool UOculusFunctionLibrary::IsPassthroughRecommended()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	const OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrpPassthroughPreferences Preferences;
+		if (OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().GetPassthroughPreferences(&Preferences)))
+		{
+			return (Preferences.Flags & ovrpPassthroughPreferenceFlags::ovrpPassthroughPreferenceFlags_DefaultToActive)
+				== ovrpPassthroughPreferenceFlags::ovrpPassthroughPreferenceFlags_DefaultToActive;
+		};
+	}
+#endif
+	return false;
+}
+
 #undef LOCTEXT_NAMESPACE

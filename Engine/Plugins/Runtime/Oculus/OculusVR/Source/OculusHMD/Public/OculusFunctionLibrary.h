@@ -127,6 +127,17 @@ enum class EColorSpace : uint8
 	Adobe_RGB = 8,
 };
 
+UENUM(BlueprintType)
+enum class EOculusXROcclusionsMode : uint8
+{
+	/// Environment depth occlusions disabled.
+	Disabled = 0,
+	/// Hard occlusions, good performance, shows hard edges between the real and virtual world.
+	HardOcclusions = 1,
+	/// Soft occlusions, most expensive, shows soft edges between the real and virtual world.
+	SoftOcclusions = 2,
+};
+
 /* 
 * Hand tracking settings. Please check https://developer.oculus.com/documentation/unreal/unreal-hand-tracking/
 * for detailed information.
@@ -173,7 +184,7 @@ enum class EProcessorFavor : int8
 };
 
 UENUM(BlueprintType)
-enum class EOculusXRHMDBodyTrackingFidelity : uint8
+enum class EOculusHMDBodyTrackingFidelity : uint8
 {
 	Unset = 0 UMETA(Hidden),
 	Low = 1,
@@ -181,7 +192,7 @@ enum class EOculusXRHMDBodyTrackingFidelity : uint8
 };
 
 UENUM(BlueprintType)
-enum class EOculusXRHMDBodyJointSet : uint8
+enum class EOculusHMDBodyJointSet : uint8
 {
 	UpperBody = 0,
 	FullBody = 1,
@@ -612,6 +623,15 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	*/
 	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void SetEyeBufferSharpenType(EOculusEyeBufferSharpenType EyeBufferSharpenType);
+
+	/**
+	 * Get a system recommendation on whether Passthrough should be active.
+	 * When set, it is recommended for apps which optionally support an MR experience
+	 * with Passthrough to default to that mode.
+	 * Currently, this is determined based on whether the user has Passthrough active in the home environment.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	static bool IsPassthroughRecommended();
 
 	/**
 	 * Returns IStereoLayers interface to work with overlays.

@@ -51,6 +51,43 @@ void FOculusEditorModule::StartupModule()
 			FOculusToolCommands::Get().OpenPluginWindow,
 			FExecuteAction::CreateRaw(this, &FOculusEditorModule::PluginButtonClicked),
 			FCanExecuteAction());
+		PluginCommands->MapAction(
+			FOculusToolCommands::Get().OpenPlatWindow,
+			FExecuteAction::CreateRaw(this, &FOculusEditorModule::PluginOpenPlatWindow),
+			FCanExecuteAction());
+		PluginCommands->MapAction(
+			FOculusToolCommands::Get().ToggleDeploySo,
+			FExecuteAction::CreateLambda([=]() {
+				UOculusHMDRuntimeSettings* settings = GetMutableDefault<UOculusHMDRuntimeSettings>();
+				settings->bDeploySoToDevice = !settings->bDeploySoToDevice;
+				}),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]() {
+				return GetMutableDefault<UOculusHMDRuntimeSettings>()->bDeploySoToDevice;
+				}));
+		PluginCommands->MapAction(
+			FOculusToolCommands::Get().ToggleMetaXRSim,
+			FExecuteAction::CreateRaw(this, &FOculusEditorModule::ToggleOpenXRRuntime),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]() {
+				return false;//FMetaXRSimulator::IsSimulatorActivated();
+				}));
+		PluginCommands->MapAction(
+			FOculusToolCommands::Get().LaunchGameRoom,
+			FExecuteAction::CreateRaw(this, &FOculusEditorModule::LaunchSESGameRoom),
+			FCanExecuteAction());
+		PluginCommands->MapAction(
+			FOculusToolCommands::Get().LaunchLivingRoom,
+			FExecuteAction::CreateRaw(this, &FOculusEditorModule::LaunchSESLivingRoom),
+			FCanExecuteAction());
+		PluginCommands->MapAction(
+			FOculusToolCommands::Get().LaunchBedroom,
+			FExecuteAction::CreateRaw(this, &FOculusEditorModule::LaunchSESBedroom),
+			FCanExecuteAction());
+		PluginCommands->MapAction(
+			FOculusToolCommands::Get().StopServer,
+			FExecuteAction::CreateRaw(this, &FOculusEditorModule::StopSESServer),
+			FCanExecuteAction());
 
 		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 
@@ -58,6 +95,11 @@ void FOculusEditorModule::StartupModule()
 		TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
 		MenuExtender->AddMenuExtension("Miscellaneous", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &FOculusEditorModule::AddMenuExtension));
 		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
+
+		// We add the Oculus menu on the toolbar
+		TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+		ToolbarExtender->AddToolBarExtension("Play", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FOculusEditorModule::AddToolbarExtension));
+		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
 
 		/*
 		// If you want to make the tool even easier to launch, and add a toolbar button.
@@ -155,6 +197,36 @@ void FOculusEditorModule::PluginButtonClicked()
 	FGlobalTabmanager::Get()->TryInvokeTab(OculusPerfTabName);
 }
 
+void FOculusEditorModule::PluginOpenPlatWindow()
+{
+	FGlobalTabmanager::Get()->TryInvokeTab(OculusPlatToolTabName);
+}
+
+void FOculusEditorModule::ToggleOpenXRRuntime()
+{
+	//FMetaXRSimulator::ToggleOpenXRRuntime();
+}
+
+void FOculusEditorModule::LaunchSESGameRoom()
+{
+	//FMetaXRSES::LaunchGameRoom();
+}
+
+void FOculusEditorModule::LaunchSESLivingRoom()
+{
+	//FMetaXRSES::LaunchLivingRoom();
+}
+
+void FOculusEditorModule::LaunchSESBedroom()
+{
+	//FMetaXRSES::LaunchBedroom();
+}
+
+void FOculusEditorModule::StopSESServer()
+{
+	//FMetaXRSES::StopServer();
+}
+
 void FOculusEditorModule::AddMenuExtension(FMenuBuilder& Builder)
 {
 	bool v = false;
@@ -168,6 +240,50 @@ void FOculusEditorModule::AddMenuExtension(FMenuBuilder& Builder)
 void FOculusEditorModule::AddToolbarExtension(FToolBarBuilder& Builder)
 {
 	Builder.AddToolBarButton(FOculusToolCommands::Get().OpenPluginWindow);
+}
+
+// Add the entries to the OculusXR Tools toolbar menu button
+TSharedRef<SWidget> FOculusEditorModule::CreateToolbarEntryMenu(TSharedPtr<class FUICommandList> Commands)
+{
+	FMenuBuilder MenuBuilder(true, Commands);
+	MenuBuilder.BeginSection("OculusXRBuilds", LOCTEXT("OculusXRBuilds", "Builds"));
+	MenuBuilder.AddMenuEntry(FOculusToolCommands::Get().ToggleDeploySo);
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection("OculusXRTools", LOCTEXT("OculusXRTools", "Tools"));
+	MenuBuilder.AddMenuEntry(FOculusToolCommands::Get().OpenPluginWindow);
+	MenuBuilder.AddMenuEntry(FOculusToolCommands::Get().OpenPlatWindow);
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
+}
+
+TSharedRef<SWidget> FOculusEditorModule::CreateXrSimToolbarEntryMenu(TSharedPtr<class FUICommandList> Commands)
+{
+	FMenuBuilder MenuBuilder(true, Commands);
+
+	MenuBuilder.BeginSection("MetaXRSimulator", LOCTEXT("MetaXRSimulator", "Toggle"));
+	MenuBuilder.AddMenuEntry(FOculusToolCommands::Get().ToggleMetaXRSim);
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection("SES", LOCTEXT("SES", "SES"));
+	MenuBuilder.AddSubMenu(
+		LOCTEXT("Synthetic Environment Server", "Synthetic Environment Server"),
+		LOCTEXT("Synthetic Environment Server", "Synthetic Environment Server"),
+		FNewMenuDelegate::CreateRaw(this, &FOculusEditorModule::CreateSESSubMenus));
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
+}
+
+void FOculusEditorModule::CreateSESSubMenus(FMenuBuilder& MenuBuilder)
+{
+	MenuBuilder.BeginSection("Synthetic Environment Server", LOCTEXT("Synthetic Environment Server", "Synthetic Environment Server"));
+	MenuBuilder.AddMenuEntry(FOculusToolCommands::Get().LaunchGameRoom);
+	MenuBuilder.AddMenuEntry(FOculusToolCommands::Get().LaunchLivingRoom);
+	MenuBuilder.AddMenuEntry(FOculusToolCommands::Get().LaunchBedroom);
+	MenuBuilder.AddMenuEntry(FOculusToolCommands::Get().StopServer);
+	MenuBuilder.EndSection();
 }
 
 TSharedRef<IDetailCustomization> FOculusHMDSettingsDetailsCustomization::MakeInstance()

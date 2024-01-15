@@ -86,6 +86,12 @@ UOculusFaceTrackingComponent::UOculusFaceTrackingComponent()
 	ExpressionNames.Add(EOculusFaceExpression::UpperLidRaiserR, "upperLidRaiser_R");
 	ExpressionNames.Add(EOculusFaceExpression::UpperLipRaiserL, "upperLipRaiser_L");
 	ExpressionNames.Add(EOculusFaceExpression::UpperLipRaiserR, "upperLipRaiser_R");
+	ExpressionNames.Add(EOculusFaceExpression::TongueTipInterdental, "tongueTipInterdental");
+	ExpressionNames.Add(EOculusFaceExpression::TongueTipAlveolar, "tongueTipAlveolar");
+	ExpressionNames.Add(EOculusFaceExpression::TongueFrontDorsalPalate, "tongueFrontDorsalPalate");
+	ExpressionNames.Add(EOculusFaceExpression::TongueMidDorsalPalate, "tongueMidDorsalPalate");
+	ExpressionNames.Add(EOculusFaceExpression::TongueBackDorsalVelar, "tongueBackDorsalVelar");
+	ExpressionNames.Add(EOculusFaceExpression::TongueOut, "tongueOut");
 }
 
 void UOculusFaceTrackingComponent::BeginPlay()

@@ -713,10 +713,11 @@ namespace OculusAnchors
 	 */
 	EOculusResult::Type FOculusAnchorManager::QuerySpaces(const FOculusSpaceQueryInfo& QueryInfo, uint64& OutRequestId)
 	{
-		ovrpSpaceQueryInfo ovrQueryInfo = ConvertToOVRPSpaceQueryInfo(QueryInfo);
-
 		ovrpUInt64 OvrpOutRequestId = 0;
-		const ovrpResult QuerySpacesResult = FOculusHMDModule::GetPluginWrapper().QuerySpaces(&ovrQueryInfo, &OvrpOutRequestId);
+		ovrpResult QuerySpacesResult = ovrpFailure;
+		ovrpSpaceQueryInfo ovrQueryInfo = ConvertToOVRPSpaceQueryInfo(QueryInfo);
+		QuerySpacesResult = FOculusHMDModule::GetPluginWrapper().QuerySpaces(&ovrQueryInfo, &OvrpOutRequestId);
+		
 		memcpy(&OutRequestId, &OvrpOutRequestId, sizeof(uint64));
 
 		UE_LOG(LogOculusAnchors, Log, TEXT("Query Spaces\n ovrpSpaceQueryInfo:\n\tQueryType: %d\n\tMaxQuerySpaces: %d\n\tTimeout: %f\n\tLocation: %d\n\tActionType: %d\n\tFilterType: %d\n\n\tRequest ID: %llu"), 

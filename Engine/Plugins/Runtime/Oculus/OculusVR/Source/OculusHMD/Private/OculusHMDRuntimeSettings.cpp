@@ -14,6 +14,7 @@ UOculusHMDRuntimeSettings::UOculusHMDRuntimeSettings(const FObjectInitializer& O
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
 	// FSettings is the sole source of truth for Oculus default settings
 	OculusHMD::FSettings DefaultSettings; 
+	SystemSplashBackground = DefaultSettings.SystemSplashBackground;
 	bSupportsDash = DefaultSettings.Flags.bSupportsDash;
 	bCompositesDepth = DefaultSettings.Flags.bCompositeDepth;
 	bHQDistortion = DefaultSettings.Flags.bHQDistortion;
@@ -41,10 +42,20 @@ UOculusHMDRuntimeSettings::UOculusHMDRuntimeSettings(const FObjectInitializer& O
 	bPhaseSync = DefaultSettings.bPhaseSync;
 	bAnchorSupportEnabled = DefaultSettings.Flags.bAnchorSupportEnabled;
 	bAnchorSharingEnabled = DefaultSettings.Flags.bAnchorSharingEnabled;
+	bSceneSupportEnabled = DefaultSettings.Flags.bSceneSupportEnabled;
 	bSupportExperimentalFeatures = DefaultSettings.bSupportExperimentalFeatures;
+	bTileTurnOffEnabled = DefaultSettings.Flags.bTileTurnOffEnabled;
+
+
+	FaceTrackingDataSource.Empty(static_cast<int8>(EFaceTrackingDataSourceConfig::MAX));
+	FaceTrackingDataSource.Append(DefaultSettings.FaceTrackingDataSource);
+
+	// Default this to false, FSettings doesn't have a separate composite depth flag for mobile
+	bCompositeDepthMobile = false;
 
 #else
 	// Some set of reasonable defaults, since blueprints are still available on non-Oculus platforms.
+	SystemSplashBackground = ESystemSplashBackgroundType::Black;
 	bSupportsDash = false;
 	bCompositesDepth = false;
 	bHQDistortion = false;
@@ -57,6 +68,7 @@ UOculusHMDRuntimeSettings::UOculusHMDRuntimeSettings(const FObjectInitializer& O
 	PixelDensityMin = 0.8f;
 	PixelDensityMax = 1.2f;
 	bDynamicResolution = false;
+	bCompositeDepthMobile = false;
 	bFocusAware = true;
 	XrApi = EOculusXrApi::OVRPluginOpenXR;
 	bLateLatching = false;
@@ -75,6 +87,8 @@ UOculusHMDRuntimeSettings::UOculusHMDRuntimeSettings(const FObjectInitializer& O
 	bFaceTrackingEnabled = false;
 	bAnchorSupportEnabled = false;
 	bAnchorSharingEnabled = false;
+	bSceneSupportEnabled = false;
+	bTileTurnOffEnabled = false;
 #endif
 
 	LoadFromIni();

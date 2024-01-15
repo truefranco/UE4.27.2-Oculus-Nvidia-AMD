@@ -24,6 +24,7 @@ FSettings::FSettings() :
 	, FoveatedRenderingLevel(EFoveatedRenderingLevel::Off)
 	, bDynamicFoveatedRendering(true)
 	, bSupportEyeTrackedFoveatedRendering(false)
+	, SystemSplashBackground(ESystemSplashBackgroundType::Black)
 	, XrApi(EOculusXrApi::OVRPluginOpenXR)
 	, ColorSpace(EColorSpace::P3)
 	, ControllerPoseAlignment(EOculusControllerPoseAlignment::Default)
@@ -36,6 +37,8 @@ FSettings::FSettings() :
 	, bLateLatching(false)
 	, bPhaseSync(false)
 	, bSupportExperimentalFeatures(false)
+	, BodyTrackingFidelity(EOculusHMDBodyTrackingFidelity::Low)
+	, BodyTrackingJointSet(EOculusHMDBodyJointSet::UpperBody)
 {
 	Flags.Raw = 0;
 	Flags.bHMDEnabled = true;
@@ -60,12 +63,15 @@ FSettings::FSettings() :
 	Flags.bInsightPassthroughEnabled = false;
 	Flags.bAnchorSupportEnabled = false;
 	Flags.bAnchorSharingEnabled = false;
+	Flags.bSceneSupportEnabled = false;
 	Flags.bBodyTrackingEnabled = false;
 	Flags.bEyeTrackingEnabled = false;
 	Flags.bFaceTrackingEnabled = false;
 	EyeRenderViewport[0] = EyeRenderViewport[1] = FIntRect(0, 0, 0, 0);
 
 	RenderTargetSize = FIntPoint(0, 0);
+
+	Flags.bTileTurnOffEnabled = false;
 }
 
 TSharedPtr<FSettings, ESPMode::ThreadSafe> FSettings::Clone() const

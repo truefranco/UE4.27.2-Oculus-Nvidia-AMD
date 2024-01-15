@@ -25,6 +25,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Oculus|Body")
 	static bool IsBodyTrackingSupported();
 
+	UFUNCTION(BlueprintCallable, Category = "OculusXR|Body")
+	static bool RequestBodyTrackingFidelity(EOculusHMDBodyTrackingFidelity fidelity);
+
+	UFUNCTION(BlueprintCallable, Category = "OculusXR|Body")
+	static bool ResetBodyTrackingCalibration();
+
+	UFUNCTION(BlueprintCallable, Category = "OculusXR|Body")
+	static bool SuggestBodyTrackingCalibrationOverride(float height);
+
+	UFUNCTION(BlueprintCallable, Category = "OculusXR|Body")
+	static bool StartBodyTrackingByJointSet(EOculusHMDBodyJointSet jointSet);
+
 	UFUNCTION(BlueprintCallable, Category = "Oculus|Body")
 	static bool StartBodyTracking();
 

@@ -9,6 +9,7 @@
 #include "IStereoLayers.h"
 #include "StereoLayerShapes.h"
 #include "StereoRendering.h"
+#include "Misc/MessageDialog.h"
 #if WITH_EDITOR
 #include "SceneManagement.h"
 #endif
@@ -105,6 +106,56 @@ void UStereoLayerComponent::PostLoad()
 	}
 }
 
+// BEGIN META SECTION - XR Layer MQSR
+#if WITH_EDITOR
+void UStereoLayerComponent::PreEditChange(FProperty* PropertyAboutToChange)
+{
+	const FName PropertyName = PropertyAboutToChange->GetFName();
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UStereoLayerComponent, bAutoFiltering)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(UStereoLayerComponent, SuperSamplingType)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(UStereoLayerComponent, SharpenType))
+	{
+		bOriginalAutoFiltering = bAutoFiltering;
+		OriginalSuperSamplingType = SuperSamplingType;
+		OriginalSharpenType = SharpenType;
+	}
+
+	Super::PreEditChange(PropertyAboutToChange);
+}
+
+void UStereoLayerComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UStereoLayerComponent, bAutoFiltering)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(UStereoLayerComponent, SuperSamplingType)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(UStereoLayerComponent, SharpenType))
+	{
+		if (!IsMQSRFilterValid())
+		{
+			bAutoFiltering = bOriginalAutoFiltering;
+			SuperSamplingType = OriginalSuperSamplingType;
+			SharpenType = OriginalSharpenType;
+			return;
+		}
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
+
+bool UStereoLayerComponent::IsMQSRFilterValid()
+{
+	if (!bAutoFiltering && (SuperSamplingType != SLSST_None && SharpenType != SLST_None))
+	{
+		FString Message("XR sharpening and supersampling cannot be enabled simultaneously.\n Either enable autofiltering or disable one of the options.");
+		FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(Message));
+		UE_LOG(LogTemp, Error, TEXT("%s"), *Message);
+		return false;
+	}
+	return true;
+}
+// END META SECTION - XR Layer MQSR
+
 void UStereoLayerComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent( DeltaTime, TickType, ThisTickFunction );
@@ -164,27 +215,37 @@ void UStereoLayerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 		LayerDesc.Flags |= (!bCurrVisible) ? IStereoLayers::LAYER_FLAG_HIDDEN : 0;
 		LayerDesc.Flags |= (bBicubicFiltering) ? IStereoLayers::LAYER_FLAG_BICUBIC_FILTERING : 0;
 
-		// BEGIN META SECTION - XR Layer GSR
-		switch (SuperSamplingType)
-		{
-		case SLSST_Normal:
-			LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_NORMAL_SUPERSAMPLE;
-			break;
-		case SLSST_Quality:
-			LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_QUALITY_SUPERSAMPLE;
-			break;
-		}
+// BEGIN META SECTION - XR Layer GSR
+		LayerDesc.Flags |= (bAutoFiltering) ? IStereoLayers::LAYER_FLAG_AUTO_FILTERING : 0;
 
-		switch (SharpenType)
-		{
-		case SLST_Normal:
+		if (bAutoFiltering && (SuperSamplingType == SLSST_None && SharpenType == SLST_None))
+		{	// No sharpening or supersampling method was selected, defaulting to efficient supersampling and efficient sharpening.
+			LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_NORMAL_SUPERSAMPLE;
 			LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_NORMAL_SHARPEN;
-			break;
-		case SLST_Quality:
-			LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_QUALITY_SHARPEN;
-			break;
 		}
-		// END META SECTION - XR Layer GSR
+		else
+		{
+			switch (SuperSamplingType)
+			{
+			case SLSST_Normal:
+				LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_NORMAL_SUPERSAMPLE;
+				break;
+			case SLSST_Quality:
+				LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_QUALITY_SUPERSAMPLE;
+				break;
+			}
+
+			switch (SharpenType)
+			{
+			case SLST_Normal:
+				LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_NORMAL_SHARPEN;
+				break;
+			case SLST_Quality:
+				LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_QUALITY_SHARPEN;
+				break;
+			}
+		}
+// END META SECTION - XR Layer GSR
 
 		switch (StereoLayerType)
 		{

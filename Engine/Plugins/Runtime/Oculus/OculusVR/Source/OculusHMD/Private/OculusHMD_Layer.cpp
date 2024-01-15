@@ -1219,6 +1219,11 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_NoDepth;
 		}
 
+		if (Desc.Flags & IStereoLayers::LAYER_FLAG_AUTO_FILTERING)
+		{
+			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_AutoLayerFilter;
+		}
+
 		if (Desc.Flags & IStereoLayers::LAYER_FLAG_NORMAL_SUPERSAMPLE)
 		{
 			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_EfficientSuperSample;

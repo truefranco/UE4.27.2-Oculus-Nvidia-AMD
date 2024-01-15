@@ -20,11 +20,27 @@ namespace XRSpaceFlags
 	const uint64 XR_SPACE_LOCATION_POSITION_VALID_BIT = 0x00000002;
 } // namespace XRSpaceFlags
 
+bool OculusMovement::IsFullBodyTrackingEnabled()
+{
+	bool bResult = false;
+
+	ovrpBool IsEnabled = ovrpBool_False;
+	ovrpResult TrackingEnabledResult = FOculusHMDModule::GetPluginWrapper().GetFullBodyTrackingEnabled(&IsEnabled);
+
+	if (OVRP_SUCCESS(TrackingEnabledResult))
+	{
+		bResult = (IsEnabled == ovrpBool_True);
+	}
+
+	return bResult;
+}
+
 bool OculusMovement::GetBodyState(FOculusBodyState& outOculusBodyState, float WorldToMeters)
 {
-	static_assert(ovrpBoneId_Body_End == (int)EOculusBoneID::COUNT, "The size of the OVRPlugin Bone ID enum should be the same as the EOculusBoneID enum.");
+	static_assert(ovrpBoneId_FullBody_End == static_cast<int>(EOculusBoneID::COUNT), "The size of the OVRPlugin Bone ID enum should be the same as the EOculusXRBoneID enum.");
 
-	checkf(outOculusBodyState.Joints.Num() >= ovrpBoneId_Body_End, TEXT("Not enough joints in FOculusBodyState::Joints array. You must have at least %d joints"), ovrpBoneId_Body_End);
+	const auto AvailableJoints = IsFullBodyTrackingEnabled() ? ovrpBoneId_FullBody_End : ovrpBoneId_Body_End;
+	checkf(outOculusBodyState.Joints.Num() >= AvailableJoints, TEXT("Not enough joints in FOculusXRBodyState::Joints array. You must have at least %d joints"), AvailableJoints);
 
 	ovrpBodyState4 OVRBodyState;
 	ovrpResult OVRBodyStateResult = FOculusHMDModule::GetPluginWrapper().GetBodyState4(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, &OVRBodyState);
@@ -48,7 +64,13 @@ bool OculusMovement::GetBodyState(FOculusBodyState& outOculusBodyState, float Wo
 			OculusBodyJoint.Orientation = FRotator(OculusHMD::ToFQuat(OVRJointPose.Orientation));
 			OculusBodyJoint.Position = OculusHMD::ToFVector(OVRJointPose.Position) * WorldToMeters;
 		}
-
+		if (AvailableJoints < outOculusBodyState.Joints.Num())
+		{
+			for (int i = AvailableJoints; i < outOculusBodyState.Joints.Num(); ++i)
+			{
+				outOculusBodyState.Joints[i].bIsValid = false;
+			}
+		}
 		return true;
 	}
 
@@ -85,25 +107,93 @@ bool OculusMovement::IsBodyTrackingSupported()
 	return bResult;
 }
 
+bool OculusMovement::RequestBodyTrackingFidelity(EOculusHMDBodyTrackingFidelity fidelity)
+{
+	static_assert(static_cast<int>(EOculusHMDBodyTrackingFidelity::Low) == static_cast<int>(ovrpBodyTrackingFidelity2::ovrpBodyTrackingFidelity2_Low), "EOculusXRBodyTrackingFidelity and ovrpBodyTrackingFidelity2 should be sync");
+	static_assert(static_cast<int>(EOculusHMDBodyTrackingFidelity::High) == static_cast<int>(ovrpBodyTrackingFidelity2::ovrpBodyTrackingFidelity2_High), "EOculusXRBodyTrackingFidelity and ovrpBodyTrackingFidelity2 should be sync");
+
+	auto* OculusHMD = OculusHMD::FOculusHMD::GetOculusHMD();
+	if (OculusHMD)
+	{
+		OculusHMD->GetSettings()->BodyTrackingFidelity = static_cast<EOculusHMDBodyTrackingFidelity>(fidelity);
+	}
+
+	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().RequestBodyTrackingFidelity(static_cast<ovrpBodyTrackingFidelity2>(fidelity)));
+}
+
+bool OculusMovement::ResetBodyTrackingCalibration()
+{
+	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().ResetBodyTrackingCalibration());
+}
+
+bool OculusMovement::SuggestBodyTrackingCalibrationOverride(float height)
+{
+	ovrpBodyTrackingCalibrationInfo calibrationInfo{ height };
+	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().SuggestBodyTrackingCalibrationOverride(calibrationInfo));
+}
+
 bool OculusMovement::StartBodyTracking()
 {
-	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StartBodyTracking2(ovrpBodyJointSet::ovrpBodyJointSet_UpperBody));
+	static_assert(static_cast<int>(EOculusHMDBodyJointSet::UpperBody) == static_cast<int>(ovrpBodyJointSet::ovrpBodyJointSet_UpperBody), "EOculusXRBodyJointSet and ovrpBodyJointSet should be sync");
+	static_assert(static_cast<int>(EOculusHMDBodyJointSet::FullBody) == static_cast<int>(ovrpBodyJointSet::ovrpBodyJointSet_FullBody), "EOculusXRBodyJointSet and ovrpBodyJointSet should be sync");
+
+	bool result = false;
+
+	const auto* OculusXRHMD = OculusHMD::FOculusHMD::GetOculusHMD();
+	if (OculusXRHMD)
+	{
+		const auto JointSet = OculusXRHMD->GetSettings()->BodyTrackingJointSet;
+		if (!OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StartBodyTracking2(static_cast<ovrpBodyJointSet>(JointSet))))
+		{
+			return false;
+		}
+
+		const auto Fidelity = OculusXRHMD->GetSettings()->BodyTrackingFidelity;
+		FOculusHMDModule::GetPluginWrapper().RequestBodyTrackingFidelity(static_cast<ovrpBodyTrackingFidelity2>(Fidelity));
+		return true;
+	}
+	else
+	{
+		return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StartBodyTracking2(ovrpBodyJointSet::ovrpBodyJointSet_UpperBody));
+	}
+}
+
+bool OculusMovement::StartBodyTrackingByJointSet(EOculusHMDBodyJointSet jointSet)
+{
+	bool result = false;
+
+	auto* OculusXRHMD = OculusHMD::FOculusHMD::GetOculusHMD();
+	if (OculusXRHMD)
+	{
+		OculusXRHMD->GetSettings()->BodyTrackingJointSet = static_cast<EOculusHMDBodyJointSet>(jointSet);
+		result = StartBodyTracking();
+	}
+	else
+	{
+		result = OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StartBodyTracking2(static_cast<ovrpBodyJointSet>(jointSet)));
+	}
+
+	return result;
 }
 
 bool OculusMovement::StopBodyTracking()
 {
+	FOculusHMDModule::GetPluginWrapper().RequestBodyTrackingFidelity(ovrpBodyTrackingFidelity2::ovrpBodyTrackingFidelity2_Low);
 	return OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StopBodyTracking());
 }
 
 bool OculusMovement::GetFaceState(FOculusFaceState& outOculusFaceState)
 {
-	static_assert(ovrpFaceExpression_Max == (int)EOculusFaceExpression::COUNT, "The size of the OVRPlugin Face Expression enum should be the same as the EOculusFaceExpression enum.");
+	const auto blendShapeCount = ovrpFaceExpression2_Max;
 
-	checkf(outOculusFaceState.ExpressionWeightConfidences.Num() >= ovrpFaceConfidence_Max, TEXT("Not enough expression weight confidences in FOculusFaceState::ExpressionWeightConfidences. Requires %d available elements in the array."), ovrpFaceConfidence_Max);
-	checkf(outOculusFaceState.ExpressionWeights.Num() >= ovrpFaceExpression_Max, TEXT("Not enough expression weights in FOculusFaceState::ExpressionWeights. Requires %d available elements in the array."), ovrpFaceExpression_Max);
+	static_assert(blendShapeCount == static_cast<int>(EOculusFaceExpression::COUNT), "The size of the OVRPlugin Face Expression enum should be the same as the EOculusXRFaceExpression enum.");
+
+	checkf(outOculusFaceState.ExpressionWeightConfidences.Num() >= ovrpFaceConfidence_Max, TEXT("Not enough expression weight confidences in FOculusXRFaceState::ExpressionWeightConfidences. Requires %d available elements in the array."), ovrpFaceConfidence_Max);
+	checkf(outOculusFaceState.ExpressionWeights.Num() >= blendShapeCount, TEXT("Not enough expression weights in FOculusXRFaceState::ExpressionWeights. Requires %d available elements in the array."), blendShapeCount);
 
 	ovrpFaceState2 OVRFaceState;
 	ovrpResult OVRFaceStateResult = FOculusHMDModule::GetPluginWrapper().GetFaceState2(ovrpStep_Render, OVRP_CURRENT_FRAMEINDEX, &OVRFaceState);
+
 	ensureMsgf(OVRFaceStateResult != ovrpFailure_NotYetImplemented, TEXT("Face tracking is not implemented on this platform."));
 
 	if (OVRP_SUCCESS(OVRFaceStateResult))
@@ -112,7 +202,7 @@ bool OculusMovement::GetFaceState(FOculusFaceState& outOculusFaceState)
 		outOculusFaceState.bIsEyeFollowingBlendshapesValid = (OVRFaceState.Status.IsEyeFollowingBlendshapesValid == ovrpBool_True);
 		outOculusFaceState.Time = static_cast<float>(OVRFaceState.Time);
 
-		for (int i = 0; i < ovrpFaceExpression_Max; ++i)
+		for (int i = 0; i < blendShapeCount; ++i)
 		{
 			outOculusFaceState.ExpressionWeights[i] = OVRFaceState.ExpressionWeights[i];
 		}
@@ -121,6 +211,8 @@ bool OculusMovement::GetFaceState(FOculusFaceState& outOculusFaceState)
 		{
 			outOculusFaceState.ExpressionWeightConfidences[i] = OVRFaceState.ExpressionWeightConfidences[i];
 		}
+
+		outOculusFaceState.DataSource = static_cast<EFaceTrackingDataSourceConfig>(OVRFaceState.DataSource);
 
 		return true;
 	}

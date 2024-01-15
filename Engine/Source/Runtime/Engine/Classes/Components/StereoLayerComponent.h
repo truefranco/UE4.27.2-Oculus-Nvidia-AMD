@@ -292,6 +292,13 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	//~ End UActorComponent Interface
 
+	// BEGIN META SECTION - XR Layer MQSR
+#if WITH_EDITOR
+	virtual void PreEditChange(FProperty* PropertyAboutToChange) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif // WITH_EDITOR
+	// END META SECTION - XR Layer MQSR
+
 	/** 
 	 * Change the texture displayed on the stereo layer. 
 	 *
@@ -384,6 +391,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "StereoLayer", DisplayName = "SuperSample Filtering")
 	TEnumAsByte<enum EStereoLayerSuperSamplingType> SuperSamplingType;
 
+	/**  True if this layer allows the runtime to automatically apply layer filter (Sharpen or Supersampling) to improve visual quality */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Rendering, DisplayName = "Auto Filtering")
+	bool bAutoFiltering;
+
 	/**  The sharpen filter of this layer. This amplifies contrast and fine details */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "StereoLayer", DisplayName = "Sharpen Filtering")
 	TEnumAsByte<enum EStereoLayerSharpenType> SharpenType;
@@ -468,5 +479,13 @@ protected:
 
 	/** Set if the component was loaded from an old version */
 	bool bNeedsPostLoadFixup;
+
+	// BEGIN META SECTION - XR Layer MQSR
+	bool bOriginalAutoFiltering;
+	TEnumAsByte<enum EStereoLayerSuperSamplingType> OriginalSuperSamplingType;
+	TEnumAsByte<enum EStereoLayerSharpenType> OriginalSharpenType;
+
+	bool IsMQSRFilterValid();
+	// END META SECTION - XR Layer MQSR
 };
 

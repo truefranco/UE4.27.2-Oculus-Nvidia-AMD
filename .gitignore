@@ -243,9 +243,15 @@ Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/**
 /Collaboration/Private/Scripts/
 
 /Engine/Plugins/Runtime/Nvidia/**
+!/Engine/Plugins/Runtime/Oculus/OculusVR/Source/**
 
-!/Engine/Plugins/Experimental/ModelingToolsEditorMode/Content/Icons/Staircase.png
+/Engine/Plugins/Experimental/ModelingToolsEditorMode/Content/Icons/**
 
 /Engine/Plugins/GeneralMovement/**
+
+/Engine/Plugins/MegascansPlugin/**
+
+/Engine/Plugins/Oceanology_Plugin/**
+
 *.ini
 *.ini

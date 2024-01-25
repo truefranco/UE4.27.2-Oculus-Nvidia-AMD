@@ -72,7 +72,8 @@ public:
 	// IDetailCustomization interface
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailLayout) override;
 	// End of IDetailCustomization interface
-
+	EVisibility GetContextualPassthroughWarningVisibility() const;
 	FReply PluginClickPerfFn(bool text);
 	FReply PluginClickPlatFn(bool text);
+	FReply DisableEngineSplash(bool text);
 };

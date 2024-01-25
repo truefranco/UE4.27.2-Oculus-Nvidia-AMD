@@ -243,7 +243,8 @@ Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/**
 /Collaboration/Private/Scripts/
 
 /Engine/Plugins/Runtime/Nvidia/**
-!/Engine/Plugins/Runtime/Oculus/OculusVR/Source/**
+
+!/Engine/Plugins/Runtime/Oculus/**
 
 /Engine/Plugins/Experimental/ModelingToolsEditorMode/Content/Icons/**
 
@@ -252,6 +253,12 @@ Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/**
 /Engine/Plugins/MegascansPlugin/**
 
 /Engine/Plugins/Oceanology_Plugin/**
+
+!/Engine/Build/Android/**
+
+!/Engine/Plugins/Runtime/AndroidBackgroundService/**
+
+!/Engine/Source/ThirdParty/Oculus/OVRPlugin/**
 
 *.ini
 *.ini

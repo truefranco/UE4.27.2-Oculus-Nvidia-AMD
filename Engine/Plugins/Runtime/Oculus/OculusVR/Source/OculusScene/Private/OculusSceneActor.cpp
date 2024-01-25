@@ -671,7 +671,9 @@ AActor* AOculusSceneActor::SpawnOrUpdateSceneAnchor(AActor* Anchor, const FUInt6
 bool AOculusSceneActor::IsScenePopulated()
 {
 	if (!RootComponent)
+	{
 		return false;
+	}
 	return RootComponent->GetNumChildrenComponents() > 0;
 }
 

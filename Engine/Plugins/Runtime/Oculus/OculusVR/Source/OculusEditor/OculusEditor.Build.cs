@@ -21,7 +21,7 @@ public class OculusEditor : ModuleRules
 				"EditorStyle",
 				"Core",
 				"OculusHMD",
-				"OVRPlugin",
+				"OVRPluginXR",
 				"HTTP",
 				"DesktopPlatform",
                 "LauncherServices",

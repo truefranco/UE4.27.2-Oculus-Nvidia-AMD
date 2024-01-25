@@ -30,7 +30,6 @@ class VolumeReceiver extends BroadcastReceiver
 
 	private static IntentFilter filter;
 	private static VolumeReceiver receiver;
-	private static Boolean registered = false;
 
 	private static String VOLUME_CHANGED_ACTION = "android.media.VOLUME_CHANGED_ACTION";
 	private static String STREAM_TYPE = "android.media.EXTRA_VOLUME_STREAM_TYPE";
@@ -49,11 +48,7 @@ class VolumeReceiver extends BroadcastReceiver
 			receiver = new VolumeReceiver();
 		}
 
-		if (!registered)
-		{
-			activity.registerReceiver( receiver, filter );
-			registered = true;
-		}
+		activity.registerReceiver( receiver, filter );
 
 		AudioManager audio = (AudioManager)activity.getSystemService( Context.AUDIO_SERVICE );
 		int volume = audio.getStreamVolume( AudioManager.STREAM_MUSIC );
@@ -66,11 +61,7 @@ class VolumeReceiver extends BroadcastReceiver
 	public static void stopReceiver( Activity activity )
 	{
 		GameActivity.Log.debug( "Unregistering volume receiver" );
-		if (registered)
-		{
-			activity.unregisterReceiver( receiver );
-			registered = false;
-		}
+		activity.unregisterReceiver( receiver );
 	}
 
 	@Override

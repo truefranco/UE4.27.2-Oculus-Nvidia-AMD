@@ -1,22 +1,17 @@
-/*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
- *
- * Licensed under the Oculus SDK License Agreement (the "License");
- * you may not use the Oculus SDK except in compliance with the License,
- * which is provided at the time of installation or download, or which
- * otherwise accompanies this software in either electronic or hard copy form.
- *
- * You may obtain a copy of the License at
- *
- * https://developer.oculus.com/licenses/oculussdk/
- *
- * Unless required by applicable law or agreed to in writing, the Oculus SDK
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/************************************************************************************
+
+Copyright (c) Facebook Technologies, LLC and its affiliates.  All rights reserved.
+
+Your use of this SDK or tool is subject to the Oculus SDK License Agreement, available at
+https://developer.oculus.com/licenses/oculussdk/
+
+Unless required by applicable law or agreed to in writing, the Oculus SDK
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+************************************************************************************/
 
 #ifndef OVR_Plugin_Types_Deprecated_h
 #define OVR_Plugin_Types_Deprecated_h
@@ -73,24 +68,6 @@ typedef struct ovrpSkeleton_ {
   ovrpBone Bones[ovrpSkeletonConstants_MaxHandBones];
   ovrpBoneCapsule BoneCapsules[ovrpSkeletonConstants_MaxBoneCapsules];
 } ovrpSkeleton;
-
-// Old UUID type
-typedef struct ovrpSpatialEntityUuid {
-  // unique id value
-  ovrpUInt64 value[OVRP_SPATIAL_ENTITY_UUID_SIZE];
-} ovrpSpatialEntityUuid;
-
-// Backward compatibility for Unreal integration
-typedef ovrpSpatialAnchorCreateInfo ovrpSpaceAnchorCreateInfo;
-
-// Single Space Load is no longer supported
-typedef struct ovrpEventSpaceStorageLoadResult_ {
-  ovrpEventType EventType;
-  ovrpUInt64 requestId;
-  ovrpSpace space;
-  ovrpResult result;
-  ovrpSpatialEntityUuid uuid;
-} ovrpEventSpaceStorageLoadResult;
 
 /// Capability bits that control the plugin's configuration.
 /// Each value corresponds to a left-shift offset in the bitfield.
@@ -191,11 +168,6 @@ typedef enum {
 
 typedef ovrpShape ovrpOverlayShape;
 
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpedantic"
-#endif // __clang__
-
 typedef enum {
   ovrpOverlayFlag_None = 0x00000000,
   /// If true, the overlay appears on top of all lower-indexed layers and the eye buffers.
@@ -203,23 +175,25 @@ typedef enum {
   /// If true, the overlay bypasses TimeWarp and directly follows head motion.
   ovrpOverlayFlag_HeadLocked = 0x00000002,
   /// If true, the overlay will not allow depth compositing on Rift.
-  ovrpOverlayFlag_NoDepth = 0x00000004,
+  ovrpOverlayFlag_NoDepth  = 0x00000004,
   // If true, the overlay will use the VrApi supersample flag, which can be helpful but is extremely expensive.
   ovrpOverlayFlag_ExpensiveSuperSample = 0x00000008,
-  // if true, the overlay will use the Vrapi efficient supersample flag
-  ovrpOverlayFlag_EfficientSuperSample = 0x00000010,
-  // If true, the overlay will use the Vrapi sharpen flag
-  ovrpOverlayFlag_EfficientSharpen = 0x00000020,
-  // If true, the overlay will use bicubic filtering flag
-  ovrpOverlayFlag_BicubicFiltering = 0x00000040,
-  // If true, the overlay will use the Vrapi sharpen flag
-  ovrpOverlayFlag_QualitySharpen = 0x00000080,
-  // If true, the overlay will be "secure content"; the contents cannot be recorded by users
-  ovrpOverlayFlag_SecureContent = 0x00000100,
+
+
+
+
+
+
+
+  // Use left 5 - 8 bits for shape flags
+  ovrpOverlayFlag_ShapeShift = 4,
+  ovrpOverlayFlag_Quad = (ovrpShape_Quad << ovrpOverlayFlag_ShapeShift),
+  ovrpOverlayFlag_Cylinder = (ovrpShape_Cylinder << ovrpOverlayFlag_ShapeShift),
+  ovrpOverlayFlag_Cubemap = (ovrpShape_Cubemap << ovrpOverlayFlag_ShapeShift),
+  ovrpOverlayFlag_offCenterCubemap = (ovrpShape_OffcenterCubemap << ovrpOverlayFlag_ShapeShift),
+  ovrpOverlayFlag_ShapeMask = (0xF << ovrpOverlayFlag_ShapeShift),
 
   ovrpOverlayFlag_Hidden = 0x00000200,
-
-  ovrpOverlayFlag_AutoFilter = 0x00000400,
 
   // Internal flags
   /// If true, the overlay is a loading screen.
@@ -229,9 +203,5 @@ typedef enum {
   ovrpOverlayFlag_Undistorted = 0x80000000,
   ovrpOverlayFlag_EnumSize = 0x7fffffff
 } ovrpOverlayFlag;
-
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif // __clang__
 
 #endif

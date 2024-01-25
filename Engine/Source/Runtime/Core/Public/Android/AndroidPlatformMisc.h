@@ -313,6 +313,11 @@ public:
 	// Android specific requesting of exit, *ONLY* use this function in signal handling code. Otherwise normal RequestExit functions
 	static void NonReentrantRequestExit();
 
+	static void ShowConsoleWindow();
+
+	static FDelegateHandle AddNetworkListener(FOnNetworkConnectionChangedDelegate&& InNewDelegate);
+	static bool RemoveNetworkListener(FDelegateHandle Handle);
+
 private:
 	static const ANSICHAR* CodeToString(int Signal, int si_code);
 	static EDeviceScreenOrientation DeviceOrientation;

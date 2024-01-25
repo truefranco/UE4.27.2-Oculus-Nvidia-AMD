@@ -1,22 +1,17 @@
-/*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
- *
- * Licensed under the Oculus SDK License Agreement (the "License");
- * you may not use the Oculus SDK except in compliance with the License,
- * which is provided at the time of installation or download, or which
- * otherwise accompanies this software in either electronic or hard copy form.
- *
- * You may obtain a copy of the License at
- *
- * https://developer.oculus.com/licenses/oculussdk/
- *
- * Unless required by applicable law or agreed to in writing, the Oculus SDK
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/************************************************************************************
+
+Copyright (c) Facebook Technologies, LLC and its affiliates.  All rights reserved.
+
+Your use of this SDK or tool is subject to the Oculus SDK License Agreement, available at
+https://developer.oculus.com/licenses/oculussdk/
+
+Unless required by applicable law or agreed to in writing, the Oculus SDK
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+************************************************************************************/
 
 #ifndef OVR_Plugin_h
 #define OVR_Plugin_h
@@ -30,19 +25,15 @@
 extern "C" {
 #endif
 
-// The following macros are only defined when building in UE4 and UE5
-#if (                                                                                     \
-    defined(UE_BUILD_DEBUG) || defined(UE_BUILD_DEVELOPMENT) || defined(UE_BUILD_TEST) || \
-    defined(UE_BUILD_SHIPPING)) &&                                                        \
-    defined(PLATFORM_ANDROID)
-// OVRPlugin does not support Android system callbacks in UE4 and UE5.
+// The following macros are only defined when building in UE4
+#if (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT || UE_BUILD_TEST || UE_BUILD_SHIPPING) && PLATFORM_ANDROID
+// OVRPlugin does not support Android system callbacks in UE4.
 // Please use Optional Mobile Features Blueprint Library Plugin or include FAndroidMisc.h in your project
 #define OVRPLUGIN_JNI_LIB_EXCLUDED
 #endif
 
 /// Initializes the Oculus display driver before graphics initialization, if applicable.
-OVRP_EXPORT ovrpResult
-ovrp_PreInitialize5(void* activity, ovrpRenderAPIType apiType, ovrpPreinitializeFlags preinitializeFlags);
+OVRP_EXPORT ovrpResult ovrp_PreInitialize4(void* activity, ovrpRenderAPIType apiType);
 
 /// Gets the current initialization state of the Oculus runtime, VR tracking, and graphics
 /// resources.
@@ -51,8 +42,7 @@ OVRP_EXPORT ovrpBool ovrp_GetInitialized();
 /// Sets up the Oculus runtime, VR tracking, and graphics resources.
 /// You must call this before any other function except ovrp_PreInitialize() or
 /// ovrp_GetInitialized().
-/// @note In case of D3D12, d3dDevice is an ID3D12CommandQueue object
-OVRP_EXPORT ovrpResult ovrp_Initialize7(
+OVRP_EXPORT ovrpResult ovrp_Initialize6(
     ovrpRenderAPIType apiType,
     ovrpLogCallback logCallback,
     void* activity,
@@ -62,15 +52,11 @@ OVRP_EXPORT ovrpResult ovrp_Initialize7(
     void* vkQueue,
     void* vkGetInstanceProcAddr, // PFN_vkGetInstanceProcAddr
     unsigned int vkQueueFamilyIndex,
-    void* d3dDevice,
     int initializeFlags,
     OVRP_CONSTREF(ovrpVersion) version);
 
 /// Tears down the Oculus runtime, VR tracking, and graphics resources.
 OVRP_EXPORT ovrpResult ovrp_Shutdown2();
-
-/// Set a function pointer which captures the OVRPlugin log lines.
-OVRP_EXPORT ovrpResult ovrp_SetLogCallback2(ovrpLogCallback2 logFunc);
 
 /// Gets the version of OVRPlugin currently in use. Format: "major.minor.release"
 OVRP_EXPORT ovrpResult ovrp_GetVersion2(char const** version);
@@ -82,7 +68,7 @@ OVRP_EXPORT ovrpResult ovrp_GetNativeSDKVersion2(char const** nativeSDKVersion);
 /// (e.g. ovrSession in CAPI, ovrMobile* in VRAPI, XrSession* in OpenXR).
 OVRP_EXPORT ovrpResult ovrp_GetNativeSDKPointer2(void** nativeSDKPointer);
 
-/// Retrieve the current XR API being used by OVRPlugin
+/// Retreive the current XR API being used by OVRPlugin
 OVRP_EXPORT ovrpResult ovrp_GetNativeXrApiType(ovrpXrApi* xrApi);
 
 /// Retrive XrInstance / XrSession when OpenXR is being used
@@ -152,7 +138,6 @@ OVRP_EXPORT ovrpResult ovrp_SetColorScaleAndOffset(
 
 /// Creates a layer.
 /// The desc remains constant for the lifetime of the layer.
-/// @note In case of D3D12, device is an ID3D12CommandQueue object
 OVRP_EXPORT ovrpResult ovrp_SetupLayer(void* device, OVRP_CONSTREF(ovrpLayerDesc) desc, int* layerId);
 
 /// Create depth swap chain for a layer
@@ -190,13 +175,13 @@ OVRP_EXPORT ovrpResult ovrp_GetLayerTextureFoveation(
 
 /// Gets the space warp texture handles for a specific layer stage and eye.
 OVRP_EXPORT ovrpResult ovrp_GetLayerTextureSpaceWarp(
-    int layerId,
-    int stage,
-    ovrpEye eyeId,
-    ovrpTextureHandle* motionVectorTextureHandle,
-    ovrpSizei* motionVectorResultSize,
-    ovrpTextureHandle* depthTextureHandle,
-    ovrpSizei* depthResultSize);
+  int layerId,
+  int stage,
+  ovrpEye eyeId,
+  ovrpTextureHandle* motionVectorTextureHandle,
+  ovrpSizei* motionVectorResultSize,
+  ovrpTextureHandle* depthTextureHandle,
+  ovrpSizei* depthResultSize);
 
 /// Gets the texture handle for a specific layer stage and eye.
 OVRP_EXPORT ovrpResult ovrp_GetLayerAndroidSurfaceObject(int layerId, void** surfaceObject);
@@ -237,17 +222,17 @@ OVRP_EXPORT ovrpResult ovrp_CalculateEyeLayerDesc2(
 
 /// Calculates eye layer description
 OVRP_EXPORT ovrpResult ovrp_CalculateEyeLayerDesc3(
-    ovrpLayout layout,
-    float textureScale,
-    int mipLevels,
-    int sampleCount,
-    ovrpTextureFormat format,
-    ovrpTextureFormat depthFormat,
-    ovrpTextureFormat motionVectorFormat,
-    ovrpTextureFormat motionVectorDepthFormat,
-    float motionVectorTextureScale,
-    int layerFlags,
-    ovrpLayerDesc_EyeFov* layerDesc);
+  ovrpLayout layout,
+  float textureScale,
+  int mipLevels,
+  int sampleCount,
+  ovrpTextureFormat format,
+  ovrpTextureFormat depthFormat,
+  ovrpTextureFormat motionVectorFormat,
+  ovrpTextureFormat motionVectorDepthFormat,
+  float motionVectorTextureScale,
+  int layerFlags,
+  ovrpLayerDesc_EyeFov* layerDesc);
 
 /// Calculates the recommended viewport rect for the specified eye
 OVRP_EXPORT ovrpResult ovrp_CalculateEyeViewportRect(
@@ -269,7 +254,6 @@ OVRP_EXPORT ovrpResult ovrp_CalculateEyePreviewRect(
 /// If you called ovrp_Initialize with ovrpRenderAPI_OpenGL, you can pass
 /// a texture ID allocated by glGenTextures in the device argument and the texture will be
 /// associated with that ID.
-/// @note In case of D3D12, device is an ID3D12CommandQueue object
 OVRP_EXPORT ovrpResult ovrp_SetupMirrorTexture2(
     void* device,
     int height,
@@ -375,13 +359,11 @@ OVRP_EXPORT ovrpResult ovrp_GetNodePositionValid(ovrpNode nodeId, ovrpBool* node
 OVRP_EXPORT ovrpResult ovrp_SetNodePositionTracked2(ovrpNode nodeId, ovrpBool nodePositionTracked);
 
 /// Gets the current pose, acceleration, and velocity of the given node on the given update cadence.
-OVRP_EXPORT ovrpResult
-ovrp_GetNodePoseState3(ovrpStep step, int frameIndex, ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
+OVRP_EXPORT ovrpResult ovrp_GetNodePoseState3(ovrpStep step, int frameIndex, ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
 
 /// Gets the current pose, acceleration, and velocity of the given node on the given update cadence, without applying
 /// any modifier (e.g. HeadPoseModifier)
-OVRP_EXPORT ovrpResult
-ovrp_GetNodePoseStateRaw(ovrpStep step, int frameIndex, ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
+OVRP_EXPORT ovrpResult ovrp_GetNodePoseStateRaw(ovrpStep step, int frameIndex, ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
 
 /// Gets the current frustum for the given node, if available.
 OVRP_EXPORT ovrpResult ovrp_GetNodeFrustum2(ovrpNode nodeId, ovrpFrustum2f* nodeFrustum);
@@ -391,26 +373,14 @@ OVRP_EXPORT ovrpResult ovrp_GetNodeFrustum2(ovrpNode nodeId, ovrpFrustum2f* node
 
 
 
-
-
-
-
-
 /// Set relative rotation/translation to the eye pose
-OVRP_EXPORT ovrpResult
-ovrp_SetHeadPoseModifier(const ovrpQuatf* relativeRotation, const ovrpVector3f* relativeTranslation);
+OVRP_EXPORT ovrpResult ovrp_SetHeadPoseModifier(const ovrpQuatf* relativeRotation, const ovrpVector3f* relativeTranslation);
 
 /// Get current relative rotation/translation to the eye pose
 OVRP_EXPORT ovrpResult ovrp_GetHeadPoseModifier(ovrpQuatf* relativeRotation, ovrpVector3f* relativeTranslation);
 
 /// Gets the controller state for the given controllers.
 OVRP_EXPORT ovrpResult ovrp_GetControllerState4(ovrpController controllerMask, ovrpControllerState4* controllerState);
-
-/// Gets the controller state for the given controllers.
-OVRP_EXPORT ovrpResult ovrp_GetControllerState5(ovrpController controllerMask, ovrpControllerState5* controllerState);
-
-/// Gets the controller state for the given controllers.
-OVRP_EXPORT ovrpResult ovrp_GetControllerState6(ovrpController controllerMask, ovrpControllerState6* controllerState);
 
 /// Gets the currently active controller type.
 OVRP_EXPORT ovrpResult ovrp_GetActiveController2(ovrpController* activeController);
@@ -421,25 +391,6 @@ OVRP_EXPORT ovrpResult ovrp_GetConnectedControllers2(ovrpController* connectedCo
 /// Sets the vibration state for the given controllers.
 OVRP_EXPORT ovrpResult ovrp_SetControllerVibration2(ovrpController controllerMask, float frequency, float amplitude);
 
-/// Sets the vibration state for the specified haptics locations on the given controllers.
-OVRP_EXPORT ovrpResult ovrp_SetControllerLocalizedVibration(
-    ovrpController controllerMask,
-    ovrpHapticsLocation hapticsLocationMask,
-    float frequency,
-    float amplitude);
-
-OVRP_EXPORT ovrpResult ovrp_SetControllerHapticsAmplitudeEnvelope(
-    ovrpController controllerMask,
-    ovrpHapticsAmplitudeEnvelopeVibration hapticsVibration);
-
-OVRP_EXPORT ovrpResult
-ovrp_SetControllerHapticsPcm(ovrpController controllerMask, ovrpHapticsPcmVibration hapticsVibration);
-
-
-
-
-
-
 /// Gets the current haptics desc for the given controllers.
 OVRP_EXPORT ovrpResult
 ovrp_GetControllerHapticsDesc2(ovrpController controllerMask, ovrpHapticsDesc* controllerHapticsDesc);
@@ -448,28 +399,13 @@ ovrp_GetControllerHapticsDesc2(ovrpController controllerMask, ovrpHapticsDesc* c
 OVRP_EXPORT ovrpResult
 ovrp_GetControllerHapticsState2(ovrpController controllerMask, ovrpHapticsState* controllerHapticsState);
 
-/// Gets the preferred sample rate (in Hz) for the given controller.
-OVRP_EXPORT ovrpResult ovrp_GetControllerSampleRateHz(ovrpController controller, float* sampleRateHz);
-
 /// Sets the haptics buffer state for the given controllers.
 OVRP_EXPORT ovrpResult ovrp_SetControllerHaptics2(ovrpController controllerMask, ovrpHapticsBuffer hapticsBuffer);
 
-/// Sets the suggested CPU performance level
-OVRP_EXPORT ovrpResult ovrp_SetSuggestedCpuPerformanceLevel(ovrpProcessorPerformanceLevel perfLevel);
-
-/// Gets the suggested CPU performance level
-OVRP_EXPORT ovrpResult ovrp_GetSuggestedCpuPerformanceLevel(ovrpProcessorPerformanceLevel* perfLevel);
-
-/// Sets the suggested CPU performance level
-OVRP_EXPORT ovrpResult ovrp_SetSuggestedGpuPerformanceLevel(ovrpProcessorPerformanceLevel perfLevel);
-
-/// Gets the suggested CPU performance level
-OVRP_EXPORT ovrpResult ovrp_GetSuggestedGpuPerformanceLevel(ovrpProcessorPerformanceLevel* perfLevel);
-
-/// Gets the current CPU performance level, integer in the range 0 - 3 (deprecated).
+/// Gets the current CPU performance level, integer in the range 0 - 3.
 OVRP_EXPORT ovrpResult ovrp_GetSystemCpuLevel2(int* systemCpuLevel);
 
-/// Sets the current CPU performance level, integer in the range 0 - 3 (deprecated).
+/// Sets the current CPU performance level, integer in the range 0 - 3.
 OVRP_EXPORT ovrpResult ovrp_SetSystemCpuLevel2(int systemCpuLevel);
 
 /// Returns true if the application should run at the maximum possible CPU level.
@@ -478,10 +414,10 @@ OVRP_EXPORT ovrpResult ovrp_GetAppCPUPriority2(ovrpBool* appCPUPriority);
 /// Determines whether the application should run at the maximum possible CPU level.
 OVRP_EXPORT ovrpResult ovrp_SetAppCPUPriority2(ovrpBool appCPUPriority);
 
-/// Gets the current GPU performance level, integer in the range 0 - 3 (deprecated).
+/// Gets the current GPU performance level, integer in the range 0 - 3.
 OVRP_EXPORT ovrpResult ovrp_GetSystemGpuLevel2(int* systemGpuLevel);
 
-/// Sets the current GPU performance level, integer in the range 0 - 3 (deprecated).
+/// Sets the current GPU performance level, integer in the range 0 - 3.
 OVRP_EXPORT ovrpResult ovrp_SetSystemGpuLevel2(int systemGpuLevel);
 
 /// If true, the system is running in a reduced performance mode to save power.
@@ -491,8 +427,7 @@ OVRP_EXPORT ovrpResult ovrp_GetSystemPowerSavingMode2(ovrpBool* systemPowerSavin
 OVRP_EXPORT ovrpResult ovrp_GetSystemDisplayFrequency2(float* systemDisplayFrequency);
 
 /// Gets the available refresh rates of the HMD.
-OVRP_EXPORT ovrpResult
-ovrp_GetSystemDisplayAvailableFrequencies(float* systemDisplayAvailableFrequencies, int* arraySize);
+OVRP_EXPORT ovrpResult ovrp_GetSystemDisplayAvailableFrequencies(float* systemDisplayAvailableFrequencies, int* arraySize);
 
 /// Sets the refresh rate for the HMD
 OVRP_EXPORT ovrpResult ovrp_SetSystemDisplayFrequency(float requestedFrequency);
@@ -503,7 +438,7 @@ OVRP_EXPORT ovrpResult ovrp_GetSystemVSyncCount2(int* systemVSyncCount);
 /// Sets the minimum number of vsyncs to wait after each frame.
 OVRP_EXPORT ovrpResult ovrp_SetSystemVSyncCount2(int systemVSyncCount);
 
-/// OVRPlugin does not support Android system callbacks in UE4 and UE5.
+/// OVRPlugin does not support Android system callbacks in UE4.
 /// Please use Optional Mobile Features Blueprint Library Plugin or include FAndroidMisc.h in your project
 #ifndef OVRPLUGIN_JNI_LIB_EXCLUDED
 /// Gets the current system volume level.
@@ -535,7 +470,7 @@ OVRP_EXPORT ovrpResult ovrp_ShowSystemUI2(ovrpUI ui);
 OVRP_EXPORT ovrpResult ovrp_GetAppHasVrFocus2(ovrpBool* appHasVrFocus);
 
 /// True if the application is the foreground application and receives input (e.g. Touch
-/// controller state). If this is false then the application is in the background (but possibly
+/// controller state). If this is false then the application is in the background (but posssibly
 /// still visible) should hide any input representations such as hands.
 OVRP_EXPORT ovrpResult ovrp_GetAppHasInputFocus(ovrpBool* appHasInputFocus);
 
@@ -632,7 +567,7 @@ OVRP_EXPORT ovrpResult ovrp_ResetAppPerfStats2();
 /// Return the app FPS, thread safe
 OVRP_EXPORT ovrpResult ovrp_GetAppFramerate2(float* appFramerate);
 
-/// Returns if a certain perf metrics is supported
+/// Returns if a certain perf metrics is suppoerted
 OVRP_EXPORT ovrpResult ovrp_IsPerfMetricsSupported(ovrpPerfMetrics perfMetrics, ovrpBool* supported);
 
 /// Returns if a floating point perf metrics
@@ -667,29 +602,6 @@ OVRP_EXPORT ovrpResult ovrp_GetTiledMultiResDynamic(ovrpBool* isDynamic);
 
 /// Sets if MultiRes is dynamic or not
 OVRP_EXPORT ovrpResult ovrp_SetTiledMultiResDynamic(ovrpBool isDynamic);
-
-/// Return true if the device supports eye tracked foveation
-OVRP_EXPORT ovrpResult ovrp_GetFoveationEyeTrackedSupported(ovrpBool* foveationSupported);
-
-/// Return if foveation is eye tracked
-OVRP_EXPORT ovrpResult ovrp_GetFoveationEyeTracked(ovrpBool* isEyeTracked);
-
-/// Sets if foveation is eye tracked
-OVRP_EXPORT ovrpResult ovrp_SetFoveationEyeTracked(ovrpBool isEyeTracked);
-
-/// Gets the eye tracked foveation center (used for tile offset)
-OVRP_EXPORT ovrpResult ovrp_GetFoveationEyeTrackedCenter(ovrpVector2f fovCenter[2]);
-
-
-
-
-
-
-
-
-
-
-
 
 /// Return true if the device supports GPU Util querying
 OVRP_EXPORT ovrpResult ovrp_GetGPUUtilSupported(ovrpBool* gpuUtilSupported);
@@ -735,18 +647,11 @@ OVRP_EXPORT ovrpResult ovrp_SetVrApiPropertyFloat(int propertyEnum, float value)
 
 OVRP_EXPORT ovrpResult ovrp_GetVrApiPropertyInt(int propertyEnum, int* value);
 
-
-
-
-
-
-
 OVRP_EXPORT ovrpResult ovrp_GetCurrentTrackingTransformPose(ovrpPosef* trackingTransformPose);
 
 OVRP_EXPORT ovrpResult ovrp_GetTrackingTransformRawPose(ovrpPosef* trackingTransformRawPose);
 
-OVRP_EXPORT ovrpResult
-ovrp_GetTrackingTransformRelativePose(ovrpPosef* trackingTransformRelativePose, ovrpTrackingOrigin trackingOrigin);
+OVRP_EXPORT ovrpResult ovrp_GetTrackingTransformRelativePose(ovrpPosef* trackingTransformRelativePose, ovrpTrackingOrigin trackingOrigin);
 
 OVRP_EXPORT ovrpResult ovrp_GetTimeInSeconds(double* timeInSeconds);
 
@@ -758,70 +663,20 @@ OVRP_EXPORT ovrpResult ovrp_IsRequestingASWData(ovrpBool* needASWData);
 
 OVRP_EXPORT ovrpResult ovrp_GetPredictedDisplayTime(int frameIndex, double* predictedDisplayTime);
 
-/// Set whether the system should be querying for hand poses powered by controller data
-OVRP_EXPORT ovrpResult ovrp_SetControllerDrivenHandPoses(ovrpBool controllerDrivenHandPoses);
-OVRP_EXPORT ovrpResult ovrp_SetControllerDrivenHandPosesAreNatural(ovrpBool controllerDrivenHandPosesAreNatural);
-OVRP_EXPORT ovrpResult ovrp_IsControllerDrivenHandPosesEnabled(ovrpBool* enabled);
-OVRP_EXPORT ovrpResult ovrp_AreControllerDrivenHandPosesNatural(ovrpBool* natural);
-
-
-
-
-
-
-OVRP_EXPORT ovrpResult ovrp_SetMultimodalHandsControllersSupported(ovrpBool supported);
-OVRP_EXPORT ovrpResult ovrp_IsMultimodalHandsControllersSupported(ovrpBool* supported);
-OVRP_EXPORT ovrpResult
-ovrp_GetCurrentDetachedInteractionProfile(ovrpHand hand, ovrpInteractionProfile* interactionProfile);
-
 OVRP_EXPORT ovrpResult ovrp_GetHandTrackingEnabled(ovrpBool* handTrackingEnabled);
 OVRP_EXPORT ovrpResult ovrp_GetHandState(ovrpStep step, ovrpHand hand, ovrpHandState* handState);
 OVRP_EXPORT ovrpResult ovrp_GetHandState2(ovrpStep step, int frameIndex, ovrpHand hand, ovrpHandState* handState);
-
-
-
-
 OVRP_EXPORT ovrpResult ovrp_GetSkeleton2(ovrpSkeletonType skeletonType, ovrpSkeleton2* skeleton);
-OVRP_EXPORT ovrpResult ovrp_GetSkeleton3(ovrpSkeletonType skeletonType, ovrpSkeleton3* skeleton);
 OVRP_EXPORT ovrpResult ovrp_GetMesh(ovrpMeshType meshType, ovrpMesh* mesh);
 
-OVRP_EXPORT ovrpResult ovrp_GetBodyState(ovrpStep step, int frameIndex, ovrpBodyState* bodyState);
-
-
-
-
-OVRP_EXPORT ovrpResult ovrp_GetBodyState4(ovrpStep step, int frameIndex, ovrpBodyState4* bodyState);
-OVRP_EXPORT ovrpResult ovrp_GetBodyTrackingEnabled(ovrpBool* enabled);
-OVRP_EXPORT ovrpResult ovrp_GetBodyTrackingSupported(ovrpBool* supported);
-OVRP_EXPORT ovrpResult ovrp_GetFullBodyTrackingEnabled(ovrpBool* enabled);
-
-OVRP_EXPORT ovrpResult ovrp_StartFaceTracking();
-OVRP_EXPORT ovrpResult ovrp_StopFaceTracking();
-OVRP_EXPORT ovrpResult ovrp_GetFaceTracking2Enabled(ovrpBool* faceTracking2Enabled);
-OVRP_EXPORT ovrpResult ovrp_GetFaceTracking2Supported(ovrpBool* faceTracking2Supported);
-OVRP_EXPORT ovrpResult ovrp_StartFaceTracking2(
-    const ovrpFaceTrackingDataSource2* const requestedDataSources,
-    unsigned int requestedDataSourcesCount);
-OVRP_EXPORT ovrpResult ovrp_StopFaceTracking2();
-OVRP_EXPORT ovrpResult ovrp_StartBodyTracking();
-
-
-
-
-OVRP_EXPORT ovrpResult ovrp_StartBodyTracking2(ovrpBodyJointSet jointSet);
-
-OVRP_EXPORT ovrpResult ovrp_RequestBodyTrackingFidelity(ovrpBodyTrackingFidelity2 bodyTrackingFidelity);
 
 
 
 
 
-OVRP_EXPORT ovrpResult ovrp_SuggestBodyTrackingCalibrationOverride(ovrpBodyTrackingCalibrationInfo calibrationInfo);
-OVRP_EXPORT ovrpResult ovrp_ResetBodyTrackingCalibration();
 
-OVRP_EXPORT ovrpResult ovrp_StopBodyTracking();
-OVRP_EXPORT ovrpResult ovrp_StartEyeTracking();
-OVRP_EXPORT ovrpResult ovrp_StopEyeTracking();
+
+
 
 OVRP_EXPORT ovrpResult ovrp_GetLocalTrackingSpaceRecenterCount(int* recenterCount);
 
@@ -831,11 +686,8 @@ OVRP_EXPORT ovrpResult ovrp_GetSystemHmd3DofModeEnabled(ovrpBool* enabled);
 OVRP_EXPORT ovrpResult ovrp_SetClientColorDesc(ovrpColorSpace colorSpace);
 OVRP_EXPORT ovrpResult ovrp_GetHmdColorDesc(ovrpColorSpace* colorSpace);
 
-OVRP_EXPORT ovrpResult ovrp_SetEyeBufferSharpenType(ovrpLayerSubmitFlags sharpenType);
-
-// app should call this in a loop until there are no more events, which will return ovrpSuccess_EventUnavailable and an
-// event of type ovrpEventType_None ovrp_PollEvent and ovrp_PollEvent2 are both in use, Unity needed ovrp_PollEvent2 due
-// to memory allocation issues
+// app should call this in a loop until there are no more events, which will return ovrpSuccess_EventUnavailable and an event of type ovrpEventType_None
+// ovrp_PollEvent and ovrp_PollEvent2 are both in use, Unity needed ovrp_PollEvent2 due to memory allocation issues
 OVRP_EXPORT ovrpResult ovrp_PollEvent(ovrpEventDataBuffer* eventBuffer);
 OVRP_EXPORT ovrpResult ovrp_PollEvent2(ovrpEventType* eventType, unsigned char** eventBuffer);
 
@@ -848,135 +700,24 @@ OVRP_EXPORT ovrpResult ovrp_SetKeyboardOverlayPose(ovrpPosef pose);
 
 
 
-OVRP_EXPORT ovrpResult ovrp_StartKeyboardTracking(ovrpUInt64 trackedKeyboardId);
-OVRP_EXPORT ovrpResult ovrp_StopKeyboardTracking();
-OVRP_EXPORT ovrpResult ovrp_GetKeyboardState(ovrpStep step, int frameIndex, ovrpKeyboardState* keyboardState);
-OVRP_EXPORT ovrpResult ovrp_GetSystemKeyboardDescription(
-    ovrpTrackedKeyboardQueryFlags queryFlags,
-    ovrpKeyboardDescription* keyboardDescription);
-
-OVRP_EXPORT ovrpResult ovrp_CreateVirtualKeyboard(const ovrpVirtualKeyboardCreateInfo* createInfo);
-OVRP_EXPORT ovrpResult ovrp_DestroyVirtualKeyboard();
-OVRP_EXPORT ovrpResult
-ovrp_SendVirtualKeyboardInput(const ovrpVirtualKeyboardInputInfo* info, ovrpPosef* interactorRootPose);
-OVRP_EXPORT ovrpResult ovrp_ChangeVirtualKeyboardTextContext(const char* textContext);
-OVRP_EXPORT ovrpResult
-ovrp_CreateVirtualKeyboardSpace(const ovrpVirtualKeyboardSpaceCreateInfo* createInfo, ovrpUInt64* keyboardSpace);
-OVRP_EXPORT ovrpResult ovrp_SuggestVirtualKeyboardLocation(const ovrpVirtualKeyboardLocationInfo* locationInfo);
-OVRP_EXPORT ovrpResult ovrp_GetVirtualKeyboardScale(float* scale);
-OVRP_EXPORT ovrpResult
-ovrp_GetVirtualKeyboardModelAnimationStates(ovrpVirtualKeyboardModelAnimationStates* animationStates);
-OVRP_EXPORT ovrpResult ovrp_GetVirtualKeyboardDirtyTextures(ovrpVirtualKeyboardTextureIds* textureIds);
-OVRP_EXPORT ovrpResult
-ovrp_GetVirtualKeyboardTextureData(ovrpUInt64 textureId, ovrpVirtualKeyboardTextureData* textureData);
-OVRP_EXPORT ovrpResult ovrp_SetVirtualKeyboardModelVisibility(const ovrpVirtualKeyboardModelVisibility* visibility);
-
-OVRP_EXPORT ovrpResult ovrp_QplSetConsent(ovrpBool qplConsent);
-OVRP_EXPORT ovrpResult ovrp_QplMarkerStart(int markerId, int instanceKey, ovrpInt64 timestampMs);
-OVRP_EXPORT ovrpResult ovrp_QplMarkerEnd(int markerId, ovrpInt16 actionId, int instanceKey, ovrpInt64 timestampMs);
-OVRP_EXPORT ovrpResult ovrp_QplMarkerPoint(int markerId, const char* name, int instanceKey, ovrpInt64 timestampMs);
-OVRP_EXPORT ovrpResult ovrp_QplMarkerPointCached(int markerId, int nameHandle, int instanceKey, ovrpInt64 timestampMs);
-OVRP_EXPORT ovrpResult
-ovrp_QplMarkerAnnotation(int markerId, const char* annotationKey, const char* annotationValue, int instanceKey);
-OVRP_EXPORT ovrpResult ovrp_QplCreateMarkerHandle(const char* name, int* nameHandle);
-OVRP_EXPORT ovrpResult ovrp_QplDestroyMarkerHandle(int nameHandle);
-OVRP_EXPORT ovrpResult ovrp_OnEditorShutdown();
-
-/// Gets the current recent pose, acceleration, and velocity of the given node for the current time without any
-/// prediction
-OVRP_EXPORT ovrpResult ovrp_GetNodePoseStateImmediate(ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
-
-OVRP_EXPORT ovrpResult ovrp_GetNodePoseStateAtTime(double time, ovrpNode nodeId, ovrpPoseStatef* pose);
-
-OVRP_EXPORT ovrpResult
-ovrp_AreHandPosesGeneratedByControllerData(ovrpStep step, ovrpNode nodeId, ovrpBool* generatedByControllerData);
 
 
-OVRP_EXPORT ovrpResult ovrp_SetSimultaneousHandsAndControllersEnabled(ovrpBool enabled);
-OVRP_EXPORT ovrpResult ovrp_GetControllerIsInHand(ovrpStep step, ovrpNode nodeId, ovrpBool* isInHand);
 
 
 
 
 
-OVRP_EXPORT ovrpResult ovrp_GetRenderModelPaths(unsigned int index, char* path);
-OVRP_EXPORT ovrpResult ovrp_GetRenderModelProperties(const char* path, ovrpRenderModelProperties* properties);
-OVRP_EXPORT ovrpResult ovrp_GetRenderModelProperties2(
-    const char* path,
-    ovrpRenderModelFlags renderModelFlags,
-    ovrpRenderModelProperties* properties);
-OVRP_EXPORT ovrpResult ovrp_LoadRenderModel(
-    ovrpUInt64 modelKey,
-    ovrpUInt32 bufferInputCapacity,
-    ovrpUInt32* bufferCountOutput,
-    unsigned char* buffer);
 
-OVRP_EXPORT ovrpResult ovrp_LocateSpace(ovrpPosef* location, const ovrpSpace* space, ovrpTrackingOrigin baseSpaceType);
-OVRP_EXPORT ovrpResult
-ovrp_LocateSpace2(ovrpSpaceLocationf* location, const ovrpSpace* space, ovrpTrackingOrigin baseSpaceType);
-OVRP_EXPORT ovrpResult ovrp_CreateSpatialAnchor(const ovrpSpatialAnchorCreateInfo* createInfo, ovrpUInt64* requestId);
-OVRP_EXPORT ovrpResult ovrp_DestroySpace(ovrpSpace* space);
-OVRP_EXPORT ovrpResult ovrp_SetSpaceComponentStatus(
-    const ovrpSpace* space,
-    ovrpSpaceComponentType componentType,
-    const ovrpBool enable,
-    const double timeout,
-    ovrpUInt64* requestId);
-OVRP_EXPORT ovrpResult ovrp_GetSpaceComponentStatus(
-    const ovrpSpace* space,
-    ovrpSpaceComponentType componentType,
-    ovrpBool* enabled,
-    ovrpBool* changePending);
-OVRP_EXPORT ovrpResult ovrp_EnumerateSpaceSupportedComponents(
-    const ovrpSpace* space,
-    ovrpUInt32 componentTypesCapacityInput,
-    ovrpUInt32* componentTypesCountOutput,
-    ovrpSpaceComponentType* componentTypes);
-OVRP_EXPORT ovrpResult ovrp_QuerySpaces(const ovrpSpaceQueryInfo* queryInfo, ovrpUInt64* requestId);
 
 
 
-OVRP_EXPORT ovrpResult ovrp_RetrieveSpaceQueryResults(
-    ovrpUInt64* requestId,
-    ovrpUInt32 resultCapacityInput,
-    ovrpUInt32* resultCountOutput,
-    ovrpSpaceQueryResult* results);
-OVRP_EXPORT ovrpResult ovrp_SaveSpace(
-    const ovrpSpace* space,
-    ovrpSpaceStorageLocation location,
-    ovrpSpaceStoragePersistenceMode mode,
-    ovrpUInt64* requestId);
-OVRP_EXPORT ovrpResult
-ovrp_EraseSpace(const ovrpSpace* space, ovrpSpaceStorageLocation location, ovrpUInt64* requestId);
-OVRP_EXPORT ovrpResult ovrp_GetSpaceUuid(const ovrpSpace* space, ovrpUuid* uuid);
-OVRP_EXPORT ovrpResult ovrp_GetSpaceUserId(const ovrpUser* spaceUser, ovrpUInt64* spaceUserId);
-OVRP_EXPORT ovrpResult ovrp_CreateSpaceUser(const ovrpUInt64* spaceUserId, ovrpUser* spaceUser);
-OVRP_EXPORT ovrpResult ovrp_DestroySpaceUser(const ovrpUser* spaceUser);
-OVRP_EXPORT ovrpResult ovrp_SaveSpaceList(
-    const ovrpSpace* spaces,
-    ovrpUInt32 numSpaces,
-    ovrpSpaceStorageLocation location,
-    ovrpUInt64* requestId);
-OVRP_EXPORT ovrpResult ovrp_ShareSpaces(
-    const ovrpSpace* spaces,
-    ovrpUInt32 numSpaces,
-    const ovrpUser* users,
-    ovrpUInt32 numUsers,
-    ovrpUInt64* requestId);
 
-OVRP_EXPORT ovrpResult ovrp_GetSpaceContainer(const ovrpSpace* space, ovrpSpaceContainer* container);
 
-OVRP_EXPORT ovrpResult ovrp_GetSpaceBoundingBox2D(const ovrpSpace* space, ovrpRectf* rect);
 
-OVRP_EXPORT ovrpResult ovrp_GetSpaceBoundingBox3D(const ovrpSpace* space, ovrpBoundsf* bounds);
 
-OVRP_EXPORT ovrpResult ovrp_GetSpaceSemanticLabels(const ovrpSpace* space, ovrpSemanticLabels* labels);
 
-OVRP_EXPORT ovrpResult ovrp_GetSpaceRoomLayout(const ovrpSpace* space, ovrpRoomLayout* layout);
 
-OVRP_EXPORT ovrpResult ovrp_GetSpaceBoundary2D(const ovrpSpace* space, ovrpBoundary2D* boundary);
 
-OVRP_EXPORT ovrpResult ovrp_RequestSceneCapture(const ovrpSceneCaptureRequest* request, ovrpUInt64* requestId);
 
 
 
@@ -987,154 +728,6 @@ OVRP_EXPORT ovrpResult ovrp_RequestSceneCapture(const ovrpSceneCaptureRequest* r
 
 
 
-
-
-
-
-
-
-
-
-OVRP_EXPORT ovrpResult ovrp_GetSpaceTriangleMesh(const ovrpSpace* space, ovrpTriangleMesh* triangleMeshOutput);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-OVRP_EXPORT ovrpResult ovrp_GetFaceTrackingEnabled(ovrpBool* faceTrackingEnabled);
-
-OVRP_EXPORT ovrpResult ovrp_GetFaceTrackingSupported(ovrpBool* faceTrackingSupported);
-
-
-
-
-
-OVRP_EXPORT ovrpResult ovrp_GetFaceState(ovrpStep step, int frameIndex, ovrpFaceState* faceState);
-
-OVRP_EXPORT ovrpResult ovrp_GetFaceState2(ovrpStep step, int frameIndex, ovrpFaceState2* faceState);
-
-OVRP_EXPORT ovrpResult ovrp_GetEyeTrackingEnabled(ovrpBool* eyeTrackingEnabled);
-
-OVRP_EXPORT ovrpResult ovrp_GetEyeTrackingSupported(ovrpBool* eyeTrackingSupported);
-
-OVRP_EXPORT ovrpResult ovrp_GetEyeGazesState(ovrpStep step, int frameIndex, ovrpEyeGazesState* eyeGazesState);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-OVRP_EXPORT ovrpResult
-ovrp_FeatureFidelitySetFeatureEnable(ovrpFeatureType feature, ovrpFeatureEnableState featureEnableState);
-OVRP_EXPORT ovrpResult
-ovrp_FeatureFidelitySetFeatureFidelity(ovrpFeatureType feature, ovrpFeatureFidelity featureFidelity);
-OVRP_EXPORT ovrpResult ovrp_FeatureFidelityGetFeatureState(
-    ovrpFeatureType feature,
-    ovrpFeatureState* outIdealState,
-    ovrpFeatureState* outCurrentState);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-OVRP_EXPORT ovrpResult ovrp_GetLocalDimmingSupported(ovrpBool* localDimmingSupported);
-OVRP_EXPORT ovrpResult ovrp_SetLocalDimming(ovrpBool localDimmingMode);
-OVRP_EXPORT ovrpResult ovrp_GetLocalDimming(ovrpBool* localDimmingMode);
-
-OVRP_EXPORT ovrpResult ovrp_GetCurrentInteractionProfile(ovrpHand hand, ovrpInteractionProfile* interactionProfile);
-
-
-
-
-
-
-
-
-
-
-
-
-
-OVRP_EXPORT ovrpResult ovrp_GetLayerRecommendedResolution(int layerId, ovrpSizei* recommendedDimensions);
-OVRP_EXPORT ovrpResult ovrp_GetEyeLayerRecommendedResolution(ovrpSizei* recommendedDimensions);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-OVRP_EXPORT ovrpResult ovrp_IsLayerShapeSupported(ovrpShape shape, ovrpBool* isLayerShapeSupported);
-
-OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthSupported(ovrpBool* supported);
-OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthHandRemovalSupported(ovrpBool* supported);
-OVRP_EXPORT ovrpResult ovrp_InitializeEnvironmentDepth(int createFlags);
-OVRP_EXPORT ovrpResult ovrp_DestroyEnvironmentDepth();
-OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthTextureDesc(ovrpEnvironmentDepthTextureDesc* desc);
-OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthTextureStageCount(int* stageCount);
-OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthTexture(int stage, ovrpEye eyeId, ovrpTextureHandle* texture);
-OVRP_EXPORT ovrpResult ovrp_SetEnvironmentDepthHandRemoval(ovrpBool enabled);
-OVRP_EXPORT ovrpResult ovrp_StartEnvironmentDepth();
-OVRP_EXPORT ovrpResult ovrp_StopEnvironmentDepth();
-OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthFrameDesc(ovrpEye eyeId, ovrpEnvironmentDepthFrameDesc* frameDesc);
 
 #ifdef __cplusplus
 }

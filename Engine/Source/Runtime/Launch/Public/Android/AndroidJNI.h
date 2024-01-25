@@ -72,6 +72,8 @@ public:
 	static jmethodID AndroidThunkJava_SetSustainedPerformanceMode;
 	static jmethodID AndroidThunkJava_PushSensorEvents;
 	static jmethodID AndroidThunkJava_SetOrientation;
+	static jmethodID AndroidThunkJava_SetCellularPreference;
+	static jmethodID AndroidThunkJava_GetCellularPreference;
 
 	// Screen capture/recording permission
 	static jmethodID AndroidThunkJava_IsScreenCaptureDisabled;
@@ -133,6 +135,10 @@ public:
 	// Motion controls
 	static jmethodID AndroidThunkJava_EnableMotion;
 
+	// Network Connection Listener
+	static jmethodID AndroidThunkJava_AddNetworkListener;
+	static jmethodID AndroidThunkJava_RemoveNetworkListener;
+
 	// member fields for getting the launch notification
 	static jclass LaunchNotificationClass;
 	static jfieldID LaunchNotificationUsed;
@@ -143,6 +149,10 @@ public:
 	static jclass ThreadClass;
 	static jmethodID CurrentThreadMethod;
 	static jmethodID SetNameMethod;
+
+	// WifiManager's Multicastlock handling
+	static jmethodID AndroidThunkJava_AcquireWifiManagerMulticastLock;
+	static jmethodID AndroidThunkJava_ReleaseWifiManagerMulticastLock;
 
 	/**
 	 * Find all known classes and methods

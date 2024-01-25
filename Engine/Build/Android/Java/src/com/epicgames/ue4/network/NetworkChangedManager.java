@@ -37,7 +37,6 @@ public final class NetworkChangedManager implements NetworkConnectivityClient {
 	private static final int MAX_RETRY_SEC = 13;
 	private int currentHostResolutionAddressIndex = 0;
 	private static final String[] HOST_RESOLUTION_ADDRESSES = new String[] {
-		"https://example.com/",
 		"https://google.com/",
 		"https://www.samsung.com/"
 	};

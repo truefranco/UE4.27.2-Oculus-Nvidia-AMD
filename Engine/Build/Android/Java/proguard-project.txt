@@ -46,6 +46,9 @@
 -keep class com.epicgames.ue4.LocalNotificationReceiver {
 	public *;
 }
+-keep class com.epicgames.ue4.CellularReceiver {
+	public *;
+}
 -keep class com.epicgames.ue4.MulticastBroadcastReceiver {
 	public *;
 }
@@ -205,6 +208,16 @@
 
 -keep class epicgames.ue4.GooglePlayStoreHelper.** {
 	public *;
+}
+
+-keep class com.epicgames.ue4.psoservices.PSOProgramServiceAccessor$JNIProgramLinkResponse 
+{
+	*;
+}
+
+-keepclassmembers, allowoptimization class com.epicgames.ue4.psoservices.PSOProgramServiceAccessor
+{
+    public static *** AndroidThunkJava_*(...);
 }
 
 -dontwarn com.google.vr.cardboard.AndroidNCompat

@@ -7,6 +7,7 @@ import android.content.Context;
 
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.KeyEvent;
 import android.webkit.ConsoleMessage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -17,6 +18,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.JsResult;
 import android.webkit.JsPromptResult;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Paint;
 import android.graphics.Color;
 import android.webkit.WebBackForwardList;
@@ -76,12 +78,18 @@ class WebViewControl
 	private boolean VulkanRenderer = false;
 	private volatile boolean WaitOnBitmapRender = false;
 
+	private Bitmap TargetBitmap = null;
+	private Canvas TargetCanvas = null;
+	private java.nio.Buffer TargetBitmapFrameData = null;
+
+
 	private BitmapRenderer mBitmapRenderer = null;
 	private OESTextureRenderer mOESTextureRenderer = null;
 
 	public class FrameUpdateInfo 
 	{
 		public java.nio.Buffer Buffer;
+		public Bitmap Bitmap;
 		public boolean FrameReady;
 		public boolean RegionChanged;
 		public float UScale;
@@ -90,7 +98,7 @@ class WebViewControl
 		public float VOffset;
 	}
 
-	public WebViewControl(long inNativePtr, int width, int height, boolean swizzlePixels, boolean vulkanRenderer, final boolean bEnableRemoteDebugging, final boolean bUseTransparency, final boolean bEnableDomStorage)
+	public WebViewControl(long inNativePtr, int width, int height, boolean swizzlePixels, boolean vulkanRenderer, final boolean bEnableRemoteDebugging, final boolean bUseTransparency, final boolean bEnableDomStorage, final boolean bShouldUseBitmapRender)
 	{
 		final WebViewControl w = this;
 
@@ -101,6 +109,19 @@ class WebViewControl
 		WaitOnBitmapRender = false;
 
 		nativePtr = inNativePtr;
+
+		if (bShouldUseBitmapRender)
+		{
+			TargetBitmap = Bitmap.createBitmap(initialWidth, initialHeight, Config.ARGB_8888);
+			TargetCanvas = new Canvas(TargetBitmap);
+		}
+		else
+		{
+			TargetBitmap = null;
+			TargetCanvas = null;
+		}
+
+		//GameActivity.Log.debug("WebViewControl width=" + width + ", height=" + height);
 
 		GameActivity._activity.runOnUiThread(new Runnable()
 		{
@@ -119,10 +140,7 @@ class WebViewControl
 				webView.setWebChromeClient(new ChromeClient());
 				webView.getSettings().setJavaScriptEnabled(true);
 				webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
-				//webView.getSettings().setAppCacheMaxSize( 10 * 1024 * 1024 );
-				//webView.getSettings().setAppCachePath(GameActivity._activity.getApplicationContext().getCacheDir().getAbsolutePath() );
 				webView.getSettings().setAllowFileAccess( true );
-				//webView.getSettings().setAppCacheEnabled( true );
 				webView.getSettings().setAllowContentAccess( true );
 				webView.getSettings().setAllowFileAccessFromFileURLs(true);
 				webView.getSettings().setAllowUniversalAccessFromFileURLs(true);
@@ -137,8 +155,9 @@ class WebViewControl
 				webView.getSettings().setLoadWithOverviewMode(true);
 				webView.getSettings().setUseWideViewPort(true);
 
-				//3D is the default
-				webView.SetAndroid3DBrowser(true);
+				//3D is the default if not using Bitmap
+				webView.SetBitmapDraw(TargetCanvas);
+				webView.SetAndroid3DBrowser(TargetBitmap == null);
 
 				if (bUseTransparency)
 				{
@@ -162,7 +181,7 @@ class WebViewControl
 	boolean PendingSetAndroid3DBrowser;
 	public void SetAndroid3DBrowser(boolean InIsAndroid3DBrowser)
 	{
-		PendingSetAndroid3DBrowser = InIsAndroid3DBrowser;
+		PendingSetAndroid3DBrowser = (TargetBitmap == null) ? InIsAndroid3DBrowser : false;
 		GameActivity._activity.runOnUiThread(new Runnable()
 		{
 			@Override
@@ -210,7 +229,17 @@ class WebViewControl
 		if (null != mBitmapRenderer)
 		{
 			while (WaitOnBitmapRender) ;
-			releaseOESTextureRenderer();
+			releaseBitmapRenderer();
+		}
+
+		if (TargetCanvas != null)
+		{
+			TargetCanvas = null;
+		}
+		if (TargetBitmap != null)
+		{
+			TargetBitmap.recycle();
+			TargetBitmap = null;
 		}
 
 		Close();
@@ -305,6 +334,197 @@ class WebViewControl
 		return webView.canGoBackOrForward(Steps);
 	}
 
+	public void SendTouchEvent(int event, float x, float y)
+	{
+		final int actionType = event;
+		final long actionTime = SystemClock.uptimeMillis();
+		final float actionX = webView.getLeft() + (x * webView.getWidth());
+		final float actionY = webView.getTop() + (y * webView.getHeight());
+		//GameActivity.Log.debug("SendTouchEvent(event=" + event + ", x=" + x + ", y=" + y + ") = " + actionX + ", " + actionY);
+		GameActivity._activity.runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				long eventTime = SystemClock.uptimeMillis();
+				webView.onTouchEvent(MotionEvent.obtain(
+					actionTime,
+					eventTime,
+					actionType,
+					actionX,
+					actionY,
+					0
+				));
+			}
+		});
+	}
+
+	private static class KeyTableData
+	{
+		public final int key;
+		public final int meta;
+
+		KeyTableData (int keycode, int metadata)
+		{
+			key = keycode;
+			meta = metadata;
+		}
+	}
+	
+	private static final KeyTableData[] KeyTableList = {
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 0
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 1
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 2
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 3
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 4
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 5
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 6
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 7
+		new KeyTableData(KeyEvent.KEYCODE_DEL, 0),	// 8
+		new KeyTableData(KeyEvent.KEYCODE_TAB, 0),	// 9
+		new KeyTableData(KeyEvent.KEYCODE_ENTER, 0),	// 10
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 11
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 12
+		new KeyTableData(KeyEvent.KEYCODE_ENTER, 0),	// 13
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 14
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 15
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 16
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 17
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 18
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 19
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 20
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 21
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 22
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 23
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 24
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 25
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 26
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 27
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 28
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 29
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 30
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0),	// 31
+		new KeyTableData(KeyEvent.KEYCODE_SPACE, 0),	// 32
+		new KeyTableData(KeyEvent.KEYCODE_1, KeyEvent.META_SHIFT_ON),	// 33
+		new KeyTableData(KeyEvent.KEYCODE_APOSTROPHE, KeyEvent.META_SHIFT_ON),	// 34
+		new KeyTableData(KeyEvent.KEYCODE_POUND, 0),	// 35
+		new KeyTableData(KeyEvent.KEYCODE_4, KeyEvent.META_SHIFT_ON),	// 36
+		new KeyTableData(KeyEvent.KEYCODE_5, KeyEvent.META_SHIFT_ON),	// 37
+		new KeyTableData(KeyEvent.KEYCODE_7, KeyEvent.META_SHIFT_ON),	// 38
+		new KeyTableData(KeyEvent.KEYCODE_APOSTROPHE, 0),	// 39
+		new KeyTableData(KeyEvent.KEYCODE_NUMPAD_LEFT_PAREN, 0),	// 40
+		new KeyTableData(KeyEvent.KEYCODE_NUMPAD_RIGHT_PAREN, 0),	// 41
+		new KeyTableData(KeyEvent.KEYCODE_STAR, 0),	// 42
+		new KeyTableData(KeyEvent.KEYCODE_PLUS, 0),	// 43
+		new KeyTableData(KeyEvent.KEYCODE_COMMA, 0),	// 44
+		new KeyTableData(KeyEvent.KEYCODE_MINUS, 0),	// 45
+		new KeyTableData(KeyEvent.KEYCODE_PERIOD, 0),	// 46
+		new KeyTableData(KeyEvent.KEYCODE_SLASH, 0),	// 47
+		new KeyTableData(KeyEvent.KEYCODE_0, 0),	// 48
+		new KeyTableData(KeyEvent.KEYCODE_1, 0),	// 49
+		new KeyTableData(KeyEvent.KEYCODE_2, 0),	// 50
+		new KeyTableData(KeyEvent.KEYCODE_3, 0),	// 51
+		new KeyTableData(KeyEvent.KEYCODE_4, 0),	// 52
+		new KeyTableData(KeyEvent.KEYCODE_5, 0),	// 53
+		new KeyTableData(KeyEvent.KEYCODE_6, 0),	// 54
+		new KeyTableData(KeyEvent.KEYCODE_7, 0),	// 55
+		new KeyTableData(KeyEvent.KEYCODE_8, 0),	// 56
+		new KeyTableData(KeyEvent.KEYCODE_9, 0),	// 57
+		new KeyTableData(KeyEvent.KEYCODE_SEMICOLON, KeyEvent.META_SHIFT_ON),	// 58
+		new KeyTableData(KeyEvent.KEYCODE_SEMICOLON, 0),	// 59
+		new KeyTableData(KeyEvent.KEYCODE_COMMA, KeyEvent.META_SHIFT_ON),	// 60
+		new KeyTableData(KeyEvent.KEYCODE_EQUALS, 0),	// 61
+		new KeyTableData(KeyEvent.KEYCODE_PERIOD, KeyEvent.META_SHIFT_ON),	// 62
+		new KeyTableData(KeyEvent.KEYCODE_SLASH, KeyEvent.META_SHIFT_ON),	// 63
+		new KeyTableData(KeyEvent.KEYCODE_AT, 0),	// 64
+		new KeyTableData(KeyEvent.KEYCODE_A, KeyEvent.META_SHIFT_ON),	// 65
+		new KeyTableData(KeyEvent.KEYCODE_B, KeyEvent.META_SHIFT_ON),	// 66
+		new KeyTableData(KeyEvent.KEYCODE_C, KeyEvent.META_SHIFT_ON),	// 67
+		new KeyTableData(KeyEvent.KEYCODE_D, KeyEvent.META_SHIFT_ON),	// 68
+		new KeyTableData(KeyEvent.KEYCODE_E, KeyEvent.META_SHIFT_ON),	// 69
+		new KeyTableData(KeyEvent.KEYCODE_F, KeyEvent.META_SHIFT_ON),	// 70
+		new KeyTableData(KeyEvent.KEYCODE_G, KeyEvent.META_SHIFT_ON),	// 71
+		new KeyTableData(KeyEvent.KEYCODE_H, KeyEvent.META_SHIFT_ON),	// 72
+		new KeyTableData(KeyEvent.KEYCODE_I, KeyEvent.META_SHIFT_ON),	// 73
+		new KeyTableData(KeyEvent.KEYCODE_J, KeyEvent.META_SHIFT_ON),	// 74
+		new KeyTableData(KeyEvent.KEYCODE_K, KeyEvent.META_SHIFT_ON),	// 75
+		new KeyTableData(KeyEvent.KEYCODE_L, KeyEvent.META_SHIFT_ON),	// 76
+		new KeyTableData(KeyEvent.KEYCODE_M, KeyEvent.META_SHIFT_ON),	// 77
+		new KeyTableData(KeyEvent.KEYCODE_N, KeyEvent.META_SHIFT_ON),	// 78
+		new KeyTableData(KeyEvent.KEYCODE_O, KeyEvent.META_SHIFT_ON),	// 79
+		new KeyTableData(KeyEvent.KEYCODE_P, KeyEvent.META_SHIFT_ON),	// 80
+		new KeyTableData(KeyEvent.KEYCODE_Q, KeyEvent.META_SHIFT_ON),	// 81
+		new KeyTableData(KeyEvent.KEYCODE_R, KeyEvent.META_SHIFT_ON),	// 82
+		new KeyTableData(KeyEvent.KEYCODE_S, KeyEvent.META_SHIFT_ON),	// 83
+		new KeyTableData(KeyEvent.KEYCODE_T, KeyEvent.META_SHIFT_ON),	// 84
+		new KeyTableData(KeyEvent.KEYCODE_U, KeyEvent.META_SHIFT_ON),	// 85
+		new KeyTableData(KeyEvent.KEYCODE_V, KeyEvent.META_SHIFT_ON),	// 86
+		new KeyTableData(KeyEvent.KEYCODE_W, KeyEvent.META_SHIFT_ON),	// 87
+		new KeyTableData(KeyEvent.KEYCODE_X, KeyEvent.META_SHIFT_ON),	// 88
+		new KeyTableData(KeyEvent.KEYCODE_Y, KeyEvent.META_SHIFT_ON),	// 89
+		new KeyTableData(KeyEvent.KEYCODE_Z, KeyEvent.META_SHIFT_ON),	// 90
+		new KeyTableData(KeyEvent.KEYCODE_LEFT_BRACKET, 0),	// 91
+		new KeyTableData(KeyEvent.KEYCODE_BACKSLASH, 0),	// 92
+		new KeyTableData(KeyEvent.KEYCODE_RIGHT_BRACKET, 0),	// 93
+		new KeyTableData(KeyEvent.KEYCODE_6, KeyEvent.META_SHIFT_ON),	// 94
+		new KeyTableData(KeyEvent.KEYCODE_MINUS, KeyEvent.META_SHIFT_ON),	// 95
+		new KeyTableData(KeyEvent.KEYCODE_GRAVE, 0),	// 96
+		new KeyTableData(KeyEvent.KEYCODE_A, 0),	// 97
+		new KeyTableData(KeyEvent.KEYCODE_B, 0),	// 98
+		new KeyTableData(KeyEvent.KEYCODE_C, 0),	// 99
+		new KeyTableData(KeyEvent.KEYCODE_D, 0),	// 100
+		new KeyTableData(KeyEvent.KEYCODE_E, 0),	// 101
+		new KeyTableData(KeyEvent.KEYCODE_F, 0),	// 102
+		new KeyTableData(KeyEvent.KEYCODE_G, 0),	// 103
+		new KeyTableData(KeyEvent.KEYCODE_H, 0),	// 104
+		new KeyTableData(KeyEvent.KEYCODE_I, 0),	// 105
+		new KeyTableData(KeyEvent.KEYCODE_J, 0),	// 106
+		new KeyTableData(KeyEvent.KEYCODE_K, 0),	// 107
+		new KeyTableData(KeyEvent.KEYCODE_L, 0),	// 108
+		new KeyTableData(KeyEvent.KEYCODE_M, 0),	// 109
+		new KeyTableData(KeyEvent.KEYCODE_N, 0),	// 110
+		new KeyTableData(KeyEvent.KEYCODE_O, 0),	// 111
+		new KeyTableData(KeyEvent.KEYCODE_P, 0),	// 112
+		new KeyTableData(KeyEvent.KEYCODE_Q, 0),	// 113
+		new KeyTableData(KeyEvent.KEYCODE_R, 0),	// 114
+		new KeyTableData(KeyEvent.KEYCODE_S, 0),	// 115
+		new KeyTableData(KeyEvent.KEYCODE_T, 0),	// 116
+		new KeyTableData(KeyEvent.KEYCODE_U, 0),	// 117
+		new KeyTableData(KeyEvent.KEYCODE_V, 0),	// 118
+		new KeyTableData(KeyEvent.KEYCODE_W, 0),	// 119
+		new KeyTableData(KeyEvent.KEYCODE_X, 0),	// 120
+		new KeyTableData(KeyEvent.KEYCODE_Y, 0),	// 121
+		new KeyTableData(KeyEvent.KEYCODE_Z, 0),	// 122
+		new KeyTableData(KeyEvent.KEYCODE_LEFT_BRACKET, KeyEvent.META_SHIFT_ON),	// 123
+		new KeyTableData(KeyEvent.KEYCODE_BACKSLASH, KeyEvent.META_SHIFT_ON),	// 124
+		new KeyTableData(KeyEvent.KEYCODE_RIGHT_BRACKET, KeyEvent.META_SHIFT_ON),	// 125
+		new KeyTableData(KeyEvent.KEYCODE_GRAVE, KeyEvent.META_SHIFT_ON),	// 126
+		new KeyTableData(KeyEvent.KEYCODE_UNKNOWN, 0)	// 127
+	};
+
+	public boolean SendKeyEvent(boolean bDown, int keycode)
+	{
+		if (keycode < 0 || keycode > 127)
+		{
+			return false;
+		}
+
+		final int actionType = bDown ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
+		final long actionTime = SystemClock.uptimeMillis();
+		final int actionCode = KeyTableList[keycode].key;
+		final int actionMeta = KeyTableList[keycode].meta;
+//		GameActivity.Log.debug("SendTouchEvent(event=" + (bDown ? "Down" : "Up") + ", key=" + keycode + ", code=" + actionCode + ", meta=" + actionMeta);
+		GameActivity._activity.runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				long eventTime = SystemClock.uptimeMillis();
+				webView.dispatchKeyEvent(new KeyEvent(actionTime, eventTime, actionType, actionCode, 0, actionMeta));
+			}
+		});
+		return true;
+	}
 
 	// called from C++ paint event
 	public void Update(final int x, final int y, final int width, final int height)
@@ -326,7 +546,7 @@ class WebViewControl
 					// add to the activitiy, on top of the SurfaceView
 					ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT);			
 					GameActivity._activity.addContentView(positionLayout, params);
-					if(!webView.IsAndroid3DBrowser)
+					if(!webView.IsAndroid3DBrowser && TargetBitmap == null)
 					{
 						//GameActivity.Log.warn("request focus create");
 						webView.requestFocus();
@@ -385,7 +605,7 @@ class WebViewControl
 							NextURL = null;
 						}
 						else
-						if(!webView.IsAndroid3DBrowser)
+						if(!webView.IsAndroid3DBrowser && TargetBitmap == null)
 						{
 							//GameActivity.Log.warn("request focus");
 							webView.requestFocus();
@@ -481,8 +701,46 @@ class WebViewControl
 		}
 	}
 
+	public FrameUpdateInfo getVideoLastFrameBitmap()
+	{
+		if (TargetBitmap == null)
+		{
+			return null;
+		}
+
+		// trigger a draw (it will go to onDraw to do the actual update)
+		webView.draw(TargetCanvas);
+
+		FrameUpdateInfo frameUpdateInfo = new FrameUpdateInfo();
+
+		frameUpdateInfo.Bitmap = TargetBitmap;
+		frameUpdateInfo.FrameReady = true;
+		frameUpdateInfo.RegionChanged = false;
+		return frameUpdateInfo;
+	}
+
 	public FrameUpdateInfo getVideoLastFrameData()
 	{
+		if (TargetBitmap != null)
+		{
+			if (null == TargetBitmapFrameData)
+			{
+				TargetBitmapFrameData = java.nio.ByteBuffer.allocateDirect(initialWidth * initialHeight * 4);
+			}
+
+			// note RGBA vs BGRA so not really correct
+			TargetBitmapFrameData.position(0);
+			TargetBitmap.copyPixelsToBuffer(TargetBitmapFrameData);
+			TargetBitmapFrameData.position(0);
+
+			FrameUpdateInfo frameUpdateInfo = new FrameUpdateInfo();
+
+			frameUpdateInfo.Buffer = TargetBitmapFrameData;
+			frameUpdateInfo.FrameReady = true;
+			frameUpdateInfo.RegionChanged = false;
+			return frameUpdateInfo;
+		}
+
 		initBitmapRenderer();
 		if (null != mBitmapRenderer)
 		{
@@ -1534,6 +1792,8 @@ class WebViewControl
 	{
 		private android.view.Surface mSurface = null;
 		public boolean IsAndroid3DBrowser = false;
+		public boolean bBitmapDraw = false;
+		Canvas TargetCanvas = null;
 
 		// default constructors
 		public GLWebView(Context context) {
@@ -1557,10 +1817,24 @@ class WebViewControl
 			setOnTouchListener(new View.OnTouchListener() {
 				@Override
 				public boolean onTouch(View v, MotionEvent event) {
-					return IsAndroid3DBrowser;
+					return IsAndroid3DBrowser || bBitmapDraw;
 				}
 			});
 		
+		}
+
+		public void SetBitmapDraw(Canvas InCanvas)
+		{
+			boolean InBitmapDraw = InCanvas != null;
+			synchronized(this)
+			{
+				if(bBitmapDraw != InBitmapDraw)
+				{
+					TargetCanvas = InCanvas;
+					bBitmapDraw = InBitmapDraw;
+					webView.setFocusableInTouchMode(!(IsAndroid3DBrowser || bBitmapDraw));
+				}
+			}
 		}
 
 		public void SetAndroid3DBrowser(boolean InIsAndroid3DBrowser)
@@ -1570,7 +1844,7 @@ class WebViewControl
 				if(IsAndroid3DBrowser != InIsAndroid3DBrowser)
 				{
 					IsAndroid3DBrowser = InIsAndroid3DBrowser;
-					webView.setFocusableInTouchMode(!IsAndroid3DBrowser);
+					webView.setFocusableInTouchMode(!(IsAndroid3DBrowser || bBitmapDraw));
 				}
 			}
 		}
@@ -1585,6 +1859,17 @@ class WebViewControl
 		@Override
 		public void onDraw( Canvas canvas ) 
 		{
+			if (bBitmapDraw)
+			{
+				TargetCanvas.save();
+				float xScale = TargetCanvas.getWidth() / (float) canvas.getWidth();
+				TargetCanvas.translate(-getScrollX(), -getScrollY());
+				super.onDraw(TargetCanvas);
+				TargetCanvas.restore();
+				//GameActivity.Log.debug("onDraw: res: " + TargetCanvas.getWidth() + " x " + TargetCanvas.getHeight() + ", scroll:" + getScrollX() + " x " + getScrollY());
+				return;
+			}
+
 			//returns canvas attached to gl texture to draw on
 			Canvas glAttachedCanvas = null;
 			if(!IsAndroid3DBrowser)
@@ -1595,7 +1880,7 @@ class WebViewControl
 			{
 				try 
 				{
-					glAttachedCanvas = mSurface.lockCanvas(null);
+					glAttachedCanvas = mSurface.lockHardwareCanvas();
 					//draw the view to provided canvas
 
 					//translate canvas to reflect view scrolling

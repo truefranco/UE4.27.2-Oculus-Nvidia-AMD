@@ -15,7 +15,7 @@ namespace UnrealBuildTool.Rules
 					"Engine",
 					"InputCore",
 					"HeadMountedDisplay",
-					"OVRPlugin",
+					"OVRPluginXR",
 					"OculusHMD",
 				});
 

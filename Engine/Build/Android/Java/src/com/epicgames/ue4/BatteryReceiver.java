@@ -28,11 +28,10 @@ class BatteryReceiver extends BroadcastReceiver
 	public static BatteryReceiver receiver = null;
 	public static IntentFilter filter = null;
 
-	private static Boolean registered = false;
-
 	private int batteryLevel = 0;
 	private int batteryStatus = 0;
 	private int batteryTemperature = 0;
+	private long lastLogTime = 0;
 
 	private static native void dispatchEvent(int status, int level, int temperature);
 
@@ -57,7 +56,12 @@ class BatteryReceiver extends BroadcastReceiver
 				 level != batteryLevel ||
 				 temperature != batteryTemperature) 
 			{
-				GameActivity.Log.debug( "Battery: status = " + status + ", rawlevel = " + rawlevel + ", scale = " + scale );
+				long currentTime = System.currentTimeMillis();
+				if (level != batteryLevel || temperature != batteryTemperature || currentTime - lastLogTime > 60000)
+				{
+					GameActivity.Log.debug( "Battery: status = " + status + ", rawlevel = " + rawlevel + ", scale = " + scale );
+					lastLogTime = currentTime;
+				}
 
 				batteryStatus = status;
 				batteryLevel = level;
@@ -81,11 +85,7 @@ class BatteryReceiver extends BroadcastReceiver
 			receiver = new BatteryReceiver();
 		}
 
-		if (!registered)
-		{
-			activity.registerReceiver( receiver, filter );
-			registered = true;
-		}
+		activity.registerReceiver(receiver, filter);
 
 		// initialize with the current battery state
 		receiver.processIntent( activity.getIntent() );
@@ -94,11 +94,7 @@ class BatteryReceiver extends BroadcastReceiver
 	public static void stopReceiver( Activity activity )
 	{
 		GameActivity.Log.debug("Unregistering battery receiver");
-		if (registered)
-		{
-			activity.unregisterReceiver( receiver );
-			registered = false;
-		}
+		activity.unregisterReceiver( receiver );
 	}
 
 	@Override

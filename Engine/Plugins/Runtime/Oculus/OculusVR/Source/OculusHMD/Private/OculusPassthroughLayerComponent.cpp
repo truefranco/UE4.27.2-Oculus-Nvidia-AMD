@@ -9,13 +9,37 @@ DEFINE_LOG_CATEGORY(LogOculusPassthrough);
 
 void UStereoLayerShapeReconstructed::ApplyShape(IStereoLayers::FLayerDesc& LayerDesc)
 {
-	const FEdgeStyleParameters EdgeStyleParameters(bEnableEdgeColor, bEnableColorMap, TextureOpacityFactor, Brightness, Contrast, Posterize, Saturation, EdgeColor, ColorScale, ColorOffset, ColorMapType, GetColorMapGradient(bUseColorMapCurve, ColorMapCurve));
+	const FEdgeStyleParameters EdgeStyleParameters(
+		bEnableEdgeColor, 
+		bEnableColorMap, 
+		TextureOpacityFactor, 
+		Brightness, 
+		Contrast, 
+		Posterize, 
+		Saturation, 
+		EdgeColor, 
+		ColorScale, 
+		ColorOffset, 
+		ColorMapType, 
+		GetColorMapGradient(bUseColorMapCurve, ColorMapCurve));
 	LayerDesc.SetShape<FReconstructedLayer>(EdgeStyleParameters, LayerOrder);
 }
 
 void UStereoLayerShapeUserDefined::ApplyShape(IStereoLayers::FLayerDesc& LayerDesc)
 {
-	const FEdgeStyleParameters EdgeStyleParameters(bEnableEdgeColor, bEnableColorMap, TextureOpacityFactor, Brightness, Contrast, Posterize, Saturation, EdgeColor, ColorScale, ColorOffset, ColorMapType, GetColorMapGradient(bUseColorMapCurve, ColorMapCurve));
+	const FEdgeStyleParameters EdgeStyleParameters(
+		bEnableEdgeColor, 
+		bEnableColorMap, 
+		TextureOpacityFactor,
+		Brightness, 
+		Contrast, 
+		Posterize, 
+		Saturation, 
+		EdgeColor, 
+		ColorScale, 
+		ColorOffset, 
+		ColorMapType, 
+		GetColorMapGradient(bUseColorMapCurve, ColorMapCurve));
 	LayerDesc.SetShape<FUserDefinedLayer>(UserGeometryList,EdgeStyleParameters, LayerOrder);
 }
 
@@ -54,8 +78,8 @@ void UOculusPassthroughLayerComponent::OnComponentDestroyed(bool bDestroyingHier
 
 void UOculusPassthroughLayerComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-	Super::TickComponent( DeltaTime, TickType, ThisTickFunction );
 	UpdatePassthroughObjects();
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }
 
 void UOculusPassthroughLayerComponent::UpdatePassthroughObjects()

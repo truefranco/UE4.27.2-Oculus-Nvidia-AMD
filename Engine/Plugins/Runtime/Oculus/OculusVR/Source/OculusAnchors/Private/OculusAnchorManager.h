@@ -24,7 +24,7 @@ namespace OculusAnchors
 		static EOculusResult::Type SaveAnchorList(const TArray<uint64>& Spaces, EOculusSpaceStorageLocation StorageLocation, uint64& OutRequestId);
 		static EOculusResult::Type EraseAnchor(uint64 AnchorHandle, EOculusSpaceStorageLocation StorageLocation, uint64& OutRequestId);
 		static EOculusResult::Type QuerySpaces(const FOculusSpaceQueryInfo& QueryInfo, uint64& OutRequestId);
-		static EOculusResult::Type ShareSpaces(const TArray<uint64>& Spaces, const TArray<FString>& UserIds, uint64& OutRequestId);
+		static EOculusResult::Type ShareSpaces(const TArray<uint64>& Spaces, const TArray<uint64>& UserIds, uint64& OutRequestId);
 		static EOculusResult::Type GetSpaceContainerUUIDs(uint64 Space, TArray<FUUID>& OutUUIDs);
 		static EOculusResult::Type GetSpaceScenePlane(uint64 Space, FVector& OutPos, FVector& OutSize);
 		static EOculusResult::Type GetSpaceSceneVolume(uint64 Space, FVector& OutPos, FVector& OutSize);

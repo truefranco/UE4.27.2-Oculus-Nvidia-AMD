@@ -317,7 +317,8 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLowPowerMode, bool);
 	static FOnLowPowerMode OnLowPowerMode;
 
-
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnNetworkConnectionChanged, ENetworkConnectionType /*ConnectionType*/);
+	static FOnNetworkConnectionChanged OnNetworkConnectionChanged;
 
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FCountPreLoadConfigFileRespondersDelegate, const TCHAR* /*IniFilename*/, int32& /*ResponderCount*/);
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FPreLoadConfigFileDelegate, const TCHAR* /*IniFilename*/, FString& /*LoadedContents*/);

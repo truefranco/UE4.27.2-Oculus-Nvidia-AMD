@@ -33,6 +33,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOculus_LatentAction_QueryAnchors_Fa
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FOculus_LatentAction_SetComponentStatus_Success, UOculusAnchorComponent*, Anchor, EOculusSpaceComponentType, ComponentType, bool, Enabled, EOculusResult::Type, Result);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOculus_LatentAction_SetComponentStatus_Failure, EOculusResult::Type, Result);
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOculus_LatentAction_SetAnchorComponentStatus_Success, UOculusBaseAnchorComponent*, Component, EOculusResult::Type, Result);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOculus_LatentAction_SetAnchorComponentStatus_Failure, EOculusResult::Type, Result);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOculus_LatentAction_ShareAnchors_Success, const TArray<UOculusAnchorComponent*>&, SharedAnchors, const TArray<FString>&, UserIds, EOculusResult::Type, Result);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOculus_LatentAction_ShareAnchors_Failure, EOculusResult::Type, Result);
 
@@ -127,17 +130,17 @@ private:
 
 
 //
-// Save Anchors
+// Save Anchors List
 //
 UCLASS()
-class OCULUSANCHORS_API UOculusAsyncAction_SaveAnchors : public UBlueprintAsyncActionBase
+class OCULUSANCHORS_API UOculusAsyncAction_SaveAnchorsList : public UBlueprintAsyncActionBase
 {
 	GENERATED_BODY()
 public:
 	virtual void Activate() override;
 
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true"))
-	static UOculusAsyncAction_SaveAnchors* OculusAsyncSaveAnchors(const TArray<AActor*>& TargetActors, EOculusSpaceStorageLocation StorageLocation);
+	static UOculusAsyncAction_SaveAnchorsList* OculusAsyncSaveAnchorsList(const TArray<AActor*>& TargetActors, EOculusSpaceStorageLocation StorageLocation);
 
 	UPROPERTY(BlueprintAssignable)
 	FOculus_LatentAction_SaveAnchorList_Success Success;
@@ -151,7 +154,7 @@ public:
 	EOculusSpaceStorageLocation StorageLocation;
 
 private:
-	void HandleSaveAnchorsComplete(EOculusResult::Type SaveResult, const TArray<UOculusAnchorComponent*>& SavedSpaces);
+	void HandleSaveAnchorsListComplete(EOculusResult::Type SaveResult, const TArray<UOculusAnchorComponent*>& SavedSpaces);
 };
 
 
@@ -218,6 +221,33 @@ private:
 	void HandleSetComponentStatusComplete(EOculusResult::Type SetStatusResult, uint64 AnchorHandle, EOculusSpaceComponentType SpaceComponentType, bool bResultEnabled);
 };
 
+//
+// Set Anchor Component Status
+//
+UCLASS()
+class OCULUSANCHORS_API UOculusAsyncAction_SetComponentStatus : public UBlueprintAsyncActionBase
+{
+	GENERATED_BODY()
+public:
+	virtual void Activate() override;
+
+	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true"))
+	static UOculusAsyncAction_SetComponentStatus* OculusAsyncSetComponentStatus(UOculusBaseAnchorComponent* Component, bool bEnabled);
+
+	UPROPERTY(BlueprintAssignable)
+	FOculus_LatentAction_SetAnchorComponentStatus_Success Success;
+
+	UPROPERTY(BlueprintAssignable)
+	FOculus_LatentAction_SetAnchorComponentStatus_Failure Failure;
+
+	// Target actor
+	UPROPERTY(Transient)
+	UOculusBaseAnchorComponent* Component;
+	bool bEnabled;
+
+private:
+	void HandleSetComponentStatusComplete(EOculusResult::Type SetStatusResult, uint64 AnchorHandle, EOculusSpaceComponentType SpaceComponentType, bool bResultEnabled);
+};
 
 //
 // Share Anchors
@@ -243,10 +273,35 @@ public:
 	TArray<UOculusAnchorComponent*> TargetAnchors;
 
 	// Users to share with
-	TArray<FString> ToShareWithIds;
+	TArray<uint64> ToShareWithIds;
 
 	FUInt64 ShareSpacesRequestId;
 
 private:
-	void HandleShareAnchorsComplete(EOculusResult::Type ShareResult, const TArray<UOculusAnchorComponent*>& TargetAnchors, const TArray<FString>& OculusUserIds);
+	void HandleShareAnchorsComplete(EOculusResult::Type ShareResult, const TArray<UOculusAnchorComponent*>& TargetAnchors, const TArray<uint64>& OculusUserIds);
+};
+
+UCLASS()
+class OCULUSANCHORS_API UOculusAnchorLaunchCaptureFlow : public UBlueprintAsyncActionBase
+{
+	GENERATED_BODY()
+public:
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOculusAnchorCaptureFlowFinished);
+
+	UFUNCTION(BlueprintCallable, Category = "OculusVR|SpatialAnchor", meta = (WorldContext = "WorldContext", BlueprintInternalUseOnly = "true"))
+	static UOculusAnchorLaunchCaptureFlow* LaunchCaptureFlowAsync(const UObject* WorldContext);
+
+	void Activate() override;
+
+	UPROPERTY(BlueprintAssignable)
+	FOculusAnchorCaptureFlowFinished Success;
+
+	UPROPERTY(BlueprintAssignable)
+	FOculusAnchorCaptureFlowFinished Failure;
+
+private:
+	uint64 Request = 0;
+
+	UFUNCTION(CallInEditor)
+	void OnCaptureFinish(FUInt64 RequestId, bool bSuccess);
 };

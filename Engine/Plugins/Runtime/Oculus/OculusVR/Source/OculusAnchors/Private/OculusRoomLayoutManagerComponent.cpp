@@ -52,6 +52,8 @@ bool UOculusRoomLayoutManagerComponent::LaunchCaptureFlow()
 		EntityRequestList.Add(OutRequest);
 	}
 	
+	UE_LOG(LogOculusAnchors, Verbose, TEXT("Launch capture flow -- RequestSceneCapture -- %d"), bSuccess);
+	
 	return bSuccess;
 }
 

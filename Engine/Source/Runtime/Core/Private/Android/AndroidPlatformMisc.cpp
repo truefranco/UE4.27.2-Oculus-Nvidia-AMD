@@ -584,7 +584,8 @@ void FAndroidMisc::PlatformInit()
 	AndroidOnBackgroundBinding = FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddStatic(EnableJavaEventReceivers, false);
 	AndroidOnForegroundBinding = FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddStatic(EnableJavaEventReceivers, true);
 #endif
-
+	extern void AndroidThunkJava_AddNetworkListener();
+	AndroidThunkJava_AddNetworkListener();
 	InitCpuThermalSensor();
 
 	UE_LOG(LogInit, Log, TEXT(" - This binary is optimized with LTO: %s, PGO: %s, instrumented for PGO data collection: %s"),
@@ -3248,3 +3249,39 @@ int32 FAndroidMisc::GetAndroidScreenOrientation(EDeviceScreenOrientation ScreenO
 	return static_cast<int32>(AndroidScreenOrientation);
 }
 #endif // USE_ANDROID_JNI
+
+extern void AndroidThunkCpp_ShowConsoleWindow();
+void FAndroidMisc::ShowConsoleWindow()
+{
+#if !UE_BUILD_SHIPPING && USE_ANDROID_JNI
+	AndroidThunkCpp_ShowConsoleWindow();
+#endif // !UE_BUILD_SHIPPING && USE_ANDROID_JNI
+}
+
+FDelegateHandle FAndroidMisc::AddNetworkListener(FCoreDelegates::FOnNetworkConnectionChanged::FDelegate&& InNewDelegate)
+{
+	if (!FCoreDelegates::OnNetworkConnectionChanged.IsBound())
+	{
+#if USE_ANDROID_JNI
+		extern void AndroidThunkJava_AddNetworkListener();
+		AndroidThunkJava_AddNetworkListener();
+#endif
+	}
+
+	return FCoreDelegates::OnNetworkConnectionChanged.Add(MoveTemp(InNewDelegate));
+}
+
+bool FAndroidMisc::RemoveNetworkListener(FDelegateHandle Handle)
+{
+	bool bSuccess = FCoreDelegates::OnNetworkConnectionChanged.Remove(Handle);
+
+	if (!FCoreDelegates::OnNetworkConnectionChanged.IsBound())
+	{
+#if USE_ANDROID_JNI
+		extern void AndroidThunkJava_RemoveNetworkListener();
+		AndroidThunkJava_RemoveNetworkListener();
+#endif
+	}
+
+	return bSuccess;
+}

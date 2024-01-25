@@ -303,6 +303,15 @@ FReply FOculusHMDSettingsDetailsCustomization::PluginClickPlatFn(bool text)
 	return FReply::Handled();
 }
 
+FReply FOculusHMDSettingsDetailsCustomization::DisableEngineSplash(bool text)
+{
+	UOculusHMDRuntimeSettings* Settings = GetMutableDefault<UOculusHMDRuntimeSettings>();
+	Settings->bAutoEnabled = false;
+	Settings->SplashDescs.Empty();
+	Settings->UpdateDefaultConfigFile();
+	return FReply::Handled();
+}
+
 void FOculusHMDSettingsDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
 {
 	// Labeled "General Oculus" instead of "General" to enable searchability. The button "Launch Oculus Utilities Window" doesn't show up if you search for "Oculus"
@@ -334,8 +343,43 @@ void FOculusHMDSettingsDetailsCustomization::CustomizeDetails(IDetailLayoutBuild
 					+ SHorizontalBox::Slot().FillWidth(8)
 				]
 		];
+
+	IDetailCategoryBuilder& CTXPTCategoryBuilder = DetailLayout.EditCategory("System SplashScreen", FText::GetEmpty(), ECategoryPriority::Important);
+
+	static const FName WarningColorStyle("Colors.AccentYellow");
+
+	CTXPTCategoryBuilder.AddCustomRow(LOCTEXT("CTXPTWarning", "Contextual Passthrough Warning"))
+		.Visibility(TAttribute<EVisibility>(this, &FOculusHMDSettingsDetailsCustomization::GetContextualPassthroughWarningVisibility))
+		[
+			SNew(SVerticalBox)
+				+ SVerticalBox::Slot().FillHeight(1.f)
+				[
+					SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(EVerticalAlignment::VAlign_Center)
+						[
+							SNew(STextBlock)
+								.Font(IDetailLayoutBuilder::GetDetailFont())
+								.AutoWrapText(true)
+								.Justification(ETextJustify::Center)
+								.Text(LOCTEXT("CTXPT_EngineSplashWarning", "Engine Splash Screen is enabled, this will result in an inconsistent experience."))
+								.ColorAndOpacity(FEditorStyle::Get().GetSlateColor(WarningColorStyle))
+						]
+						+ SHorizontalBox::Slot().FillWidth(1.f).HAlign(EHorizontalAlignment::HAlign_Left)
+						[
+							SNew(SButton)
+								.VAlign(EVerticalAlignment::VAlign_Center)
+								.Text(LOCTEXT("DisableEngineSplashScreen", "Disable Engine Splash Screen"))
+								.OnClicked(this, &FOculusHMDSettingsDetailsCustomization::DisableEngineSplash, true)
+						]
+				]
+		];
 }
 
+EVisibility FOculusHMDSettingsDetailsCustomization::GetContextualPassthroughWarningVisibility() const
+{
+	UOculusHMDRuntimeSettings* OculusSettings = GetMutableDefault<UOculusHMDRuntimeSettings>();
+	return OculusSettings->SystemSplashBackground == ESystemSplashBackgroundType::Contextual && (OculusSettings->bAutoEnabled || !OculusSettings->SplashDescs.IsEmpty()) ? EVisibility::Visible : EVisibility::Collapsed;
+}
 //////////////////////////////////////////////////////////////////////////
 
 IMPLEMENT_MODULE(FOculusEditorModule, OculusEditor);

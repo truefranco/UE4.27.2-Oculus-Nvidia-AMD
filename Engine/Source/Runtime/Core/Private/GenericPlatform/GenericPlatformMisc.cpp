@@ -2,6 +2,7 @@
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Misc/AssertionMacros.h"
+#include "Misc/CoreDelegates.h"
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/CriticalSection.h"
 #include "Misc/ScopeRWLock.h"
@@ -1555,4 +1556,18 @@ int32 FGenericPlatformMisc::GetPakchunkIndexFromPakFile(const FString& InFilenam
 bool FGenericPlatformMisc::IsPGOEnabled()
 {
 	return PLATFORM_COMPILER_OPTIMIZATION_PG;
+}
+
+FDelegateHandle FGenericPlatformMisc::AddNetworkListener(FCoreDelegates::FOnNetworkConnectionChanged::FDelegate&& InNewDelegate)
+{
+	UE_LOG(LogGenericPlatformMisc, Warning, TEXT("FGenericPlatformMisc::AddNetworkListener not implemented for this platform"));
+
+	return FDelegateHandle();
+}
+
+bool FGenericPlatformMisc::RemoveNetworkListener(FDelegateHandle Handle)
+{
+	UE_LOG(LogGenericPlatformMisc, Warning, TEXT("FGenericPlatformMisc::RemoveNetworkListener not implemented for this platform"));
+
+	return false;
 }

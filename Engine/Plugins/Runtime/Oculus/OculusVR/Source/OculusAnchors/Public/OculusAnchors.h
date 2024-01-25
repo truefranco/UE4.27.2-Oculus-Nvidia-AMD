@@ -18,7 +18,7 @@ DECLARE_DELEGATE_FourParams(FOculusAnchorSetComponentStatusDelegate, EOculusResu
 DECLARE_DELEGATE_TwoParams(FOculusAnchorSaveDelegate, EOculusResult::Type /*Result*/, UOculusAnchorComponent* /*Anchor*/);
 DECLARE_DELEGATE_TwoParams(FOculusAnchorSaveListDelegate, EOculusResult::Type /*Result*/, const TArray<UOculusAnchorComponent*>& /*SavedAnchors*/);
 DECLARE_DELEGATE_TwoParams(FOculusAnchorQueryDelegate, EOculusResult::Type /*Result*/, const TArray<FOculusSpaceQueryResult>& /*Results*/);
-DECLARE_DELEGATE_ThreeParams(FOculusAnchorShareDelegate, EOculusResult::Type /*Result*/, const TArray<UOculusAnchorComponent*>& /*Anchors*/, const TArray<FString>& /*Users*/);
+DECLARE_DELEGATE_ThreeParams(FOculusAnchorShareDelegate, EOculusResult::Type /*Result*/, const TArray<UOculusAnchorComponent*>& /*Anchors*/, const TArray<uint64>& /*Users*/);
 
 namespace OculusAnchors
 {
@@ -48,7 +48,7 @@ struct OCULUSANCHORS_API FOculusAnchors
 	static bool QueryAnchors(const TArray<FUUID>& AnchorUUIDs, EOculusSpaceStorageLocation Location, const FOculusAnchorQueryDelegate& ResultCallback, EOculusResult::Type& OutResult);
 	static bool QueryAnchorsAdvanced(const FOculusSpaceQueryInfo& QueryInfo, const FOculusAnchorQueryDelegate& ResultCallback, EOculusResult::Type& OutResult);
 
-	static bool ShareAnchors(const TArray<UOculusAnchorComponent*>& Anchors, const TArray<FString>& OculusUserIDs, const FOculusAnchorShareDelegate& ResultCallback, EOculusResult::Type& OutResult);
+	static bool ShareAnchors(const TArray<UOculusAnchorComponent*>& Anchors, const TArray<uint64>& OculusUserIDs, const FOculusAnchorShareDelegate& ResultCallback, EOculusResult::Type& OutResult);
 
 	static bool GetSpaceContainerUUIDs(uint64 Space, TArray<FUUID>& OutUUIDs, EOculusResult::Type& OutResult);
 	static bool GetSpaceScenePlane(uint64 Space, FVector& OutPos, FVector& OutSize, EOculusResult::Type& OutResult);
@@ -121,7 +121,7 @@ private:
 		FUInt64 RequestId;
 		FOculusAnchorShareDelegate Binding;
 		TArray<TWeakObjectPtr<UOculusAnchorComponent>> SharedAnchors;
-		TArray<FString> OculusUserIds;
+		TArray<uint64> OculusUserIds;
 	};
 
 	// Delegate bindings

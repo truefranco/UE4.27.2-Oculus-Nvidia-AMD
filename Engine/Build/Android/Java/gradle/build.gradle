@@ -3,7 +3,8 @@
 buildscript {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
+//        jcenter()
     }
     dependencies {
         classpath project.hasProperty('ANDROID_TOOLS_BUILD_GRADLE_VERSION') ? project.property('ANDROID_TOOLS_BUILD_GRADLE_VERSION') : 'com.android.tools.build:gradle:3.5.3'
@@ -19,7 +20,8 @@ apply from: 'baseBuildAdditions.gradle'
 allprojects {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
+//        jcenter()
     }
 }
 

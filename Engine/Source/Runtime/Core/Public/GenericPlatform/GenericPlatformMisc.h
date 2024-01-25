@@ -9,6 +9,7 @@
 #include "Math/NumericLimits.h"
 
 class Error;
+class FDelegateHandle;
 class GenericApplication;
 class IPlatformChunkInstall;
 class IInstallBundleManager;
@@ -16,10 +17,14 @@ class IPlatformCompression;
 struct FGenericCrashContext;
 struct FGenericMemoryWarningContext;
 struct FCustomChunk;
+struct FDefaultDelegateUserPolicy;
 enum class ECustomChunkType : uint8;
 
 template <typename FuncType>
 class TFunction;
+
+template <typename FuncType, typename UserPolicy>
+class TDelegate;
 
 #if UE_BUILD_SHIPPING
 #define UE_DEBUG_BREAK() ((void)0)
@@ -330,7 +335,7 @@ enum class ENetworkConnectionType : uint8
 	Bluetooth,
 	Ethernet,
 };
-
+typedef TDelegate<void(ENetworkConnectionType ConnectionType), FDefaultDelegateUserPolicy> FOnNetworkConnectionChangedDelegate;
 /**
  * Returns the string representation of the specified ENetworkConnection value.
  *
@@ -349,6 +354,9 @@ struct CORE_API FGenericPlatformMisc
 	 */
 	static void PlatformPreInit();
 	static void PlatformInit() { }
+
+	static FDelegateHandle AddNetworkListener(FOnNetworkConnectionChangedDelegate&& InNewDelegate);
+	static bool RemoveNetworkListener(FDelegateHandle Handle);
 
 	/**
 	* Called to dismiss splash screen

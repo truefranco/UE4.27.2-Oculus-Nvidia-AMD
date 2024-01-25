@@ -13,7 +13,7 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
 					"OculusHMD",
-					"OVRPlugin",
+					"OVRPluginXR",
 					"ProceduralMeshComponent",
 				});
 

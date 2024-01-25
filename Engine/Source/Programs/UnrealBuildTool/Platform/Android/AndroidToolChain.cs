@@ -20,9 +20,7 @@ namespace UnrealBuildTool
 
 		public static readonly string[] AllCpuSuffixes =
 		{
-			"-armv7",
 			"-arm64",
-			"-x86",
 			"-x64"
 		};
 
@@ -35,9 +33,7 @@ namespace UnrealBuildTool
 		public static readonly Dictionary<string, string> ShortArchNames = new Dictionary<string, string>()
 		{
 			{ "", "" },
-			{ "-armv7", "a7" },
 			{ "-arm64", "a8" },
-			{ "-x86", "x3" },
 			{ "-x64", "x6" },
 			//LUMIN_MERGE
 			{ "-lumingl4", "" },
@@ -392,13 +388,8 @@ namespace UnrealBuildTool
 			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.Android);
 			Arches = new List<string>();
 			bool bBuild = true;
-			bool bUnsupportedBinaryBuildArch = false;
+			//bool bUnsupportedBinaryBuildArch = false;
 
-			if (Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBuildForArmV7", out bBuild) && bBuild
-				|| (AdditionalArches != null && (AdditionalArches.Contains("armv7", StringComparer.OrdinalIgnoreCase) || AdditionalArches.Contains("-armv7", StringComparer.OrdinalIgnoreCase))))
-			{
-				Arches.Add("-armv7");
-			}
 			if (Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBuildForArm64", out bBuild) && bBuild
 				|| (AdditionalArches != null && (AdditionalArches.Contains("arm64", StringComparer.OrdinalIgnoreCase) || AdditionalArches.Contains("-arm64", StringComparer.OrdinalIgnoreCase))))
 			{
@@ -409,7 +400,7 @@ namespace UnrealBuildTool
 			{
 				if (File.Exists(Path.Combine(UnrealBuildTool.EngineDirectory.FullName, "Build", "InstalledBuild.txt")))
 				{
-					bUnsupportedBinaryBuildArch = true;
+					//bUnsupportedBinaryBuildArch = true;
 					Log.TraceWarningOnce("Please install source to build for x86 (-x86); ignoring this architecture target.");
 				}
 				else
@@ -422,25 +413,12 @@ namespace UnrealBuildTool
 			{
 				if (File.Exists(Path.Combine(UnrealBuildTool.EngineDirectory.FullName, "Build", "InstalledBuild.txt")))
 				{
-					bUnsupportedBinaryBuildArch = true;
+					//bUnsupportedBinaryBuildArch = true;
 					Log.TraceWarningOnce("Please install source to build for x86_64 (-x64); ignoring this architecture target.");
 				}
 				else
 				{
 					Arches.Add("-x64");
-				}
-			}
-
-			// force armv7 if something went wrong
-			if (Arches.Count == 0)
-			{
-				if (bUnsupportedBinaryBuildArch)
-				{
-					throw new BuildException("Only architectures unsupported by binary-only engine selected.");
-				}
-				else
-				{
-					Arches.Add("-armv7");
 				}
 			}
 
@@ -665,9 +643,9 @@ namespace UnrealBuildTool
 			bool enableW = NDKDefineInt >= 230000;
 			switch (Architecture)
 			{
-				case "-armv7": Result += ToolchainParamsArm; break;
+				
 				case "-arm64": Result += ToolchainParamsArm64; break;
-				case "-x86": Result += ToolchainParamsx86; break;
+				
 				case "-x64": Result += ToolchainParamsx64; break;
 				default: Result += ToolchainParamsArm; break;
 			}
@@ -1375,9 +1353,9 @@ namespace UnrealBuildTool
 			{
 				switch (Arch)
 				{
-					case "-armv7": Result.Add("#if PLATFORM_ANDROID_ARM"); break;
+					
 					case "-arm64": Result.Add("#if PLATFORM_ANDROID_ARM64"); break;
-					case "-x86": Result.Add("#if PLATFORM_ANDROID_X86"); break;
+					
 					case "-x64": Result.Add("#if PLATFORM_ANDROID_X64"); break;
 					default: Result.Add("#if PLATFORM_ANDROID_ARM"); break;
 				}
@@ -1433,9 +1411,9 @@ namespace UnrealBuildTool
 
 			switch (UE4Arch)
 			{
-				case "-armv7": StripPath = ArPathArm; break;
+				
 				case "-arm64": StripPath = ArPathArm64; break;
-				case "-x86": StripPath = ArPathx86; break;
+				
 				case "-x64": StripPath = ArPathx64; break;
 				default: StripPath = ArPathArm; break;
 			}
@@ -1550,9 +1528,7 @@ namespace UnrealBuildTool
 
 					switch (Arch)
 					{
-						case "-armv7": Arguments += " -DPLATFORM_64BITS=0 -DPLATFORM_ANDROID_ARM=1 -DPLATFORM_USED_NDK_VERSION_INTEGER=" + NDKApiLevel32Int.ToString(); break;
 						case "-arm64": Arguments += " -DPLATFORM_64BITS=1 -DPLATFORM_ANDROID_ARM64=1 -DPLATFORM_USED_NDK_VERSION_INTEGER=" + NDKApiLevel64Int.ToString(); break;
-						case "-x86": Arguments += " -DPLATFORM_64BITS=0 -DPLATFORM_ANDROID_X86=1 -DPLATFORM_USED_NDK_VERSION_INTEGER=" + NDKApiLevel32Int.ToString(); break;
 						case "-x64": Arguments += " -DPLATFORM_64BITS=1 -DPLATFORM_ANDROID_X64=1 -DPLATFORM_USED_NDK_VERSION_INTEGER=" + NDKApiLevel64Int.ToString(); break;
 						default: Arguments += " -DPLATFORM_64BITS=0 -DPLATFORM_ANDROID_ARM=1 -DPLATFORM_USED_NDK_VERSION_INTEGER=" + NDKApiLevel32Int.ToString(); break;
 					}
@@ -1564,11 +1540,6 @@ namespace UnrealBuildTool
 
 					if(CompileEnvironment.bCompileISPC)
 					{
-						if (Arch == "-armv7" && !bUseNEONForArmV7)
-						{
-							Arguments += " -DINTEL_ISPC=0";
-						}
-						else
 						{
 							Arguments += " -DINTEL_ISPC=1";
 						}
@@ -1978,10 +1949,6 @@ namespace UnrealBuildTool
 			{
 				foreach (string GPUArchitecture in GPUArchitectures)
 				{
-					if (Arch == "-armv7" && !bUseNEONForArmV7)
-					{
-						continue;
-					}
 
 					List<string> CompileTargets = GetISPCCompileTargets(CompileEnvironment.Platform, Arch);
 
@@ -2215,9 +2182,9 @@ namespace UnrealBuildTool
 					{
 						switch (Arch)
 						{
-							case "-armv7": LinkAction.CommandPath = new FileReference(ArPathArm); break;
+							
 							case "-arm64": LinkAction.CommandPath = new FileReference(ArPathArm64); break;
-							case "-x86": LinkAction.CommandPath = new FileReference(ArPathx86); ; break;
+							
 							case "-x64": LinkAction.CommandPath = new FileReference(ArPathx64); ; break;
 							default: LinkAction.CommandPath = new FileReference(ArPathArm); ; break;
 						}

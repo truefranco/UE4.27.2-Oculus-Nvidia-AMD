@@ -181,10 +181,19 @@
 						<addPermission android:name="com.oculus.permission.IMPORT_EXPORT_IOT_MAP_DATA" />
 					</true>
 				</if>
+				<!-- Add Flags for Scene-->
+				<if condition="bSceneSupportEnabled">
+					<true>
+						<addPermission android:name="com.oculus.permission.USE_SCENE"/>
+						<addPermission android:name="com.oculus.permission.SCENE_OBJECT_TRACKING"/>
+						<addPermission android:name="com.oculus.permission.PLANE_TRACKING"/>
+					</true>
+				</if>
 				<!-- Add Eye Tracking flags-->
 				<setBool result="bEyeTrackingFeature" value="false"/>
 				<setBoolOr result="bEyeTrackingFeature" arg1="$B(bEyeTrackingFeature)" arg2="$B(bSupportEyeTrackedFoveatedRendering)"/>
 				<setBoolOr result="bEyeTrackingFeature" arg1="$B(bEyeTrackingFeature)" arg2="$B(bEyeTrackingEnabled)"/>
+				<!-- Check for other features that require eye tracking here -->
 				<if condition="bEyeTrackingFeature">
 					<true>
 						<log text="Adding eye tracking feature and permission tags to manifest"/>
@@ -429,7 +438,7 @@
 					<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OculusOpenXRLoader/OculusOpenXRLoader/Lib/arm64-v8a/libopenxr_loader.so"
 								dst="$S(BuildDir)/libs/arm64-v8a/libopenxr_loader.so" />
 					<log text="Copying OpenXR libOVRPlugin.so"/>
-					<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/Lib/arm64-v8a/OpenXR/libOVRPlugin.so"
+					<copyFile src="$S(PluginDir)/../ThirdParty/OVRPlugin/OVRPlugin/Lib/arm64-v8a/OpenXR/libOVRPlugin.so"
 								dst="$S(BuildDir)/libs/arm64-v8a/libOVRPlugin.so" />
 				</true>
 			</if>
@@ -442,12 +451,12 @@
 			</if>
 		</isArch>
 
-		<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/ExtLibs/SystemUtils.jar"
+		<copyFile src="$S(PluginDir)/../ThirdParty/OVRPlugin/OVRPlugin/ExtLibs/SystemUtils.jar"
 					dst="$S(BuildDir)/libs/SystemUtils.jar" />
 
 		<if condition="bEntitlementCheck">
 			<true>
-				<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/ExtLibs/vrplatlib.jar"
+				<copyFile src="$S(PluginDir)/../ThirdParty/OVRPlugin/OVRPlugin/ExtLibs/vrplatlib.jar"
 							dst="$S(BuildDir)/libs/vrplatlib.jar" />
 			</true>
 		</if>

@@ -1,4 +1,4 @@
-﻿// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -61,7 +61,7 @@ namespace Gauntlet
 
 			foreach (FileInfo Fi in InstallFiles)
 			{ 
-				bool PackageIs32Bit = Fi.FullName.Contains("armv7");
+				bool PackageIs32Bit = Fi.FullName.Contains("arm64");
 	
 				UnrealTargetConfiguration UnrealConfig = UnrealHelpers.GetConfigurationFromExecutableName(InProjectName, Fi.FullName);
 				UnrealTargetRole UnrealRole = UnrealHelpers.GetRoleFromExecutableName(InProjectName, Fi.FullName);

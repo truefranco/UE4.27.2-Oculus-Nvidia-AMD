@@ -12,6 +12,7 @@ using System.Xml.Linq;
 using Tools.DotNETCommon;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace UnrealBuildTool
 {
@@ -23,7 +24,10 @@ namespace UnrealBuildTool
 		private const string BUNDLETOOL_JAR = "bundletool-all-0.13.0.jar";
 
 		// classpath of default android build tools gradle plugin
-		private const string ANDROID_TOOLS_BUILD_GRADLE_VERSION = "com.android.tools.build:gradle:4.0.0";
+		private const string ANDROID_TOOLS_BUILD_GRADLE_VERSION = "com.android.tools.build:gradle:7.4.2";
+
+		// default NDK version if not set
+		private const string DEFAULT_NDK_VERSION = "25.1.8937393";
 
 		// name of the only vulkan validation layer we're interested in 
 		private const string ANDROID_VULKAN_VALIDATION_LAYER = "libVkLayer_khronos_validation.so";
@@ -64,6 +68,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		[CommandLine("-ForceAPKGeneration", Value = "true")]
 		public bool ForceAPKGeneration = false;
+
+		/// <summary>
+		/// Do not use Gradle if previous APK exists and only libUnreal.so changed
+		/// </summary>
+		[CommandLine("-BypassGradlePackaging", Value = "true")]
+		public bool BypassGradlePackaging = false;
 
 		public UEDeployAndroid(FileReference InProjectFile, bool InForcePackageData)
 		{
@@ -380,9 +390,9 @@ namespace UnrealBuildTool
 			}
 
 			// with Gradle enabled use at least 24.0.2 (will be installed by Gradle if missing)
-			if (BestVersion < ((24 << 24) | (0 << 16) | (2 << 8)))
+			if (BestVersion < ((28 << 24) | (0 << 16) | (3 << 8)))
 			{
-				BestVersionString = "24.0.2";
+				BestVersionString = "33.0.1";
 			}
 
 			CachedBuildToolsVersion = BestVersionString;
@@ -2642,6 +2652,9 @@ namespace UnrealBuildTool
 					break;
 			}
 
+			bool bEnableMulticastSupport = false;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bEnableMulticastSupport", out bEnableMulticastSupport);
+
 			// only apply density to configChanges if using android-24 or higher and minimum sdk is 17
 			bool bAddDensity = (SDKLevelInt >= 24) && (MinSDKVersion >= 17);
 
@@ -2809,6 +2822,7 @@ namespace UnrealBuildTool
 				Text.AppendLine("\t\t\t</intent-filter>");
 				Text.AppendLine("\t\t</activity>");
 				Text.AppendLine("\t\t<activity android:name=\"com.epicgames.ue4.GameActivity\"");
+				Text.AppendLine("\t\t          android:exported=\"true\"");
 				Text.AppendLine("\t\t          android:label=\"@string/app_name\"");
 				Text.AppendLine("\t\t          android:theme=\"@style/UE4SplashTheme\"");
 				Text.AppendLine(bAddDensity ? "\t\t          android:configChanges=\"mcc|mnc|uiMode|density|screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard\""
@@ -2963,6 +2977,7 @@ namespace UnrealBuildTool
 			Text.AppendLine("\t\t<receiver android:name=\"AlarmReceiver\" />");
 
 			Text.AppendLine("\t\t<receiver android:name=\"com.epicgames.ue4.LocalNotificationReceiver\" />");
+			Text.AppendLine("\t\t<receiver android:name=\"com.epicgames.ue4.CellularReceiver\" />");
 
 			if (bRestoreNotificationsOnReboot)
 			{
@@ -3008,13 +3023,25 @@ namespace UnrealBuildTool
 					Text.AppendLine("\t<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>");
 				}
 				Text.AppendLine("\t<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>");
-				if (!bPackageForOculusMobile)
-				{
-				    Text.AppendLine("\t<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>");
-				}
-			//	Text.AppendLine("\t<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>");
+				Text.AppendLine("\t<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>");
+
 				Text.AppendLine("\t<uses-permission android:name=\"com.android.vending.CHECK_LICENSE\"/>");
 				Text.AppendLine("\t<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>");
+
+				if (bEnableMulticastSupport)
+				{
+					// This permission is needed to be able to acquire a WifiManager.MulticastLock so broadcast/multcast traffic is 
+					// not filtered out by the device network interface 
+					Text.AppendLine("\t<uses-permission android:name=\"android.permission.CHANGE_WIFI_MULTICAST_STATE\"/>");
+				}
+
+				if (!bPackageForOculusMobile)
+				{
+					Text.AppendLine("\t<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\"/>");
+					Text.AppendLine("\t<uses-permission android:name=\"android.permission.VIBRATE\"/>");
+				}
+			//	Text.AppendLine("\t<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>");
+				
 
 				if (bRestoreNotificationsOnReboot)
 				{
@@ -3535,6 +3562,16 @@ namespace UnrealBuildTool
 			GradleProperties.AppendLine(string.Format("STORE_VERSION={0}", StoreVersion.ToString()));
 			GradleProperties.AppendLine(string.Format("VERSION_DISPLAY_NAME={0}", VersionDisplayName));
 
+			string v = Environment.GetEnvironmentVariable("NDKROOT");
+			if (v != null)
+			{
+				string NDKPath = v.Replace("\\", "/");
+				int NDKVersionIndex = NDKPath.LastIndexOf("/");
+				string NDKVersion = NDKVersionIndex > 0 ? NDKPath.Substring(NDKVersionIndex + 1) : DEFAULT_NDK_VERSION;
+				GradleProperties.AppendLine(String.Format("NDK_VERSION={0}", NDKVersion));
+			}
+			
+
 			if (DestApkName != null)
 			{
 				GradleProperties.AppendLine(string.Format("OUTPUT_PATH={0}", Path.GetDirectoryName(DestApkName).Replace("\\", "/")));
@@ -3589,6 +3626,23 @@ namespace UnrealBuildTool
 			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBundleDensitySplit", out bBundleDensitySplit);
 
 			GradleBuildAdditionsContent.AppendLine("android {");
+			
+			bool bExtractNativeLibs = true;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bExtractNativeLibs", out bExtractNativeLibs);
+			AndroidToolChain.ClangSanitizer Sanitizer = AndroidToolChain.BuildWithSanitizer(ProjectFile);
+			if ((Sanitizer != AndroidToolChain.ClangSanitizer.None && Sanitizer != AndroidToolChain.ClangSanitizer.HwAddress))
+			{
+				bExtractNativeLibs = true;
+			}
+			if (bExtractNativeLibs)
+			{
+				GradleBuildAdditionsContent.AppendLine("\tpackagingOptions {");
+				GradleBuildAdditionsContent.AppendLine("\t\tjniLibs {");
+				GradleBuildAdditionsContent.AppendLine("\t\t\tuseLegacyPackaging=true");
+				GradleBuildAdditionsContent.AppendLine("\t\t}");
+				GradleBuildAdditionsContent.AppendLine("\t}");
+			}
+
 			if (!ForceAPKGeneration && bEnableBundle)
 			{
 				GradleBuildAdditionsContent.AppendLine("\tbundle {");
@@ -3837,9 +3891,15 @@ namespace UnrealBuildTool
 			// force create from scratch if on build machine
 			bool bCreateFromScratch = bIsBuildMachine;
 
+			AndroidToolChain.ClangSanitizer Sanitizer = AndroidToolChain.BuildWithSanitizer(ProjectFile);
+
 			// see if last time matches the skipGradle setting
 			string BuildTypeFilename = Path.Combine(IntermediateAndroidPath, "BuildType.txt");
 			string BuildTypeID = bSkipGradleBuild ? "Embedded" : "Standalone";
+			if (Sanitizer != AndroidToolChain.ClangSanitizer.None && Sanitizer != AndroidToolChain.ClangSanitizer.HwAddress)
+			{
+				BuildTypeID += Sanitizer.ToString() + "Sanitizer";
+			}
 			if (File.Exists(BuildTypeFilename))
 			{
 				string BuildTypeContents = File.ReadAllText(BuildTypeFilename);
@@ -3848,6 +3908,14 @@ namespace UnrealBuildTool
 					Log.TraceInformation("Build type changed, forcing clean");
 					bCreateFromScratch = true;
 				}
+			}
+
+            // force cleanup if older UE4 project
+			if (File.Exists(Path.Combine(IntermediateAndroidPath, "arm64", "jni", "arm64-v8a", "libUE4.so")) ||
+				File.Exists(Path.Combine(IntermediateAndroidPath, "x64", "jni", "x86_64", "libUE4.so")))
+			{
+				Log.TraceInformation("Old version of library .so found, forcing clean");
+				bCreateFromScratch = true;
 			}
 
 			// check if the enabled plugins has changed
@@ -3944,6 +4012,7 @@ namespace UnrealBuildTool
 
 				// Make a set of files that are okay to clean up
 				HashSet<string> cleanFiles = new HashSet<string>();
+				cleanFiles.Add("DownloadShim.java");
 				cleanFiles.Add("OBBData.java");
 				foreach (TemplateFile template in templates)
 				{
@@ -3953,15 +4022,19 @@ namespace UnrealBuildTool
 				foreach (string filename in files)
 				{
 					if (filename == UE4DownloadShimFileName)  // we always need the shim, and it'll get rewritten if needed anyway
+					{
 						continue;
+					}
 
 					string filePath = Path.GetDirectoryName(filename);  // grab the file's path
 					if (filePath != TemplateDestinationBase)             // and check to make sure it isn't the same as the Template directory we calculated earlier
 					{
 						// Only delete the files in the cleanup set
 						if (!cleanFiles.Contains(Path.GetFileName(filename)))
+						{
 							continue;
-
+						}
+						
 						Log.TraceInformation("Cleaning up file {0}", filename);
 						SafeDeleteFile(filename, false);
 
@@ -4284,7 +4357,7 @@ namespace UnrealBuildTool
 				CopySTL(ToolChain, UE4BuildPath, Arch, NDKArch, bForDistribution);
 				CopyGfxDebugger(UE4BuildPath, Arch, NDKArch);
 				CopyVulkanValidationLayers(UE4BuildPath, Arch, NDKArch, Configuration.ToString());
-				AndroidToolChain.ClangSanitizer Sanitizer = AndroidToolChain.BuildWithSanitizer(ProjectFile);
+				//AndroidToolChain.ClangSanitizer Sanitizer = AndroidToolChain.BuildWithSanitizer(ProjectFile);
 				if (Sanitizer != AndroidToolChain.ClangSanitizer.None && Sanitizer != AndroidToolChain.ClangSanitizer.HwAddress)
 				{
 					CopyClangSanitizerLib(UE4BuildPath, Arch, NDKArch, Sanitizer);
@@ -4390,7 +4463,7 @@ namespace UnrealBuildTool
 				// Create local.properties
 				String LocalPropertiesFilename = Path.Combine(UE4BuildGradlePath, "local.properties");
 				StringBuilder LocalProperties = new StringBuilder();
-				LocalProperties.AppendLine(string.Format("ndk.dir={0}", Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/")));
+				//LocalProperties.AppendLine(string.Format("ndk.dir={0}", Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/")));
 				LocalProperties.AppendLine(string.Format("sdk.dir={0}", Environment.GetEnvironmentVariable("ANDROID_HOME").Replace("\\", "/")));
 				File.WriteAllText(LocalPropertiesFilename, LocalProperties.ToString());
 

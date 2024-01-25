@@ -12,6 +12,7 @@ LICENSE file in the root directory of this source tree.
 #include "OculusHMDModule.h"
 #include "OculusAnchorManager.h"
 #include "OculusSpatialAnchorComponent.h"
+#include "OculusAnchorBPFunctionLibrary.h"
 
 namespace OculusAnchors
 {
@@ -400,8 +401,8 @@ bool FOculusAnchors::QueryAnchorsAdvanced(const FOculusSpaceQueryInfo& QueryInfo
 {
 	uint64 RequestId = 0;
 	OutResult = FOculusAnchorManager::QuerySpaces(QueryInfo, RequestId);
-	bool bAsyncStartSuccess = UOculusFunctionLibrary::IsResultSuccess(OutResult);
-
+	//bool bAsyncStartSuccess = UOculusFunctionLibrary::IsResultSuccess(OutResult);
+	bool bAsyncStartSuccess = UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(OutResult);
 	if (bAsyncStartSuccess)
 	{
 		AnchorQueryBinding QueryResults;
@@ -421,7 +422,7 @@ bool FOculusAnchors::QueryAnchorsAdvanced(const FOculusSpaceQueryInfo& QueryInfo
 	return bAsyncStartSuccess;
 }
 
-bool FOculusAnchors::ShareAnchors(const TArray<UOculusAnchorComponent*>& Anchors, const TArray<FString>& OculusUserIDs, const FOculusAnchorShareDelegate& ResultCallback, EOculusResult::Type& OutResult)
+bool FOculusAnchors::ShareAnchors(const TArray<UOculusAnchorComponent*>& Anchors, const TArray<uint64>& OculusUserIDs, const FOculusAnchorShareDelegate& ResultCallback, EOculusResult::Type& OutResult)
 {
 	TArray<uint64> Handles;
 	TArray<TWeakObjectPtr<UOculusAnchorComponent>> SharedAnchors;
@@ -446,7 +447,7 @@ bool FOculusAnchors::ShareAnchors(const TArray<UOculusAnchorComponent*>& Anchors
 	else
 	{
 		UE_LOG(LogOculusAnchors, Warning, TEXT("Failed to start async call to share anchor."));
-		ResultCallback.ExecuteIfBound(EOculusResult::Failure, TArray<UOculusAnchorComponent*>(), TArray<FString>());
+		ResultCallback.ExecuteIfBound(EOculusResult::Failure, TArray<UOculusAnchorComponent*>(), TArray<uint64>());
 	}
 
 	return bAsyncStartSuccess;
@@ -455,31 +456,31 @@ bool FOculusAnchors::ShareAnchors(const TArray<UOculusAnchorComponent*>& Anchors
 bool FOculusAnchors::GetSpaceContainerUUIDs(uint64 Space, TArray<FUUID>& OutUUIDs, EOculusResult::Type& OutResult)
 {
 	OutResult = FOculusAnchorManager::GetSpaceContainerUUIDs(Space, OutUUIDs);
-	return UOculusFunctionLibrary::IsResultSuccess(OutResult);
+	return UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(OutResult);
 }
 
 bool FOculusAnchors::GetSpaceScenePlane(uint64 Space, FVector& OutPos, FVector& OutSize, EOculusResult::Type& OutResult)
 {
 	OutResult = FOculusAnchorManager::GetSpaceScenePlane(Space, OutPos, OutSize);
-	return UOculusFunctionLibrary::IsResultSuccess(OutResult);
+	return UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(OutResult);
 }
 
 bool FOculusAnchors::GetSpaceSceneVolume(uint64 Space, FVector& OutPos, FVector& OutSize, EOculusResult::Type& OutResult)
 {
 	OutResult = FOculusAnchorManager::GetSpaceSceneVolume(Space, OutPos, OutSize);
-	return UOculusFunctionLibrary::IsResultSuccess(OutResult);
+	return UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(OutResult);
 }
 
 bool FOculusAnchors::GetSpaceSemanticClassification(uint64 Space, TArray<FString>& OutSemanticClassifications, EOculusResult::Type& OutResult)
 {
 	OutResult = FOculusAnchorManager::GetSpaceSemanticClassification(Space, OutSemanticClassifications);
-	return UOculusFunctionLibrary::IsResultSuccess(OutResult);
+	return UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(OutResult);
 }
 
 bool FOculusAnchors::GetSpaceBoundary2D(uint64 Space, TArray<FVector2D>& OutVertices, EOculusResult::Type& OutResult)
 {
 	OutResult = FOculusAnchorManager::GetSpaceBoundary2D(Space, OutVertices);
-	return UOculusFunctionLibrary::IsResultSuccess(OutResult);
+	return UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(OutResult);
 }
 
 void FOculusAnchors::HandleSpatialAnchorCreateComplete(FUInt64 RequestId, int Result, FUInt64 Space, FUUID UUID)
@@ -656,11 +657,25 @@ void FOculusAnchors::HandleAnchorQueryResultElement(FUInt64 RequestId, FUInt64 S
 	if (ResultPtr)
 	{
 		uint64 tempOut;
-		FOculusAnchorManager::SetSpaceComponentStatus(Space, EOculusSpaceComponentType::Locatable, true, 0.0f, tempOut);
-		FOculusAnchorManager::SetSpaceComponentStatus(Space, EOculusSpaceComponentType::Sharable, true, 0.0f, tempOut);
-		FOculusAnchorManager::SetSpaceComponentStatus(Space, EOculusSpaceComponentType::Storable, true, 0.0f, tempOut);
+		TArray<EOculusSpaceComponentType> supportedTypes;
+		FOculusAnchorManager::GetSupportedAnchorComponents(Space, supportedTypes);
 
-		ResultPtr->Results.Add(FOculusSpaceQueryResult(Space, UUID, ResultPtr->Location));
+		if (supportedTypes.Contains(EOculusSpaceComponentType::Locatable))
+		{
+			FOculusAnchorManager::SetSpaceComponentStatus(Space, EOculusSpaceComponentType::Locatable, true, 0.0f, tempOut);
+		}
+
+		if (supportedTypes.Contains(EOculusSpaceComponentType::Sharable))
+		{
+			FOculusAnchorManager::SetSpaceComponentStatus(Space, EOculusSpaceComponentType::Sharable, true, 0.0f, tempOut);
+		}
+
+		if (supportedTypes.Contains(EOculusSpaceComponentType::Storable))
+		{
+			FOculusAnchorManager::SetSpaceComponentStatus(Space, EOculusSpaceComponentType::Storable, true, 0.0f, tempOut);
+		}
+		
+        ResultPtr->Results.Add(FOculusSpaceQueryResult(Space, UUID, ResultPtr->Location));
 	}
 }
 

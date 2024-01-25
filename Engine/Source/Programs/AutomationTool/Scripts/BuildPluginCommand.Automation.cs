@@ -19,7 +19,7 @@ using System.Text;
 [Help("Unversioned", "Do not embed the current engine version into the descriptor")]
 class BuildPlugin : BuildCommand
 {
-	const string AndroidArchitectures = "armv7+arm64";
+	const string AndroidArchitectures = "arm64";
 	const string HoloLensArchitecture = "arm64+x64";
 
 	public override void ExecuteBuild()

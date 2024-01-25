@@ -20,7 +20,7 @@ namespace UnrealBuildTool.Rules
 					{
 						"InputDevice",
 						"EyeTracker",
-						"OVRPlugin",
+						"OVRPluginXR",
 						"OculusHMD",
 					}
 				);

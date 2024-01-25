@@ -1,6 +1,9 @@
 apply plugin: 'com.android.application'
 
 android {
+	namespace = PACKAGE_NAME
+	ndkPath = System.getenv("NDKROOT")
+//	ndkVersion = NDK_VERSION
 	compileSdkVersion = COMPILE_SDK_VERSION.toInteger()
 	buildToolsVersion = BUILD_TOOLS_VERSION
 	defaultConfig {
@@ -23,6 +26,11 @@ android {
 	//	}
 	//}
 	
+	compileOptions {
+		sourceCompatibility JavaVersion.VERSION_1_8
+		targetCompatibility JavaVersion.VERSION_1_8
+	}	
+
 	sourceSets.main {
 		// disable generation of Android.mk
 		jni.srcDirs = []
@@ -43,41 +51,20 @@ android {
 		// this will prevent it from stopping if above is true and an issue is found
 		abortOnError false
 	}
-
-	applicationVariants.all { variants ->
-		outputs.all {
-			// move it up one level to help with path limit (app/build/outputs/apk/app-debug.apk or app-release.apk)
-			outputFileName = "../" + outputFileName
-		}
-	}
 }
 
 tasks.whenTaskAdded { task ->
-	if (task.name == 'packageDebug') {
-		tasks.create(name:'ueDeleteOldPackageDebug') {
-			doLast {
-				delete('build/outputs/apk/app-debug.apk')
-				delete('build/outputs/apk/debug/output.json')
-			}
-		}
-		
-		task.dependsOn('ueDeleteOldPackageDebug')
-	}
-	if (task.name == 'packageRelease') {
-		tasks.create(name:'ueDeleteOldPackageRelease') {
-			doLast {
-				delete('build/outputs/apk/app-release.apk')
-				delete('build/outputs/apk/release/output.json')
-			}
-		}
-		
-		task.dependsOn('ueDeleteOldPackageRelease')
-	}
+ 	if (task.name == 'packageDebug') {
+ 		task.dependsOn('cleanPackageDebug')
+ 	}
+ 	if (task.name == 'packageRelease') {
+ 		task.dependsOn('cleanPackageRelease')
+ 	}
 	if (task.name == 'assembleRelease') {
 		if (project.hasProperty('OUTPUT_FILENAME')) {
 			tasks.create(name:'ue4CompleteRelease', type: Copy) {
 				description "Copy final release APK"
-				from 'build/outputs/apk/app-release.apk'
+				from 'build/outputs/apk/release/app-release.apk'
 				into OUTPUT_PATH
 				rename ("app-release.apk", OUTPUT_FILENAME)
 			}
@@ -89,7 +76,7 @@ tasks.whenTaskAdded { task ->
 		if (project.hasProperty('OUTPUT_FILENAME')) {
 			tasks.create(name:'ue4CompleteDebug', type: Copy) {
 				description "Copy final debug APK"
-				from 'build/outputs/apk/app-debug.apk'
+				from 'build/outputs/apk/debug/app-debug.apk'
 				into OUTPUT_PATH
 				rename ("app-debug.apk", OUTPUT_FILENAME)
 			}

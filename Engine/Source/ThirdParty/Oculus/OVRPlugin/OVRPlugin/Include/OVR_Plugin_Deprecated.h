@@ -1,22 +1,17 @@
-/*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
- *
- * Licensed under the Oculus SDK License Agreement (the "License");
- * you may not use the Oculus SDK except in compliance with the License,
- * which is provided at the time of installation or download, or which
- * otherwise accompanies this software in either electronic or hard copy form.
- *
- * You may obtain a copy of the License at
- *
- * https://developer.oculus.com/licenses/oculussdk/
- *
- * Unless required by applicable law or agreed to in writing, the Oculus SDK
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/************************************************************************************
+
+Copyright (c) Facebook Technologies, LLC and its affiliates.  All rights reserved.
+
+Your use of this SDK or tool is subject to the Oculus SDK License Agreement, available at
+https://developer.oculus.com/licenses/oculussdk/
+
+Unless required by applicable law or agreed to in writing, the Oculus SDK
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+************************************************************************************/
 
 #ifndef OVR_Plugin_Deprecated_h
 #define OVR_Plugin_Deprecated_h
@@ -31,22 +26,7 @@ extern "C" {
 // Deprecated to avoid an extra shutdown/initialize on the mobile side
 OVRP_EXPORT ovrpResult ovrp_PreInitialize3(void* activity);
 
-// Deprecated for adding an ovrpPreinitializeFlags parameter
-OVRP_EXPORT ovrpResult ovrp_PreInitialize4(void* activity, ovrpRenderAPIType apiType);
-
 // Deprecated for getting extra Vulkan paramters from Unity Oculus XR Plugin
-OVRP_EXPORT ovrpResult ovrp_Initialize6(
-    ovrpRenderAPIType apiType,
-    ovrpLogCallback logCallback,
-    void* activity,
-    void* vkInstance,
-    void* vkPhysicalDevice,
-    void* vkDevice,
-    void* vkQueue,
-    void* vkGetInstanceProcAddr, // PFN_vkGetInstanceProcAddr
-    unsigned int vkQueueFamilyIndex,
-    int initializeFlags,
-    OVRP_CONSTREF(ovrpVersion) version);
 
 OVRP_EXPORT ovrpResult ovrp_Initialize5(
     ovrpRenderAPIType apiType,
@@ -285,19 +265,19 @@ OVRP_EXPORT ovrpResult ovrp_EnqueueSubmitLayer(
     int layerIndex);
 
 OVRP_EXPORT ovrpResult ovrp_EnqueueSubmitLayer2(
-    unsigned int flags,
-    void* textureLeft,
-    void* textureRight,
-    int layerId,
-    int frameIndex,
-    OVRP_CONSTREF(ovrpPosef) pose,
-    OVRP_CONSTREF(ovrpVector3f) scale,
-    int layerIndex,
-    ovrpBool overrideTextureRectMatrix,
-    OVRP_CONSTREF(ovrpTextureRectMatrixf) textureRectMatrix,
-    ovrpBool overridePerLayerColorScaleAndOffset,
-    OVRP_CONSTREF(ovrpVector4f) colorScale,
-    OVRP_CONSTREF(ovrpVector4f) colorOffset);
+  unsigned int flags,
+  void* textureLeft,
+  void* textureRight,
+  int layerId,
+  int frameIndex,
+  OVRP_CONSTREF(ovrpPosef) pose,
+  OVRP_CONSTREF(ovrpVector3f) scale,
+  int layerIndex,
+  ovrpBool overrideTextureRectMatrix,
+  OVRP_CONSTREF(ovrpTextureRectMatrixf) textureRectMatrix,
+  ovrpBool overridePerLayerColorScaleAndOffset,
+  OVRP_CONSTREF(ovrpVector4f) colorScale,
+  OVRP_CONSTREF(ovrpVector4f) colorOffset);
 
 
 
@@ -370,13 +350,13 @@ OVRP_EXPORT ovrpBool ovrp_SetOverlayQuad2(
     ovrpVector3f scale);
 
 OVRP_EXPORT ovrpResult ovrp_CalculateEyeLayerDesc(
-    ovrpLayout layout,
-    float textureScale,
-    int mipLevels,
-    int sampleCount,
-    ovrpTextureFormat format,
-    int layerFlags,
-    ovrpLayerDesc_EyeFov* layerDesc);
+	ovrpLayout layout,
+	float textureScale,
+	int mipLevels,
+	int sampleCount,
+	ovrpTextureFormat format,
+	int layerFlags,
+	ovrpLayerDesc_EyeFov* layerDesc);
 
 OVRP_EXPORT ovrpBool ovrp_SetAppIgnoreVrFocus(ovrpBool value);
 OVRP_EXPORT ovrpBool ovrp_GetHeadphonesPresent();
@@ -400,7 +380,7 @@ OVRP_EXPORT ovrpBool ovrp_SetupEyeTexture(
 
 OVRP_EXPORT ovrpPosef ovrp_GetNodePose2(ovrpStep step, ovrpNode nodeId);
 
-OVRP_EXPORT ovrpResult ovrp_SetFunctionPointer(ovrpFunctionType funcType, void* funcPtr);
+OVRP_EXPORT ovrpResult ovrp_SetFunctionPointer(ovrpFunctionType funcType, void *funcPtr);
 
 // Return success if updating depth info is finished
 OVRP_EXPORT ovrpResult ovrp_SetDepthCompositingInfo(float zNear, float zFar, ovrpBool isReverseZ);

@@ -14,6 +14,7 @@ LICENSE file in the root directory of this source tree.
 #include "OculusAnchorsModule.h"
 #include "OculusAnchorDelegates.h"
 #include "OculusAnchorBPFunctionLibrary.h"
+#include "OculusAnchorTypesPrivate.h"
 
 namespace OculusAnchors
 {
@@ -87,37 +88,7 @@ namespace OculusAnchors
 		Result.componentsInfo.numComponents = FMath::Min(MaxComponentTypesInFilter, UEQueryInfo.ComponentFilter.Num());
 		for (int i = 0; i < Result.componentsInfo.numComponents; ++i)
 		{
-			ovrpSpaceComponentType componentType = ovrpSpaceComponentType::ovrpSpaceComponentType_Max;
-
-			switch (UEQueryInfo.ComponentFilter[i])
-			{
-			case EOculusSpaceComponentType::Locatable:
-				componentType = ovrpSpaceComponentType_Locatable;
-				break;
-			case EOculusSpaceComponentType::Storable:
-				componentType = ovrpSpaceComponentType_Storable;
-				break;
-			case EOculusSpaceComponentType::Sharable:
-				componentType = ovrpSpaceComponentType_Sharable;
-				break;
-			case EOculusSpaceComponentType::ScenePlane:
-				componentType = ovrpSpaceComponentType_Bounded2D;
-				break;
-			case EOculusSpaceComponentType::SceneVolume:
-				componentType = ovrpSpaceComponentType_Bounded3D;
-				break;
-			case EOculusSpaceComponentType::SemanticClassification:
-				componentType = ovrpSpaceComponentType_SemanticLabels;
-				break;
-			case EOculusSpaceComponentType::RoomLayout:
-				componentType = ovrpSpaceComponentType_RoomLayout;
-				break;
-			case EOculusSpaceComponentType::SpaceContainer:
-				componentType = ovrpSpaceComponentType_SpaceContainer;
-				break;
-			}
-
-			Result.componentsInfo.components[i] = componentType;
+			Result.componentsInfo.components[i] = ConvertToOvrpComponentType(UEQueryInfo.ComponentFilter[i]);
 		}
 
 		return Result;
@@ -132,82 +103,13 @@ namespace OculusAnchors
 		memcpy(&OutEventData, BufData, sizeof(T));
 	}
 
-	ovrpSpaceComponentType ConvertToOvrpComponentType(const EOculusSpaceComponentType ComponentType)
-	{
-		ovrpSpaceComponentType ovrpType = ovrpSpaceComponentType_Max;
-		switch (ComponentType)
-		{
-		case EOculusSpaceComponentType::Locatable:
-			ovrpType = ovrpSpaceComponentType_Locatable;
-			break;
-		case EOculusSpaceComponentType::Storable:
-			ovrpType = ovrpSpaceComponentType_Storable;
-			break;
-		case EOculusSpaceComponentType::Sharable:
-			ovrpType = ovrpSpaceComponentType_Sharable;
-			break;
-		case EOculusSpaceComponentType::ScenePlane:
-			ovrpType = ovrpSpaceComponentType_Bounded2D;
-			break;
-		case EOculusSpaceComponentType::SceneVolume:
-			ovrpType = ovrpSpaceComponentType_Bounded3D;
-			break;
-		case EOculusSpaceComponentType::SemanticClassification:
-			ovrpType = ovrpSpaceComponentType_SemanticLabels;
-			break;
-		case EOculusSpaceComponentType::RoomLayout:
-			ovrpType = ovrpSpaceComponentType_RoomLayout;
-			break;
-		case EOculusSpaceComponentType::SpaceContainer:
-			ovrpType = ovrpSpaceComponentType_SpaceContainer;
-			break;
-		default:;
-		}
-
-		return ovrpType;
-	}
-
-	EOculusSpaceComponentType ConvertToUe4ComponentType(const ovrpSpaceComponentType ComponentType)
-	{
-		EOculusSpaceComponentType ue4ComponentType = EOculusSpaceComponentType::Undefined;
-		switch (ComponentType)
-		{
-		case ovrpSpaceComponentType_Locatable:
-			ue4ComponentType = EOculusSpaceComponentType::Locatable;
-			break;
-		case ovrpSpaceComponentType_Storable:
-			ue4ComponentType = EOculusSpaceComponentType::Storable;
-			break;
-		case ovrpSpaceComponentType_Sharable:
-			ue4ComponentType = EOculusSpaceComponentType::Sharable;
-			break;
-		case ovrpSpaceComponentType_Bounded2D:
-			ue4ComponentType = EOculusSpaceComponentType::ScenePlane;
-			break;
-		case ovrpSpaceComponentType_Bounded3D:
-			ue4ComponentType = EOculusSpaceComponentType::SceneVolume;
-			break;
-		case ovrpSpaceComponentType_SemanticLabels:
-			ue4ComponentType = EOculusSpaceComponentType::SemanticClassification;
-			break;
-		case ovrpSpaceComponentType_RoomLayout:
-			ue4ComponentType = EOculusSpaceComponentType::RoomLayout;
-			break;
-		case ovrpSpaceComponentType_SpaceContainer:
-			ue4ComponentType = EOculusSpaceComponentType::SpaceContainer;
-			break;
-		default:;
-		}
-
-		return ue4ComponentType;
-	}
-
 	void FOculusAnchorManager::OnPollEvent(ovrpEventDataBuffer* EventDataBuffer, bool& EventPollResult)
 	{
 		ovrpEventDataBuffer& buf = *EventDataBuffer;
 
-		switch (buf.EventType) {
-			case ovrpEventType_None: break;
+		switch (buf.EventType) 
+		{
+		
 			case ovrpEventType_SpatialAnchorCreateComplete:
 			{
 				ovrpEventDataSpatialAnchorCreateComplete AnchorCreateEvent;
@@ -497,12 +399,25 @@ namespace OculusAnchors
 		ovrpUInt64 OvrpOutRequestId = 0;
 
 		const ovrpUInt64 OVRPSpace = Space;
-		const bool Result = FOculusHMDModule::GetPluginWrapper().GetInitialized() && OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().SetSpaceComponentStatus(
+
+		// validate existing status
+		ovrpBool isEnabled = false;
+		ovrpBool changePending = false;
+		const ovrpResult getComponentStatusResult = FOculusHMDModule::GetPluginWrapper().GetSpaceComponentStatus(&OVRPSpace, ovrpType, &isEnabled, &changePending);
+
+		bool isStatusChangingOrSame = (static_cast<bool>(isEnabled) == Enable && !changePending) || (static_cast<bool>(isEnabled) != Enable && changePending);
+		if (OVRP_SUCCESS(getComponentStatusResult) && isStatusChangingOrSame)
+		{
+			return EOculusResult::Success;
+		}
+
+		// set status
+		const ovrpResult Result = FOculusHMDModule::GetPluginWrapper().SetSpaceComponentStatus(
 			&OVRPSpace,
 			ovrpType,
 			Enable,
 			Timeout,
-			&OvrpOutRequestId));
+			&OvrpOutRequestId);
 
 		memcpy(&OutRequestId, &OvrpOutRequestId, sizeof(uint64));
 
@@ -750,18 +665,17 @@ namespace OculusAnchors
 	 * @param OutRequestId An async work tracking ID.
 	 * @return True if the async call started successfully.
 	 */
-	EOculusResult::Type FOculusAnchorManager::ShareSpaces(const TArray<uint64>& Spaces, const TArray<FString>& UserIds, uint64& OutRequestId)
+	EOculusResult::Type FOculusAnchorManager::ShareSpaces(const TArray<uint64>& Spaces, const TArray<uint64>& UserIds, uint64& OutRequestId)
 	{
 		TArray<const char*> stringStorage;
 		TArray<ovrpUser> OvrpUsers;
-		for (auto& UserIdString : UserIds)
+		for (const auto& UserId : UserIds)
 		{
-			uint64 UserId = FCString::Strtoui64(*UserIdString, nullptr, 10);
 			ovrpUser OvrUser;
 			ovrpResult Result = FOculusHMDModule::GetPluginWrapper().CreateSpaceUser(&UserId, &OvrUser);
 			if (!OVRP_SUCCESS(Result))
 			{
-				UE_LOG(LogOculusAnchors, Log, TEXT("Failed to create space user from ID  -  string: %s, uint64: %llu"), *UserIdString, UserId);
+				UE_LOG(LogOculusAnchors, Log, TEXT("Failed to create space user from ID  -  string: %s, uint64: %llu"), UserId);
 				continue;
 			}
 
@@ -877,6 +791,9 @@ namespace OculusAnchors
 			OutPos.X = bounds.Pos.z;
 			OutPos.Y = bounds.Pos.x;
 			OutPos.Z = bounds.Pos.y;
+
+			OutPos.X -= bounds.Size.d;
+
 			OutSize.X = bounds.Size.d;
 			OutSize.Y = bounds.Size.w;
 			OutSize.Z = bounds.Size.h;

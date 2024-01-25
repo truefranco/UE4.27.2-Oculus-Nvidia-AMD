@@ -14,7 +14,7 @@ namespace UnrealBuildTool.Rules
 					"Engine",
 					"OculusHMD",
 					"OculusAnchors",
-					"OVRPlugin",
+					"OVRPluginXR",
 					"ProceduralMeshComponent",
 				});
 

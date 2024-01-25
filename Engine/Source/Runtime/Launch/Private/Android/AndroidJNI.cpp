@@ -110,6 +110,8 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_LocalNotificationGetLaunchNotification = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_LocalNotificationGetLaunchNotification", "()Lcom/epicgames/ue4/GameActivity$LaunchNotification;", bIsOptional);
 	AndroidThunkJava_LocalNotificationDestroyIfExists = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_LocalNotificationDestroyIfExists", "(I)Z", bIsOptional);
 	AndroidThunkJava_GetNetworkConnectionType = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetNetworkConnectionType", "()I", bIsOptional);
+	AndroidThunkJava_AddNetworkListener = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_AddNetworkListener", "()V", bIsOptional);
+	AndroidThunkJava_RemoveNetworkListener = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_AddNetworkListener", "()V", bIsOptional);
 	AndroidThunkJava_GetAndroidId = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetAndroidId", "()Ljava/lang/String;", bIsOptional);
 	AndroidThunkJava_ShareURL = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_ShareURL", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)V", bIsOptional);
 	AndroidThunkJava_IsPackageInstalled = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_IsPackageInstalled", "(Ljava/lang/String;)Z", bIsOptional);
@@ -121,6 +123,8 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_GetIntentExtrasString = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetIntentExtrasString", "(Ljava/lang/String;)Ljava/lang/String;", bIsOptional);
 	AndroidThunkJava_PushSensorEvents = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_PushSensorEvents", "()V", bIsOptional);
 	AndroidThunkJava_SetOrientation = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_SetOrientation", "(I)V", bIsOptional);
+	AndroidThunkJava_SetCellularPreference = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_SetCellularPreference", "(I)V", bIsOptional);
+	AndroidThunkJava_GetCellularPreference = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetCellularPreference", "()I", bIsOptional);
 
 	// Screen capture/recording permission
 	AndroidThunkJava_IsScreenCaptureDisabled = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_IsScreenCaptureDisabled", "()Z", bIsOptional);
@@ -176,6 +180,10 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_SetDesiredViewSize = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_SetDesiredViewSize", "(II)V", bIsOptional);
 
 	AndroidThunkJava_VirtualInputIgnoreClick = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_VirtualInputIgnoreClick", "(II)Z", bIsOptional);
+
+	// Multicast lock handling
+	AndroidThunkJava_AcquireWifiManagerMulticastLock = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_AcquireWifiManagerMulticastLock", "()Z", bIsOptional);
+	AndroidThunkJava_ReleaseWifiManagerMulticastLock = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_ReleaseWifiManagerMulticastLock", "()V", bIsOptional);
 
 	SetupEmbeddedCommunication(Env);
 }
@@ -418,6 +426,8 @@ jmethodID FJavaWrapper::AndroidThunkJava_PushSensorEvents;
 jmethodID FJavaWrapper::AndroidThunkJava_IsScreenCaptureDisabled;
 jmethodID FJavaWrapper::AndroidThunkJava_DisableScreenCapture;
 jmethodID FJavaWrapper::AndroidThunkJava_SetOrientation;
+jmethodID FJavaWrapper::AndroidThunkJava_SetCellularPreference;
+jmethodID FJavaWrapper::AndroidThunkJava_GetCellularPreference;
 
 jclass FJavaWrapper::InputDeviceInfoClass;
 jfieldID FJavaWrapper::InputDeviceInfo_VendorId;
@@ -460,6 +470,9 @@ jmethodID FJavaWrapper::AndroidThunkJava_GetSupportedNativeDisplayRefreshRates;
 jmethodID FJavaWrapper::AndroidThunkJava_GetNativeDisplayRefreshRate;
 jmethodID FJavaWrapper::AndroidThunkJava_SetNativeDisplayRefreshRate;
 
+jmethodID FJavaWrapper::AndroidThunkJava_AddNetworkListener;
+jmethodID FJavaWrapper::AndroidThunkJava_RemoveNetworkListener;
+
 jmethodID FJavaWrapper::AndroidThunkJava_EnableMotion;
 
 jclass FJavaWrapper::LaunchNotificationClass;
@@ -470,6 +483,9 @@ jfieldID FJavaWrapper::LaunchNotificationFireDate;
 jclass FJavaWrapper::ThreadClass;
 jmethodID FJavaWrapper::CurrentThreadMethod;
 jmethodID FJavaWrapper::SetNameMethod;
+
+jmethodID FJavaWrapper::AndroidThunkJava_AcquireWifiManagerMulticastLock;
+jmethodID FJavaWrapper::AndroidThunkJava_ReleaseWifiManagerMulticastLock;
 
 //Game-specific crash reporter
 void EngineCrashHandler(const FGenericCrashContext& GenericContext)
@@ -1310,6 +1326,24 @@ void AndroidThunkCpp_SetOrientation(int32 Value)
 	}
 }
 
+void AndroidThunkCpp_SetCellularPreference(int32 Value)
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_SetCellularPreference, Value);
+	}
+}
+
+int32 AndroidThunkCpp_GetCellularPreference()
+{
+	int32 value = 0;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_GetCellularPreference);
+	}
+	return value;
+}
+
 bool AndroidThunkCpp_IsMusicActive()
 {
 	bool bIsActive = false;
@@ -1581,6 +1615,23 @@ int32 AndroidThunkCpp_GetNetworkConnectionType()
 	return result;
 }
 
+bool AndroidThunkCpp_AcquireWifiManagerMulticastLock()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		return FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_AcquireWifiManagerMulticastLock);
+	}
+	return false;
+}
+
+void AndroidThunkCpp_ReleaseWifiManagerMulticastLock()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_ReleaseWifiManagerMulticastLock);
+	}
+}
+
 //The JNI_OnLoad function is triggered by loading the game library from 
 //the Java source file.
 //	static
@@ -1778,6 +1829,22 @@ TArray<int32> AndroidThunkCpp_GetSupportedNativeDisplayRefreshRates()
 		}
 	}
 	return Result;
+}
+
+void AndroidThunkJava_AddNetworkListener()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_AddNetworkListener);
+	}
+}
+
+void AndroidThunkJava_RemoveNetworkListener()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_RemoveNetworkListener);
+	}
 }
 
 bool AndroidThunkCpp_SetNativeDisplayRefreshRate(int32 RefreshRate)

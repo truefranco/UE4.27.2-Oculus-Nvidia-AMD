@@ -167,6 +167,7 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 		bHaveInfo = true;
 	}
 
+	ImportSettings.bDataIsJson = FString(Type).Equals(TEXT("json"), ESearchCase::IgnoreCase);
 	bool bDoImport = true;
 
 	// If we do not have the info we need, pop up window to ask for things
@@ -401,8 +402,8 @@ EReimportResult::Type UCSVImportFactory::Reimport(UObject* Obj, const FString& P
 TArray<FString> UCSVImportFactory::DoImportDataTable(const FCSVImportSettings& InImportSettings, UDataTable* TargetDataTable)
 {
 	// Are we importing JSON data?
-	const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
-	if (bIsJSON)
+	//const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
+	if (InImportSettings.bDataIsJson)
 	{
 		return TargetDataTable->CreateTableFromJSONString(InImportSettings.DataToImport);
 	}
@@ -413,8 +414,8 @@ TArray<FString> UCSVImportFactory::DoImportDataTable(const FCSVImportSettings& I
 TArray<FString> UCSVImportFactory::DoImportCurveTable(const FCSVImportSettings& InImportSettings, UCurveTable* TargetCurveTable)
 {
 	// Are we importing JSON data?
-	const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
-	if (bIsJSON)
+	//const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
+	if (InImportSettings.bDataIsJson)
 	{
 		return TargetCurveTable->CreateTableFromJSONString(InImportSettings.DataToImport, InImportSettings.ImportCurveInterpMode);
 	}
@@ -425,8 +426,8 @@ TArray<FString> UCSVImportFactory::DoImportCurveTable(const FCSVImportSettings& 
 TArray<FString> UCSVImportFactory::DoImportCurve(const FCSVImportSettings& InImportSettings, UCurveBase* TargetCurve)
 {
 	// Are we importing JSON data?
-	const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
-	if (bIsJSON)
+	//const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
+	if (InImportSettings.bDataIsJson)
 	{
 		TArray<FString> Result;
 		Result.Add(LOCTEXT("Error_CannotImportCurveFromJSON", "Cannot import a curve from JSON. Please use CSV instead.").ToString());

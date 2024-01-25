@@ -28,8 +28,6 @@ class HeadsetReceiver extends BroadcastReceiver
 	public static HeadsetReceiver receiver = null;
 	public static IntentFilter filter = null;
 
-	private static Boolean registered = false;
-
 	private static native void stateChanged(int state);
 
 	public static void startReceiver( Activity activity )
@@ -44,11 +42,7 @@ class HeadsetReceiver extends BroadcastReceiver
 			receiver = new HeadsetReceiver();
 		}
 
-		if (!registered)
-		{
-			activity.registerReceiver( receiver, filter );
-			registered = true;
-		}
+		activity.registerReceiver(receiver, filter);
 
 		// initialize with the current headset state
 		int state = activity.getIntent().getIntExtra("state", 0);
@@ -59,11 +53,7 @@ class HeadsetReceiver extends BroadcastReceiver
 	public static void stopReceiver( Activity activity )
 	{
 		GameActivity.Log.debug("Unregistering headset receiver");
-		if (registered)
-		{
-			activity.unregisterReceiver( receiver );
-			registered = false;
-		}
+		activity.unregisterReceiver( receiver );
 	}
 
 	@Override

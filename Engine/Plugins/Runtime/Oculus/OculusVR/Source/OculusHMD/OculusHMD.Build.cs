@@ -52,7 +52,7 @@ namespace UnrealBuildTool.Rules
 					"Analytics",
 					"OpenGLDrv",
 					"VulkanRHI",
-					"OVRPlugin",
+					"OVRPluginXR",
 					"OculusOpenXRLoader",
 					"ProceduralMeshComponent",
 					"Projects",
@@ -108,14 +108,9 @@ namespace UnrealBuildTool.Rules
 				}
 
 				// OVRPlugin
-				{
-					//PublicDelayLoadDLLs.Add("OVRPlugin.dll");
-					RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/Oculus/OVRPlugin/OVRPlugin/" + Target.Platform.ToString() + "/OVRPlugin.dll");
-				}
-
 				if (Target.Platform == UnrealTargetPlatform.Win64)
 				{
-					RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/Oculus/OVRPlugin/OVRPlugin/" + Target.Platform.ToString() + "/OpenXR/OVRPlugin.dll");
+					RuntimeDependencies.Add("$(PluginDir)/Source/ThirdParty/OVRPlugin/OVRPlugin/Lib/" + Target.Platform.ToString() + "/OpenXR/OVRPlugin.dll");
 				}
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Android)

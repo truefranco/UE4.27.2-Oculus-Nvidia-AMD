@@ -32,6 +32,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import java.lang.Override;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -211,6 +212,7 @@ import android.widget.TextView.OnEditorActionListener;
 import android.content.BroadcastReceiver;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
+import com.epicgames.ue4.psoservices.PSOProgramServiceAccessor;
 //$${gameActivityImportAdditions}$$
 
 //$${gameActivityPostImportAdditions}$$
@@ -477,6 +479,11 @@ public class GameActivity extends $${gameActivitySuperClass}$$ implements Surfac
 	public String TextureFormats = "ETC1";
 	public boolean bSupportsFloatingPointRenderTargets = false;
 	private String EGLErrorStatus = "UNSET";
+
+	private PSOProgramServiceAccessor mPSOProgramServiceAccessor = new PSOProgramServiceAccessor();
+
+	static final private AtomicBoolean bIsActivityPaused = new AtomicBoolean(true);
+	static public boolean IsActivityPaused() { return bIsActivityPaused.get();}
 	
 	/** Flag for not officially supported devices */
 	public static boolean bSupportedDevice = true;
@@ -3159,7 +3166,7 @@ public class GameActivity extends $${gameActivitySuperClass}$$ implements Surfac
 
 //$${gameActivityOnCreateAdditions}$$
 //$${gameActivityOnCreateFinalAdditions}$$
-		
+		mPSOProgramServiceAccessor.Init(this);
 		Log.debug("==============> GameActive.onCreate complete!");
 	}
 
@@ -3332,6 +3339,7 @@ public class GameActivity extends $${gameActivitySuperClass}$$ implements Surfac
 	public void onResume()
 	{
 		super.onResume();
+		bIsActivityPaused.set(false);
 
 		// start memory reporter timer (runs every 10 seconds)
 		synchronized(this)
@@ -3479,6 +3487,8 @@ public class GameActivity extends $${gameActivitySuperClass}$$ implements Surfac
 	@Override
 	protected void onPause()
 	{
+	     bIsActivityPaused.set(true);
+
 		// stop memory reporter timer if running
 		synchronized(this)
 		{
@@ -4742,21 +4752,7 @@ public class GameActivity extends $${gameActivitySuperClass}$$ implements Surfac
 		return bTriggeredQuery;
 	}
 
-	public boolean AndroidThunkJava_IapRestorePurchases(String[] InProductIDs, boolean[] bConsumable)
-	{
-		Log.debug("[JAVA] - AndroidThunkJava_IapRestorePurchases");
-		boolean bTriggeredRestore = false;
-		if( IapStoreHelper != null )
-		{
-			Log.debug("[JAVA] - AndroidThunkJava_IapRestorePurchases - Kick off logic here!");
-			bTriggeredRestore = IapStoreHelper.RestorePurchases(InProductIDs, bConsumable);
-		}
-		else
-		{
-			Log.debug("[JAVA] - Store Helper is invalid");
-		}
-		return bTriggeredRestore;
-	}
+	
 
 	public void AndroidThunkJava_DismissSplashScreen()
 	{

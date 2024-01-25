@@ -8,8 +8,11 @@ LICENSE file in the root directory of this source tree.
 
 #include "OculusAnchorLatentActions.h"
 #include "OculusAnchorsPrivate.h"
-#include "OculusAnchorDelegates.h"
 #include "OculusHMD.h"
+#include "OculusAnchorDelegates.h"
+#include "OculusAnchorBPFunctionLibrary.h"
+#include "OculusRoomLayoutManager.h"
+
 
 //
 // Create Spatial Anchor
@@ -213,9 +216,9 @@ void UOculusAsyncAction_SaveAnchor::HandleSaveAnchorComplete(EOculusResult::Type
 
 
 //
-// Save Spaces
+// Save Anchor List
 //
-void UOculusAsyncAction_SaveAnchors::Activate()
+void UOculusAsyncAction_SaveAnchorsList::Activate()
 {
 	if (TargetAnchors.Num() == 0)
 	{
@@ -229,7 +232,7 @@ void UOculusAsyncAction_SaveAnchors::Activate()
 	bool bStartedAsync = OculusAnchors::FOculusAnchors::SaveAnchorList(
 		TargetAnchors,
 		StorageLocation,
-		FOculusAnchorSaveListDelegate::CreateUObject(this, &UOculusAsyncAction_SaveAnchors::HandleSaveAnchorsComplete),
+		FOculusAnchorSaveListDelegate::CreateUObject(this, &UOculusAsyncAction_SaveAnchorsList::HandleSaveAnchorsListComplete),
 		Result
 	);
 
@@ -241,9 +244,9 @@ void UOculusAsyncAction_SaveAnchors::Activate()
 	}
 }
 
-UOculusAsyncAction_SaveAnchors* UOculusAsyncAction_SaveAnchors::OculusAsyncSaveAnchors(const TArray<AActor*>& TargetActors, EOculusSpaceStorageLocation StorageLocation)
+UOculusAsyncAction_SaveAnchorsList* UOculusAsyncAction_SaveAnchorsList::OculusAsyncSaveAnchorsList(const TArray<AActor*>& TargetActors, EOculusSpaceStorageLocation StorageLocation)
 {
-	UOculusAsyncAction_SaveAnchors* Action = NewObject<UOculusAsyncAction_SaveAnchors>();
+	UOculusAsyncAction_SaveAnchorsList* Action = NewObject<UOculusAsyncAction_SaveAnchorsList>();
 
 	auto ValidActorPtr = TargetActors.FindByPredicate([](AActor* Actor) { return IsValid(Actor); });
 
@@ -264,15 +267,11 @@ UOculusAsyncAction_SaveAnchors* UOculusAsyncAction_SaveAnchors::OculusAsyncSaveA
 	{
 		Action->RegisterWithGameInstance(*ValidActorPtr);
 	}
-	else
-	{
-		Action->RegisterWithGameInstance(GWorld);
-	}
 
 	return Action;
 }
 
-void UOculusAsyncAction_SaveAnchors::HandleSaveAnchorsComplete(EOculusResult::Type SaveResult, const TArray<UOculusAnchorComponent*>& SavedSpaces)
+void UOculusAsyncAction_SaveAnchorsList::HandleSaveAnchorsListComplete(EOculusResult::Type SaveResult, const TArray<UOculusAnchorComponent*>& SavedSpaces)
 {
 	if (UOculusFunctionLibrary::IsResultSuccess(SaveResult))
 	{
@@ -345,9 +344,8 @@ void UOculusAsyncAction_QueryAnchors::HandleQueryAnchorsResults(EOculusResult::T
 	SetReadyToDestroy();
 }
 
-
 //
-// Set Component Status
+// Set Component Status with Anchor Actor
 //
 void UOculusAsyncAction_SetAnchorComponentStatus::Activate()
 {
@@ -390,7 +388,7 @@ UOculusAsyncAction_SetAnchorComponentStatus* UOculusAsyncAction_SetAnchorCompone
 	Action->TargetActor = TargetActor;
 	Action->ComponentType = ComponentType;
 	Action->bEnabled = bEnabled;
-	
+
 	if (IsValid(TargetActor))
 	{
 		Action->RegisterWithGameInstance(TargetActor->GetWorld());
@@ -405,7 +403,7 @@ UOculusAsyncAction_SetAnchorComponentStatus* UOculusAsyncAction_SetAnchorCompone
 
 void UOculusAsyncAction_SetAnchorComponentStatus::HandleSetComponentStatusComplete(EOculusResult::Type SetStatusResult, uint64 AnchorHandle, EOculusSpaceComponentType SpaceComponentType, bool bResultEnabled)
 {
-	if (UOculusFunctionLibrary::IsResultSuccess(SetStatusResult))
+	if (UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(SetStatusResult))
 	{
 		Success.Broadcast(TargetAnchorComponent, SpaceComponentType, bResultEnabled, SetStatusResult);
 	}
@@ -417,6 +415,53 @@ void UOculusAsyncAction_SetAnchorComponentStatus::HandleSetComponentStatusComple
 	SetReadyToDestroy();
 }
 
+//
+// Set Component Status
+//
+
+void UOculusAsyncAction_SetComponentStatus::Activate()
+{
+	EOculusResult::Type Result;
+	bool bStartedAsync = OculusAnchors::FOculusAnchors::SetComponentStatus(
+		Component->GetSpace(),
+		Component->GetType(),
+		bEnabled,
+		0,
+		FOculusAnchorSetComponentStatusDelegate::CreateUObject(this, &UOculusAsyncAction_SetComponentStatus::HandleSetComponentStatusComplete),
+		Result);
+
+	if (!bStartedAsync)
+	{
+		UE_LOG(LogOculusAnchors, Warning, TEXT("Failed to start async OVR Plugin call for SetComponentStatus latent action."));
+
+		Failure.Broadcast(Result);
+	}
+}
+
+UOculusAsyncAction_SetComponentStatus* UOculusAsyncAction_SetComponentStatus::OculusAsyncSetComponentStatus(UOculusBaseAnchorComponent* Component, bool bEnabled)
+{
+	UOculusAsyncAction_SetComponentStatus* Action = NewObject<UOculusAsyncAction_SetComponentStatus>();
+	Action->Component = Component;
+	Action->bEnabled = bEnabled;
+
+	Action->RegisterWithGameInstance(GWorld);
+
+	return Action;
+}
+
+void UOculusAsyncAction_SetComponentStatus::HandleSetComponentStatusComplete(EOculusResult::Type SetStatusResult, uint64 AnchorHandle, EOculusSpaceComponentType SpaceComponentType, bool bResultEnabled)
+{
+	if (UOculusAnchorBPFunctionLibrary::IsAnchorResultSuccess(SetStatusResult))
+	{
+		Success.Broadcast(Component, SetStatusResult);
+	}
+	else
+	{
+		Failure.Broadcast(SetStatusResult);
+	}
+
+	SetReadyToDestroy();
+}
 
 //
 // Share Spaces
@@ -444,8 +489,7 @@ void UOculusAsyncAction_ShareAnchors::Activate()
 		TargetAnchors,
 		ToShareWithIds,
 		FOculusAnchorShareDelegate::CreateUObject(this, &UOculusAsyncAction_ShareAnchors::HandleShareAnchorsComplete),
-		Result
-	);
+		Result);
 
 	if (!bStartedAsync)
 	{
@@ -457,10 +501,18 @@ void UOculusAsyncAction_ShareAnchors::Activate()
 
 UOculusAsyncAction_ShareAnchors* UOculusAsyncAction_ShareAnchors::OculusAsyncShareAnchors(const TArray<AActor*>& TargetActors, const TArray<FString>& ToShareWithIds)
 {
-	auto ValidActorPtr = TargetActors.FindByPredicate([](AActor* Actor) { return IsValid(Actor); });
 
 	UOculusAsyncAction_ShareAnchors* Action = NewObject<UOculusAsyncAction_ShareAnchors>();
-	Action->ToShareWithIds = ToShareWithIds;
+	for (const auto& UserIDString : ToShareWithIds)
+	{
+		uint64 UserId = FCString::Strtoui64(*UserIDString, nullptr, 10);
+		if (UserId == 0)
+		{
+			UE_LOG(LogOculusAnchors, Warning, TEXT("UserID provided to share anchors was invalid or unconvertable: %s"), *UserIDString);
+		}
+
+		Action->ToShareWithIds.Add(UserId);
+	}
 
 	for (auto& it : TargetActors)
 	{
@@ -472,7 +524,7 @@ UOculusAsyncAction_ShareAnchors* UOculusAsyncAction_ShareAnchors::OculusAsyncSha
 		UOculusAnchorComponent* AnchorComponent = it->FindComponentByClass<UOculusAnchorComponent>();
 		Action->TargetAnchors.Add(AnchorComponent);
 	}
-
+	auto ValidActorPtr = TargetActors.FindByPredicate([](AActor* Actor) { return IsValid(Actor); });
 	if (ValidActorPtr != nullptr)
 	{
 		Action->RegisterWithGameInstance(*ValidActorPtr);
@@ -485,11 +537,17 @@ UOculusAsyncAction_ShareAnchors* UOculusAsyncAction_ShareAnchors::OculusAsyncSha
 	return Action;
 }
 
-void UOculusAsyncAction_ShareAnchors::HandleShareAnchorsComplete(EOculusResult::Type ShareResult, const TArray<UOculusAnchorComponent*>& SharedAnchors, const TArray<FString>& OculusUserIDs)
+void UOculusAsyncAction_ShareAnchors::HandleShareAnchorsComplete(EOculusResult::Type ShareResult, const TArray<UOculusAnchorComponent*>& SharedAnchors, const TArray<uint64>& OculusUserIDs)
 {
+	TArray<FString> OculusUserIDStrings;
+	for (const auto& it : OculusUserIDs)
+	{
+		OculusUserIDStrings.Add(FString::Printf(TEXT("%llu"), it));
+	}
+
 	if (UOculusFunctionLibrary::IsResultSuccess(ShareResult))
 	{
-		Success.Broadcast(SharedAnchors, OculusUserIDs, ShareResult);
+		Success.Broadcast(SharedAnchors, OculusUserIDStrings, ShareResult);
 	}
 	else
 	{
@@ -497,5 +555,44 @@ void UOculusAsyncAction_ShareAnchors::HandleShareAnchorsComplete(EOculusResult::
 	}
 
 	// Unbind and mark for destruction
+	SetReadyToDestroy();
+}
+
+UOculusAnchorLaunchCaptureFlow* UOculusAnchorLaunchCaptureFlow::LaunchCaptureFlowAsync(const UObject* WorldContext)
+{
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::ReturnNull);
+	if (!ensureAlwaysMsgf(IsValid(WorldContext), TEXT("World Context was not valid.")))
+	{
+		return nullptr;
+	}
+
+	// Create a new UMyDelayAsyncAction, and store function arguments in it.
+	auto NewAction = NewObject<UOculusAnchorLaunchCaptureFlow>();
+	NewAction->RegisterWithGameInstance(World->GetGameInstance());
+	return NewAction;
+}
+
+void UOculusAnchorLaunchCaptureFlow::Activate()
+{
+	Request = 0;
+	FOculusAnchorEventDelegates::OculusSceneCaptureComplete.AddUObject(this, &UOculusAnchorLaunchCaptureFlow::OnCaptureFinish);
+	bool CaptureStarted = OculusAnchors::FOculusRoomLayoutManager::RequestSceneCapture(Request);
+	if (!CaptureStarted)
+	{
+		FOculusAnchorEventDelegates::OculusSceneCaptureComplete.RemoveAll(this);
+		Failure.Broadcast();
+	}
+}
+
+void UOculusAnchorLaunchCaptureFlow::OnCaptureFinish(FUInt64 RequestId, bool bSuccess)
+{
+	if (Request != RequestId.GetValue())
+	{
+		UE_LOG(LogOculusAnchors, Warning, TEXT("%llu request id doesn't match %llu. Ignoring request."), RequestId, Request);
+		return;
+	}
+
+	FOculusAnchorEventDelegates::OculusSceneCaptureComplete.RemoveAll(this);
+	Success.Broadcast();
 	SetReadyToDestroy();
 }

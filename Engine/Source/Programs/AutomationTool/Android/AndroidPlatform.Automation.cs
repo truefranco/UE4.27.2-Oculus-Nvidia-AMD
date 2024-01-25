@@ -2222,11 +2222,8 @@ public class AndroidPlatform : Platform
 
 			int StoreVersionOffset = 0;
 			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(SC.RawProjectPath), SC.StageTargetPlatform.PlatformType);
-			if (ApkName.Contains("-armv7-"))
-			{
-				Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "StoreVersionOffsetArmV7", out StoreVersionOffset);
-			}
-			else if (ApkName.Contains("-arm64-"))
+			
+			if (ApkName.Contains("-arm64-"))
 			{
 				Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "StoreVersionOffsetArm64", out StoreVersionOffset);
 			}
@@ -2425,9 +2422,9 @@ public class AndroidPlatform : Platform
 		if (!AppArchitectures.Contains(DeviceArch))
 		{
 			// go from 64 to 32-bit
-			if (DeviceArch == "-arm64")
+			if (DeviceArch == "-x64")
 			{
-				DeviceArch = "-armv7";
+				DeviceArch = "-arm64";
 			}
 			// go from 64 to 32-bit
 			else if (DeviceArch == "-x64")
@@ -2436,28 +2433,17 @@ public class AndroidPlatform : Platform
 				{
 					DeviceArch = "-x86";
 				}
-				// if it didn't have 32-bit x86, look for 64-bit arm for emulation
-				// @todo android 64-bit: x86_64 most likely can't emulate arm64 at this ponit
-// 				else if (Array.IndexOf(AppArchitectures, "-arm64") == -1)
-// 				{
-// 					DeviceArch = "-arm64";
-// 				}
-				// finally try for 32-bit arm emulation (Houdini)
+				
 				else
 				{
-					DeviceArch = "-armv7";
+					DeviceArch = "-arm64";
 				}
 			}
-			// use armv7 (with Houdini emulation)
 			else if (DeviceArch == "-x86")
 			{
-				DeviceArch = "-armv7";
+				DeviceArch = "-arm64";
 			}
-            else
-            {
-                // future-proof by dropping back to armv7 for unknown
-                DeviceArch = "-armv7";
-            }
+            
 		}
 
 		// if after the fallbacks, we still don't have it, we can't continue

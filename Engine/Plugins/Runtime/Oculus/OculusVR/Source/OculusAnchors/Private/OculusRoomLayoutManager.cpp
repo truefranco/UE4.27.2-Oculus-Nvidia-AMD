@@ -51,31 +51,20 @@ namespace OculusAnchors
 	 */
 	bool FOculusRoomLayoutManager::RequestSceneCapture(uint64& OutRequestID)
 	{
-#if WITH_EDITOR
-		// Scene capture is unsupported over link
-		UE_LOG(LogOculusAnchors, Warning, TEXT("Scene Capture does not work over Link. Please capture a scene with the HMD in standalone mode, then access the scene model over Link."));
-
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("Scene Capture does not work over Link. Please capture a scene with the HMD in standalone mode, then access the scene model over Link."));
-		}
-
-		return false;
-#else
-		OutRequestID = 0;
+        OutRequestID = 0;
 
 		ovrpSceneCaptureRequest sceneCaptureRequest;
 		sceneCaptureRequest.request = nullptr;
 		sceneCaptureRequest.requestByteCount = 0;
 
 		const ovrpResult bSuccess = FOculusHMDModule::GetPluginWrapper().RequestSceneCapture(&sceneCaptureRequest, &OutRequestID);
-		if (bSuccess == ovrpFailure)
+		if (OVRP_FAILURE(bSuccess))
 		{
 			return false;
 		}
 
 		return true;
-#endif
+
 	}
 
 	/**
@@ -88,7 +77,7 @@ namespace OculusAnchors
 	 * @return returns true if sucessfull
 	 */
 	bool FOculusRoomLayoutManager::GetSpaceRoomLayout(const uint64 Space, const uint32 MaxWallsCapacity,
-															FUUID &OutCeilingUuid, FUUID &OutFloorUuid, TArray<FUUID>& OutWallsUuid)
+		FUUID &OutCeilingUuid, FUUID &OutFloorUuid, TArray<FUUID>& OutWallsUuid)
 	{
 		TArray<ovrpUuid> uuids;
 		uuids.InsertZeroed(0, MaxWallsCapacity);
@@ -98,7 +87,7 @@ namespace OculusAnchors
 		roomLayout.wallUuids = uuids.GetData();
 
 		const ovrpResult bSuccess = FOculusHMDModule::GetPluginWrapper().GetSpaceRoomLayout(&Space, &roomLayout);
-		if (bSuccess == ovrpFailure)
+		if (OVRP_FAILURE(bSuccess))
 		{
 			return false;
 		}

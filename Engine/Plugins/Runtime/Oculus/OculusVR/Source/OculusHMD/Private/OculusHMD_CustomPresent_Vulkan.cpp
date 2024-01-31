@@ -35,6 +35,9 @@ public:
 	virtual void* GetOvrpDevice() const override;
 	virtual void* GetOvrpCommandQueue() const override;
 	virtual FTextureRHIRef CreateTexture_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, ovrpTextureHandle InTexture, ETextureCreateFlags InTexCreateFlags) override;
+	// This is a hack to turn force FSR off when we allocate our FDM to avoid a crash on Quest 3
+		// TODO: Remove this for UE 5.3 after there's an engine-side fix
+	virtual void UseFragmentDensityMapOverShadingRate_RHIThread() override;
 	virtual void UpdateFoveationOffsets_RHIThread(bool bUseOffsets, FIntPoint Offsets[2]) override;
 };
 
@@ -49,22 +52,22 @@ FVulkanCustomPresent::FVulkanCustomPresent(FOculusHMD* InOculusHMD) :
 	}
 #endif
 
-#if PLATFORM_WINDOWS
-/*
+
+
 	switch (GPixelFormats[PF_DepthStencil].PlatformFormat)
 	{
 	case VK_FORMAT_D24_UNORM_S8_UINT:
 		DefaultDepthOvrpTextureFormat = ovrpTextureFormat_D24_S8;
 		break;
 	case VK_FORMAT_D32_SFLOAT_S8_UINT:
-		DefaultDepthOvrpTextureFormat = ovrpTextureFormat_D32_S824_FP;
+		DefaultDepthOvrpTextureFormat = ovrpTextureFormat_D32_FP_S8;
 		break;
 	default:
 		UE_LOG(LogHMD, Error, TEXT("Unrecognized depth buffer format"));
 		break;
 	}
-*/
-#endif
+
+
 	FVulkanDynamicRHI* const DynamicRHI = static_cast<FVulkanDynamicRHI*>(GDynamicRHI);
 
 	bSupportsSubsampled = DynamicRHI->GetDevice()->GetOptionalExtensions().HasEXTFragmentDensityMap2;
@@ -148,6 +151,17 @@ FTextureRHIRef FVulkanCustomPresent::CreateTexture_RenderThread(uint32 InSizeX, 
 	default:
 		return nullptr;
 	}
+}
+
+// This is a hack to turn force FSR off when we allocate our FDM to avoid a crash on Quest 3
+	// TODO: Remove this for UE 5.3 after there's an engine-side fix
+void FVulkanCustomPresent::UseFragmentDensityMapOverShadingRate_RHIThread()
+{
+	CheckInRHIThread();
+	SCOPED_NAMED_EVENT(UseFragmentDensityMapOverShadingRate_RHIThread, FColor::Red);
+
+	GRHIVariableRateShadingImageDataType = VRSImage_Fractional;
+	GRHIVariableRateShadingImageFormat = PF_R8G8;
 }
 
 void FVulkanCustomPresent::UpdateFoveationOffsets_RHIThread(bool bUseOffsets, FIntPoint Offsets[2])

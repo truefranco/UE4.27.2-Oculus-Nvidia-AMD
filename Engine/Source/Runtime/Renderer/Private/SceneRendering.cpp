@@ -3328,7 +3328,9 @@ BEGIN_SHADER_PARAMETER_STRUCT(FCustomDepthPassParameters, )
 	RENDER_TARGET_BINDING_SLOTS()
 END_SHADER_PARAMETER_STRUCT()
 
-void FSceneRenderer::RenderCustomDepthPass(FRDGBuilder& GraphBuilder, const FSceneTextureShaderParameters& SceneTextures)
+void FSceneRenderer::RenderCustomDepthPass(
+	FRDGBuilder& GraphBuilder, 
+	const FSceneTextureShaderParameters& SceneTextures)
 {
 	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderCustomDepthPass);
 

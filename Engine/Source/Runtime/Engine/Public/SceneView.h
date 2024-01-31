@@ -1086,6 +1086,12 @@ public:
 
 	FConvexVolume ViewFrustum;
 
+	/** Monoscopic culling frustum, same as ViewFrustum in case of non-stereo */
+	FConvexVolume CullingFrustum;
+
+	/** Monoscopic culling origin, same as the view matrix origin in case of non-stereo */
+	FVector CullingOrigin;
+
 	bool bHasNearClippingPlane;
 
 	FPlane NearClippingPlane;

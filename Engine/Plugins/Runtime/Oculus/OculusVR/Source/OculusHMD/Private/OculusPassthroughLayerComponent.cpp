@@ -27,6 +27,10 @@ void UStereoLayerShapeReconstructed::ApplyShape(IStereoLayers::FLayerDesc& Layer
 
 void UStereoLayerShapeUserDefined::ApplyShape(IStereoLayers::FLayerDesc& LayerDesc)
 {
+	//If there is no user geometry, set the layer hidden to avoid unnecessary cost
+	if (UserGeometryList.IsEmpty())
+		LayerDesc.Flags |= IStereoLayers::LAYER_FLAG_HIDDEN;
+
 	const FEdgeStyleParameters EdgeStyleParameters(
 		bEnableEdgeColor, 
 		bEnableColorMap, 
@@ -78,6 +82,12 @@ void UOculusPassthroughLayerComponent::OnComponentDestroyed(bool bDestroyingHier
 
 void UOculusPassthroughLayerComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
+	if (Texture == nullptr && !LayerRequiresTexture())
+	{
+		// UStereoLayerComponent hides components without textures
+		Texture = GEngine->DefaultTexture;
+	}
+
 	UpdatePassthroughObjects();
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }
@@ -92,35 +102,73 @@ void UOculusPassthroughLayerComponent::UpdatePassthroughObjects()
 		{
 			if (Entry.bUpdateTransform)
 			{
-				AStaticMeshActor** StaticMeshActor = PassthroughActorMap.Find(Entry.MeshName);
-				if (StaticMeshActor)
+				const UMeshComponent** MeshComponent = PassthroughComponentMap.Find(Entry.MeshName);
+				if (MeshComponent)
 				{
-					UStaticMeshComponent* StaticMeshComponent = (*StaticMeshActor)->GetStaticMeshComponent();
-					if (StaticMeshComponent)
-					{
-						Entry.Transform = StaticMeshComponent->GetComponentTransform();
-						bDirty = true;
-					}
+					Entry.Transform = (*MeshComponent)->GetComponentTransform();
+					bDirty = true;
+					
 				}
 			}
 		}
-		if (bDirty) {
+		if (bDirty) 
+		{
 			MarkStereoLayerDirty();
 		}
 	}
 
 }
 
-
-OculusHMD::FOculusPassthroughMeshRef UOculusPassthroughLayerComponent::CreatePassthroughMesh(UStaticMesh* Mesh)
+OculusHMD::FOculusPassthroughMeshRef UOculusPassthroughLayerComponent::CreatePassthroughMesh(UProceduralMeshComponent* ProceduralMeshComponent)
 {
+	if (!ProceduralMeshComponent)
+	{
+		UE_LOG(LogOculusPassthrough, Error, TEXT("Passthrough Procedural Mesh is nullptr"));
+		return nullptr;
+	}
+
+	TArray<int32> Triangles;
+	TArray<FVector> Vertices;
+	int32 NumSections = ProceduralMeshComponent->GetNumSections();
+	int VertexOffset = 0; //Each section start with vertex IDs of 0, in order to create a single mesh from all sections we need to offset those IDs by the amount of previous vertices
+	for (int32 s = 0; s < NumSections; ++s)
+	{
+		FProcMeshSection* ProcMeshSection = ProceduralMeshComponent->GetProcMeshSection(s);
+		for (int32 i = 0; i < ProcMeshSection->ProcIndexBuffer.Num(); ++i)
+		{
+			Triangles.Add(VertexOffset + ProcMeshSection->ProcIndexBuffer[i]);
+		}
+
+		for (int32 i = 0; i < ProcMeshSection->ProcVertexBuffer.Num(); ++i)
+		{
+			Vertices.Add(ProcMeshSection->ProcVertexBuffer[i].Position);
+		}
+
+		VertexOffset += ProcMeshSection->ProcVertexBuffer.Num();
+	}
+
+	OculusHMD::FOculusPassthroughMeshRef PassthroughMesh = new OculusHMD::FOculusPassthroughMesh(Vertices, Triangles);
+	return PassthroughMesh;
+}
+
+
+OculusHMD::FOculusPassthroughMeshRef UOculusPassthroughLayerComponent::CreatePassthroughMesh(UStaticMeshComponent* StaticMeshComponent)
+{
+	if (!StaticMeshComponent)
+	{
+		UE_LOG(LogOculusPassthrough, Error, TEXT("Passthrough Static Mesh is nullptr"));
+		return nullptr;
+	}
+
+	UStaticMesh* Mesh = StaticMeshComponent->GetStaticMesh();
+
 	if (!Mesh || !Mesh->GetRenderData())
 	{
 		UE_LOG(LogOculusPassthrough, Error, TEXT("Passthrough Static Mesh has no Renderdata"));
 		return nullptr;
 	}
 
-	if(Mesh->GetNumLODs() == 0)
+	if (Mesh->GetNumLODs() == 0)
 	{
 		UE_LOG(LogOculusPassthrough, Error, TEXT("Passthrough Static Mesh has no LODs"));
 		return nullptr;
@@ -137,100 +185,146 @@ OculusHMD::FOculusPassthroughMeshRef UOculusPassthroughLayerComponent::CreatePas
 
 	TArray<int32> Triangles;
 	const int32 NumIndices = LOD.IndexBuffer.GetNumIndices();
-	for (int32 i = 0 ; i < NumIndices ; ++i)
+	for (int32 i = 0; i < NumIndices; ++i)
 	{
 		Triangles.Add(LOD.IndexBuffer.GetIndex(i));
 	}
 
 	TArray<FVector> Vertices;
 	const int32 NumVertices = LOD.VertexBuffers.PositionVertexBuffer.GetNumVertices();
-	for (int32 i = 0 ; i < NumVertices ; ++i)
+	for (int32 i = 0; i < NumVertices; ++i)
 	{
-		Vertices.Add(LOD.VertexBuffers.PositionVertexBuffer.VertexPosition(i));
+		Vertices.Add((FVector)LOD.VertexBuffers.PositionVertexBuffer.VertexPosition(i));
 	}
 
 	OculusHMD::FOculusPassthroughMeshRef PassthroughMesh = new OculusHMD::FOculusPassthroughMesh(Vertices, Triangles);
 	return PassthroughMesh;
 }
 
-void UOculusPassthroughLayerComponent::AddSurfaceGeometry(AStaticMeshActor* StaticMeshActor, bool updateTransform )
-{
-	if (StaticMeshActor == nullptr)
-	{
-		UE_LOG(LogOculusPassthrough, Error, TEXT("StaticMeshActor is NULL."));
-		return;
-	}
-
-	UStereoLayerShapeUserDefined* UserShape = Cast<UStereoLayerShapeUserDefined>(Shape);
-	if (UserShape == nullptr)
-	{
-		UE_LOG(LogOculusPassthrough, Warning, TEXT("Surface geometry can be only assign to passthrough layer with `User Defined` shape."));
-		return;
-	}
-
-	UStaticMeshComponent* StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
-	if (StaticMeshComponent == nullptr || StaticMeshComponent->GetStaticMesh() == nullptr)
-	{
-		UE_LOG(LogOculusPassthrough, Warning, TEXT("Static mesh actor does not have mesh component."));
-		PassthroughActorMap.Add(StaticMeshActor->GetFullName(), StaticMeshActor);
-		MarkStereoLayerDirty();
-		return;
-	} 
-
-	OculusHMD::FOculusPassthroughMeshRef PassthroughMesh = CreatePassthroughMesh(StaticMeshComponent->GetStaticMesh());
-	if (PassthroughMesh)
-	{
-		const FString MeshName = StaticMeshActor->GetFullName();
-		const FTransform Transform = StaticMeshComponent->GetComponentTransform();
-		UserShape->AddGeometry(MeshName, PassthroughMesh, Transform, updateTransform);
-	}
-	
-	PassthroughActorMap.Add(StaticMeshActor->GetFullName(), StaticMeshActor);
-	MarkStereoLayerDirty();
-}
-
-void UOculusPassthroughLayerComponent::RemoveSurfaceGeometry(AStaticMeshActor* StaticMeshActor )
+void UOculusPassthroughLayerComponent::AddSurfaceGeometry(AStaticMeshActor* StaticMeshActor, bool updateTransform)
 {
 	if (StaticMeshActor)
 	{
-		UStereoLayerShapeUserDefined* UserShape = Cast<UStereoLayerShapeUserDefined>(Shape);
-		if (UserShape)
-		{
-			UStaticMeshComponent *StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
-			if (StaticMeshComponent)
-			{
-				UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh();
-				if (StaticMesh)
-				{
-					const FString MeshName = StaticMeshActor->GetFullName();
-					UserShape->RemoveGeometry(MeshName);
-				}
-			}
-			PassthroughActorMap.Remove(StaticMeshActor->GetFullName());
-		}
+		UStaticMeshComponent* StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
+		if (StaticMeshComponent)
+			AddStaticSurfaceGeometry(StaticMeshComponent, updateTransform);
 	}
+}
+
+void UOculusPassthroughLayerComponent::AddStaticSurfaceGeometry(UStaticMeshComponent* StaticMeshComponent, bool updateTransform)
+{
+	if (!StaticMeshComponent)
+		return;
+
+	UStereoLayerShapeUserDefined* UserShape = Cast<UStereoLayerShapeUserDefined>(Shape);
+	if (!UserShape)
+		return;
+
+	OculusHMD::FOculusPassthroughMeshRef PassthroughMesh = CreatePassthroughMesh(StaticMeshComponent);
+	if (!PassthroughMesh)
+		return;
+
+	const FString MeshName = StaticMeshComponent->GetFullName();
+	const FTransform Transform = StaticMeshComponent->GetComponentTransform();
+	UserShape->AddGeometry(MeshName, PassthroughMesh, Transform, updateTransform);
+
+	PassthroughComponentMap.Add(MeshName, StaticMeshComponent);
+	MarkStereoLayerDirty();
+}
+
+void UOculusPassthroughLayerComponent::AddProceduralSurfaceGeometry(UProceduralMeshComponent* ProceduralMeshComponent, bool updateTransform)
+{
+	if (!ProceduralMeshComponent)
+		return;
+
+	UStereoLayerShapeUserDefined* UserShape = Cast<UStereoLayerShapeUserDefined>(Shape);
+	if (!UserShape)
+		return;
+
+	OculusHMD::FOculusPassthroughMeshRef PassthroughMesh = CreatePassthroughMesh(ProceduralMeshComponent);
+	if (!PassthroughMesh)
+		return;
+
+	const FString MeshName = ProceduralMeshComponent->GetFullName();
+	const FTransform Transform = ProceduralMeshComponent->GetComponentTransform();
+	UserShape->AddGeometry(MeshName, PassthroughMesh, Transform, updateTransform);
+
+	PassthroughComponentMap.Add(MeshName, ProceduralMeshComponent);
+	MarkStereoLayerDirty();
+}
+
+void UOculusPassthroughLayerComponent::RemoveSurfaceGeometry(AStaticMeshActor* StaticMeshActor)
+{
+	if (StaticMeshActor)
+		RemoveSurfaceGeometryComponent(StaticMeshActor->GetStaticMeshComponent());
+}
+
+void UOculusPassthroughLayerComponent::RemoveStaticSurfaceGeometry(UStaticMeshComponent* StaticMeshComponent)
+{
+	RemoveSurfaceGeometryComponent(StaticMeshComponent);
+}
+
+void UOculusPassthroughLayerComponent::RemoveProceduralSurfaceGeometry(UProceduralMeshComponent* ProceduralMeshComponent)
+{
+	RemoveSurfaceGeometryComponent(ProceduralMeshComponent);
+}
+
+void UOculusPassthroughLayerComponent::RemoveSurfaceGeometryComponent(UMeshComponent* MeshComponent)
+{
+	if (!MeshComponent)
+		return;
+
+	UStereoLayerShapeUserDefined* UserShape = Cast<UStereoLayerShapeUserDefined>(Shape);
+	if (!UserShape)
+		return;
+
+	const FString MeshName = MeshComponent->GetFullName();
+
+	UserShape->RemoveGeometry(MeshName);
+	PassthroughComponentMap.Remove(MeshName);
 
 	MarkStereoLayerDirty();
 }
 
 bool UOculusPassthroughLayerComponent::IsSurfaceGeometry(AStaticMeshActor* StaticMeshActor) const
 {
-	if (StaticMeshActor)
-	{
-		UStereoLayerShapeUserDefined* UserShape = Cast<UStereoLayerShapeUserDefined>(Shape);
-		if (UserShape)
-		{
-			return PassthroughActorMap.Contains(StaticMeshActor->GetFullName());
-		}
-	}
+	return StaticMeshActor ? IsSurfaceGeometryComponent(StaticMeshActor->GetStaticMeshComponent()) : false;
+}
 
-	return false;
+bool UOculusPassthroughLayerComponent::IsSurfaceGeometryComponent(const UMeshComponent* MeshComponent) const
+{
+	return MeshComponent ? PassthroughComponentMap.Contains(MeshComponent->GetFullName()) : false;
 }
 
 void UOculusPassthroughLayerComponent::MarkPassthroughStyleForUpdate()
 {
 	bPassthroughStyleNeedsUpdate = true;
 }
+
+#if WITH_EDITOR
+bool UOculusPassthroughLayerComponent::CanEditChange(const FProperty* InProperty) const
+{
+	if (!Super::CanEditChange(InProperty))
+		return false;
+
+	if (!(Shape && Shape->IsA(UPassthroughLayerBase::StaticClass())))
+	{
+		return true;
+	}
+
+	const FName PropertyName = InProperty->GetFName();
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UOculusPassthroughLayerComponent, Texture)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(UOculusPassthroughLayerComponent, bQuadPreserveTextureRatio)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(UOculusPassthroughLayerComponent, QuadSize)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(UOculusPassthroughLayerComponent, UVRect)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(UOculusPassthroughLayerComponent, StereoLayerType))
+	{
+		return false;
+	}
+
+	return true;
+}
+#endif // WITH_EDITOR
 
 bool UOculusPassthroughLayerComponent::LayerRequiresTexture()
 {

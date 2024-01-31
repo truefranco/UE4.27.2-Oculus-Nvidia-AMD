@@ -95,6 +95,36 @@ bool FVulkanExtensions::GetVulkanDeviceExtensionsRequired(struct VkPhysicalDevic
 	return true;
 }
 
+#if WITH_EDITOR
+bool FEditorVulkanExtensions::GetVulkanInstanceExtensionsRequired(TArray<const ANSICHAR*>& Out)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS_VULKAN && PLATFORM_WINDOWS
+	Out.Append({ "VK_KHR_surface",
+		"VK_KHR_external_memory_capabilities",
+		"VK_KHR_win32_surface",
+		"VK_KHR_external_fence_capabilities",
+		"VK_KHR_external_semaphore_capabilities",
+		"VK_KHR_get_physical_device_properties2" });
+#endif
+	return true;
+}
+
+bool FEditorVulkanExtensions::GetVulkanDeviceExtensionsRequired(struct VkPhysicalDevice_T* pPhysicalDevice, TArray<const ANSICHAR*>& Out)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS_VULKAN && PLATFORM_WINDOWS
+	Out.Append({ "VK_KHR_swapchain",
+		"VK_KHR_external_memory",
+		"VK_KHR_external_memory_win32",
+		"VK_KHR_external_fence",
+		"VK_KHR_external_fence_win32",
+		"VK_KHR_external_semaphore",
+		"VK_KHR_external_semaphore_win32",
+		"VK_KHR_get_memory_requirements2",
+		"VK_KHR_dedicated_allocation" });
+#endif
+	return true;
+}
+#endif
 
 } // namespace OculusHMD
 

@@ -2350,11 +2350,11 @@ private:
 	mutable int32 UniformExpressionCacheSerialNumber = 0;
 
 	/** For tracking down a bug accessing a deleted proxy. */
-	mutable int8 MarkedForGarbageCollection : 1;
-	mutable int8 DeletedFlag : 1;
-	mutable int8 ReleaseResourceFlag : 1;
+	mutable uint8 MarkedForGarbageCollection : 1;
+	mutable uint8 DeletedFlag : 1;
+	mutable uint8 ReleaseResourceFlag : 1;
 	/** If any VT producer destroyed callbacks have been registered */
-	mutable int8 HasVirtualTextureCallbacks : 1;
+	mutable uint8 HasVirtualTextureCallbacks : 1;
 
 	/** 
 	 * Tracks all material render proxies in all scenes, can only be accessed on the rendering thread.

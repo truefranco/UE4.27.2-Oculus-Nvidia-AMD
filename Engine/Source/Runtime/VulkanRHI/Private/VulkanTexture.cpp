@@ -2340,8 +2340,22 @@ void FVulkanTextureBase::DetachView(FVulkanViewBase* View)
 
 
 FVulkanTexture2D::FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat InFormat, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, ETextureCreateFlags UEFlags, ERHIAccess InResourceState, const FRHIResourceCreateInfo& CreateInfo)
-:	FRHITexture2D(SizeX, SizeY, FMath::Max(NumMips, 1u), NumSamples, InFormat, UEFlags, CreateInfo.ClearValueBinding)
-,	FVulkanTextureBase(Device, VK_IMAGE_VIEW_TYPE_2D, InFormat, SizeX, SizeY, 1, 1, FMath::Max(NumMips, 1u), NumSamples, UEFlags, InResourceState, CreateInfo)
+:	FRHITexture2D(SizeX, 
+	SizeY, 
+	FMath::Max(NumMips, 1u), 
+	NumSamples, 
+	InFormat, 
+	UEFlags, 
+	CreateInfo.ClearValueBinding)
+,	FVulkanTextureBase(Device, 
+	VK_IMAGE_VIEW_TYPE_2D, 
+	InFormat, 
+	SizeX, 
+	SizeY, 1, 1, FMath::Max(NumMips, 1u), 
+	NumSamples, 
+	UEFlags, 
+	InResourceState, 
+	CreateInfo)
 {
 }
 

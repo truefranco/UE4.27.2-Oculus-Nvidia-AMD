@@ -62,6 +62,7 @@ FLayer::FLayer(uint32 InId, const IStereoLayers::FLayerDesc& InDesc) :
 	bUpdateTexture(false),
 	bInvertY(false),
 	bHasDepth(false),
+	bSupportDepthComposite(false),
 	PokeAHoleComponentPtr(nullptr), 
 	PokeAHoleActor(nullptr)
 {
@@ -88,6 +89,7 @@ FLayer::FLayer(const FLayer& Layer) :
 	bUpdateTexture(Layer.bUpdateTexture),
 	bInvertY(Layer.bInvertY),
 	bHasDepth(Layer.bHasDepth),
+	bSupportDepthComposite(Layer.bSupportDepthComposite),
 	PokeAHoleComponentPtr(Layer.PokeAHoleComponentPtr),
 	PokeAHoleActor(Layer.PokeAHoleActor),
 	UserDefinedGeometryMap(Layer.UserDefinedGeometryMap),
@@ -127,14 +129,21 @@ void FLayer::SetDesc(const IStereoLayers::FLayerDesc& InDesc)
 		HandlePokeAHoleComponent();
 	}
 #if PLATFORM_WINDOWS
-	if (!IsPassthroughShape())
-	{
+	//if (!IsPassthroughShape())
+	//{
 		Desc.Flags |= IStereoLayers::LAYER_FLAG_SUPPORT_DEPTH;
-	}
+	//}
 #endif //PLATFORM_WINDOWS
 
 	UpdatePassthroughPokeActors_GameThread();
 
+}
+
+void FLayer::SetDesc(const FSettings* Settings, const IStereoLayers::FLayerDesc& InDesc)
+{
+	bSupportDepthComposite = Settings->Flags.bCompositeDepth;
+
+	SetDesc(InDesc);
 }
 
 static UWorld* GetWorld()
@@ -156,7 +165,8 @@ void FLayer::HandlePokeAHoleComponent()
 	const FString BaseComponentName = FString::Printf(TEXT("OculusPokeAHole_%d"), Id);
 	const FName ComponentName(*BaseComponentName);
 
-	if (!PokeAHoleComponentPtr) {
+	if (!PokeAHoleComponentPtr)
+	{
 		UWorld* World = GetWorld();
 
 		if (!World)
@@ -317,7 +327,7 @@ bool FLayer::NeedsPokeAHole() {
 
 bool FLayer::NeedsPassthroughPokeAHole() 
 { 
-	return (IsDepthEnabled() && Desc.HasShape<FUserDefinedLayer>());
+	return !IsDepthEnabled() && Desc.HasShape<FUserDefinedLayer>();
 }
 
 bool FLayer::BuildPassthroughPokeActor(FOculusPassthroughMeshRef PassthroughMesh, FPassthroughPokeActor& OutPassthroughPokeActor)
@@ -768,6 +778,10 @@ bool FLayer::Initialize_RenderThread(const FSettings* Settings, FCustomPresent* 
 
 				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 				FClearValueBinding DepthTextureBinding = SceneContext.GetDefaultDepthClear();
+				if (OvrpLayerDesc.Shape == ovrpShape_EyeFov)
+				{
+					ColorTextureBinding = FClearValueBinding::Black;
+				}
 
 				SwapChain = CustomPresent->CreateSwapChain_RenderThread(SizeX, SizeY, ColorFormat, ColorTextureBinding, NumMips, NumSamples, NumSamplesTileMem, ResourceType, ColorTextures, ColorTexCreateFlags, *FString::Printf(TEXT("Oculus Color Swapchain %d"), OvrpLayerId));
 
@@ -881,7 +895,7 @@ void FLayer::UpdatePassthroughStyle_RenderThread(const FEdgeStyleParameters& Edg
 		Style.TextureColorMapDataSize = EdgeStyleParameters.ColorMapData.Num();
 	} 
 	
-	if (OVRP_FAILURE(FOculusHMDModule::GetPluginWrapper().SetInsightPassthroughStyle(OvrpLayerId,Style)))
+	if (OVRP_FAILURE(FOculusHMDModule::GetPluginWrapper().SetInsightPassthroughStyle2(OvrpLayerId, &Style)))
 	{
 		UE_LOG(LogTemp, Error, TEXT("Failed setting passthrough style"));
 		return;
@@ -1269,11 +1283,11 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 
 #if PLATFORM_WINDOWS
 		if(InvAlphaTexture == nullptr)
-		{
-			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_IgnoreSourceAlpha;
-		}
+			{
+				OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_IgnoreSourceAlpha;
+			}
 #endif
-	}
+		}
 
 	return &OvrpLayerSubmit.Base;
 }
@@ -1343,9 +1357,22 @@ void FLayer::AddPassthroughMesh_RenderThread(const TArray<FVector>& Vertices,con
 	uint64_t MeshHandle = 0;
 	uint64_t InstanceHandle = 0;
 
+	// Explicit conversion is needed since FVector contains double elements.
+		// Converting Vertices.Data() to float* causes issues when memory is parsed.
+	TArray<float> VertexData;
+	VertexData.SetNumUninitialized(Vertices.Num() * 3);
+
+	size_t i = 0;
+	for (const FVector& vertex : Vertices)
+	{
+		VertexData[i++] = vertex.X;
+		VertexData[i++] = vertex.Y;
+		VertexData[i++] = vertex.Z;
+	}
+
 	if (OVRP_FAILURE(FOculusHMDModule::GetPluginWrapper().CreateInsightTriangleMesh(
 		OvrpLayerId,
-		(float*)Vertices.GetData(),
+		VertexData.GetData(),
 		Vertices.Num(),
 		(int*)Triangles.GetData(),
 		Triangles.Num() / 3,

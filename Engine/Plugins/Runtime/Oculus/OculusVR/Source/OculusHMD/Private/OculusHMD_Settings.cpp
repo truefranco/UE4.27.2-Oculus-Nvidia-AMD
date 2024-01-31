@@ -34,6 +34,7 @@ FSettings::FSettings() :
 	, ColorScale(ovrpVector4f{1,1,1,1})
 	, ColorOffset(ovrpVector4f{0,0,0,0})
 	, bApplyColorScaleAndOffsetToAllLayers(false)
+	, CurrentFeatureLevel(GMaxRHIFeatureLevel)
 	, bLateLatching(false)
 	, bPhaseSync(false)
 	, bSupportExperimentalFeatures(false)
@@ -54,7 +55,8 @@ FSettings::FSettings() :
 	Flags.bCompositeDepth = true;
 	Flags.bsRGBEyeBuffer = false;
 	Flags.bStereoEnabled = false;
-	CurrentShaderPlatform = EShaderPlatform::SP_PCD3D_SM5;
+	CurrentFeatureLevel = GEngine ? GEngine->GetDefaultWorldFeatureLevel() : GMaxRHIFeatureLevel;
+	CurrentShaderPlatform = GShaderPlatformForFeatureLevel[CurrentFeatureLevel];
 #endif
 
 	Flags.bSupportsDash = true;

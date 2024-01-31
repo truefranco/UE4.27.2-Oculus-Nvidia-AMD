@@ -70,6 +70,9 @@ public:
 	void CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FRHITexture* DstTexture, FRHITexture* SrcTexture, FIntRect DstRect = FIntRect(), FIntRect SrcRect = FIntRect(), bool bAlphaPremultiply = false, bool bNoAlphaWrite = false, bool bInvertY = true, bool sRGBSource = false, bool bInvertAlpha = false) const;
 	void SubmitGPUCommands_RenderThread(FRHICommandListImmediate& RHICmdList);
 	virtual void SubmitGPUFrameTime(float GPUFrameTime) { }
+	// This is a hack to turn force FSR off when we allocate our FDM to avoid a crash on Quest 3
+		// TODO: Remove this for UE 5.3 after there's an engine-side fix
+	virtual void UseFragmentDensityMapOverShadingRate_RHIThread() {};
 	virtual void UpdateFoveationOffsets_RHIThread(bool bUseOffsets, FIntPoint Offsets[2]) { };
 
 	bool SupportsSRGB() { return bSupportsSRGB; }

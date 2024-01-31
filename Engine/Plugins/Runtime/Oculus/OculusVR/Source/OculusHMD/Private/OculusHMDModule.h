@@ -18,7 +18,7 @@ public:
 
 	static inline FOculusHMDModule& Get()
 	{
-		return FModuleManager::LoadModuleChecked< FOculusHMDModule >("OculusHMD");
+		return FModuleManager::LoadModuleChecked<FOculusHMDModule>("OculusHMD");
 	}
 
 	// IModuleInterface
@@ -92,7 +92,10 @@ public:
 
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
 	OCULUSHMD_API static void* GetOVRPluginHandle();
-	OCULUSHMD_API static inline OculusPluginWrapper& GetPluginWrapper() { return PluginWrapper; }
+	OCULUSHMD_API static inline OculusPluginWrapper& GetPluginWrapper() 
+	{ 
+		return PluginWrapper; 
+	}
 	virtual bool PoseToOrientationAndPosition(const FQuat& InOrientation, const FVector& InPosition, FQuat& OutOrientation, FVector& OutPosition) const override;
 
 protected:
@@ -101,11 +104,14 @@ protected:
 	static OculusPluginWrapper PluginWrapper;
 
 	bool bPreInit;
+
 	bool bPreInitCalled;
 	void *OVRPluginHandle;
 	uint64 GraphicsAdapterLuid;
 	TWeakPtr< IHeadMountedDisplay, ESPMode::ThreadSafe > HeadMountedDisplay;
 	TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe > VulkanExtensions;
+
+	friend class ::OculusHMD::FOculusHMD;
 
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
 };

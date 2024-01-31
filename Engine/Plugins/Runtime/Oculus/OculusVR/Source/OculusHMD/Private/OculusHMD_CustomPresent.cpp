@@ -185,10 +185,10 @@ EPixelFormat FCustomPresent::GetPixelFormat(EPixelFormat Format) const
 {
 	switch (Format)
 	{
-//	case PF_B8G8R8A8:
+		//	case PF_B8G8R8A8:
 	case PF_FloatRGBA:
 	case PF_FloatR11G11B10:
-//	case PF_R8G8B8A8:
+		//	case PF_R8G8B8A8:
 		return Format;
 	}
 
@@ -200,16 +200,16 @@ EPixelFormat FCustomPresent::GetPixelFormat(ovrpTextureFormat Format) const
 {
 	switch(Format)
 	{
-//		case ovrpTextureFormat_R8G8B8A8_sRGB:
-//		case ovrpTextureFormat_R8G8B8A8:
-//			return PF_R8G8B8A8;
-		case ovrpTextureFormat_R16G16B16A16_FP:
-			return PF_FloatRGBA;
-		case ovrpTextureFormat_R11G11B10_FP:
-			return PF_FloatR11G11B10;
-//		case ovrpTextureFormat_B8G8R8A8_sRGB:
-//		case ovrpTextureFormat_B8G8R8A8:
-//			return PF_B8G8R8A8;
+		//		case ovrpTextureFormat_R8G8B8A8_sRGB:
+		//		case ovrpTextureFormat_R8G8B8A8:
+		//			return PF_R8G8B8A8;
+	case ovrpTextureFormat_R16G16B16A16_FP:
+		return PF_FloatRGBA;
+	case ovrpTextureFormat_R11G11B10_FP:
+		return PF_FloatR11G11B10;
+		//		case ovrpTextureFormat_B8G8R8A8_sRGB:
+		//		case ovrpTextureFormat_B8G8R8A8:
+		//			return PF_B8G8R8A8;
 	}
 
 	return GetDefaultPixelFormat();

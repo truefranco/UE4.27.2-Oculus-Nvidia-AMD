@@ -47,7 +47,7 @@ namespace UnrealBuildTool
 			HwAddress,
 			UndefinedBehavior,
 			UndefinedBehaviorMinimal,
-			//Thread,
+			Thread,
 		};
 
 		public static string GetCompilerOption(ClangSanitizer Sanitizer)
@@ -58,7 +58,7 @@ namespace UnrealBuildTool
 				case ClangSanitizer.HwAddress: return "hwaddress";
 				case ClangSanitizer.UndefinedBehavior:
 				case ClangSanitizer.UndefinedBehaviorMinimal: return "undefined";
-				//case ClangSanitizer.Thread: return "thread";
+				case ClangSanitizer.Thread: return "thread";
 				default: return "";
 			}
 		}
@@ -493,7 +493,7 @@ namespace UnrealBuildTool
 			return GPUArchitectures;
 		}
 
-		public int GetNdkApiLevelInt(int MinNdk = 21)
+		public int GetNdkApiLevelInt(int MinNdk = 26)
 		{
 			string NDKVersion = GetNdkApiLevel();
 			int NDKVersionInt = MinNdk;
@@ -726,7 +726,11 @@ namespace UnrealBuildTool
 				Result += " -Wno-unused-lambda-capture";            // probably should fix the code
 																	//				Result += " -Wno-nonportable-include-path";         // not all of these are real
 			}
-
+			if (CompilerVersionGreaterOrEqual(12, 0, 0))
+			{
+				// We have 'this' vs nullptr comparisons that get optimized away for newer versions of Clang, which is undesirable until we refactor these checks.
+				Result += " -fno-delete-null-pointer-checks";
+			}
 			// shipping builds will cause this warning with "ensure", so disable only in those case
 			if (CompileEnvironment.Configuration == CppConfiguration.Shipping)
 			{
@@ -749,6 +753,10 @@ namespace UnrealBuildTool
 				if (CompileEnvironment.bOptimizeForSize)
 				{
 					Result += " -Oz";
+					if(Architecture == "-arm64")
+					{
+						Result += " -moutline";
+					}
 				}
 				else
 				{

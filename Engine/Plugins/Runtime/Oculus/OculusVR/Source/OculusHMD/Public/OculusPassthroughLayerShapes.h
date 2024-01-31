@@ -46,8 +46,19 @@ struct FEdgeStyleParameters {
 
 	};
 
-	FEdgeStyleParameters(bool bEnableEdgeColor, bool bEnableColorMap, float TextureOpacityFactor, float Brightness, float Contrast, float Posterize, float Saturation
-		, FLinearColor EdgeColor, FLinearColor ColorScale, FLinearColor ColorOffset, EColorMapType InColorMapType, const TArray<FLinearColor>& InColorMapGradient)
+	FEdgeStyleParameters(
+		bool bEnableEdgeColor, 
+		bool bEnableColorMap, 
+		float TextureOpacityFactor, 
+		float Brightness, 
+		float Contrast, 
+		float Posterize, 
+		float Saturation,
+		FLinearColor EdgeColor, 
+		FLinearColor ColorScale, 
+		FLinearColor ColorOffset, 
+		EColorMapType InColorMapType, 
+		const TArray<FLinearColor>& InColorMapGradient)
 		: bEnableEdgeColor(bEnableEdgeColor)
 		, bEnableColorMap(bEnableColorMap)
 		, TextureOpacityFactor(TextureOpacityFactor)

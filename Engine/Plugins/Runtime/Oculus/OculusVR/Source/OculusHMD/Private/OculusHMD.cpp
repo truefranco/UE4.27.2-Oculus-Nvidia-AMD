@@ -125,6 +125,8 @@ static TAutoConsoleVariable<float> CVarOculusDynamicResolutionPixelDensity(
 
 #define OCULUS_PAUSED_IDLE_FPS 10
 
+static const FString USE_SCENE_PERMISSION_NAME("com.oculus.permission.USE_SCENE");
+
 namespace OculusHMD
 {
 
@@ -1767,14 +1769,20 @@ namespace OculusHMD
 						UE_LOG(LogHMD, Log, TEXT("Allocating Oculus %d x %d variable resolution swapchain"), TexSize.X, TexSize.Y, Index);
 						bNeedReAllocateFoveationTexture_RenderThread = false;
 					}
-
+					// This is a hack to turn force the runtime to use FDM over FSR when we allocate our FDM to avoid a crash on Quest 3
+					// TODO: Remove this for UE 5.3 after there's an engine-side fix
+					ExecuteOnRHIThread_DoNotWait([this]() {
+						// Set this in AllocateShadingRateTexture because it guarantees that this runs after VulkanExtensions has initially
+						// selected the shading rate type, before the FDM is actually going to be used, and only when we actually have an FDM
+						CustomPresent->UseFragmentDensityMapOverShadingRate_RHIThread();
+						});
 					OutTexture = Texture;
 					OutTextureSize = TexSize;
 					return true;
 				}
 			}
 		}
-
+		OutTexture = nullptr;
 		return false;
 	}
 
@@ -1823,7 +1831,7 @@ namespace OculusHMD
 				}
 			}
 		}
-
+		OutTexture = nullptr;
 		return false;
 	}
 
@@ -1994,7 +2002,9 @@ namespace OculusHMD
 		CheckInGameThread();
 
 		uint32 LayerId = NextLayerId++;
-		LayerMap.Add(LayerId, MakeShareable(new FLayer(LayerId, InLayerDesc)));
+		FLayerPtr Layer = MakeShareable(new FLayer(LayerId, InLayerDesc));
+		LayerMap.Add(LayerId, Layer);
+		Layer->SetDesc(Settings.Get(), InLayerDesc);
 		return LayerId;
 	}
 
@@ -2018,7 +2028,7 @@ namespace OculusHMD
 		if (LayerFound)
 		{
 			FLayer* Layer = new FLayer(**LayerFound);
-			Layer->SetDesc(InLayerDesc);
+			Layer->SetDesc(Settings.Get(), InLayerDesc);
 			*LayerFound = MakeShareable(Layer);
 		}
 	}
@@ -2633,8 +2643,8 @@ namespace OculusHMD
 			}
 			bNeedReAllocateMotionVectorTexture_RenderThread = false;
 
-#if PLATFORM_WINDOWS
-			if (!FOculusHMDModule::Get().PreInit())
+#if WITH_EDITOR && PLATFORM_WINDOWS
+			if (GIsEditor && FOculusHMDModule::Get().PreInit() && !FOculusHMDModule::Get().bPreInit)
 			{
 				return false;
 			}
@@ -3002,6 +3012,10 @@ namespace OculusHMD
 		const bool bIsMobileMultiViewEnabled = (CVarMobileMultiView && CVarMobileMultiView->GetValueOnAnyThread() != 0);
 
 		const bool bIsUsingMobileMultiView = (GSupportsMobileMultiView || GRHISupportsArrayIndexFromAnyShader) && bIsMobileMultiViewEnabled;
+
+		Settings->CurrentFeatureLevel = GEngine ? GEngine->GetDefaultWorldFeatureLevel() : GMaxRHIFeatureLevel;
+		Settings->CurrentShaderPlatform = GShaderPlatformForFeatureLevel[Settings->CurrentFeatureLevel];
+
 		// for now only mobile rendering codepaths use the array rendering system, so PC-native should stay in doublewide
 		if (bIsUsingMobileMultiView && IsMobilePlatform(Settings->CurrentShaderPlatform))
 		{
@@ -4245,6 +4259,9 @@ namespace OculusHMD
 		Settings->XrApi = HMDSettings->XrApi;
 		Settings->bSupportExperimentalFeatures = HMDSettings->bSupportExperimentalFeatures;
 		Settings->bSupportEyeTrackedFoveatedRendering = HMDSettings->bSupportEyeTrackedFoveatedRendering;
+
+		Settings->FaceTrackingDataSource.Empty(ovrpFaceConstants_FaceTrackingDataSourcesCount);
+		Settings->FaceTrackingDataSource.Append(HMDSettings->FaceTrackingDataSource);
 	}
 
 	/// @endcond

@@ -137,6 +137,7 @@ public:
 	ovrpVector4f ColorScale, ColorOffset;
 	bool bApplyColorScaleAndOffsetToAllLayers;
 
+	FStaticFeatureLevel CurrentFeatureLevel;
         EShaderPlatform CurrentShaderPlatform;
 
 	bool bLateLatching;

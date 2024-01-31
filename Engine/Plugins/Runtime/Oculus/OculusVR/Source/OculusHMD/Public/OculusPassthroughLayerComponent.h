@@ -169,26 +169,42 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category ="Passthrough")
 	void AddSurfaceGeometry(AStaticMeshActor* StaticMeshActor, bool updateTransform );
+	UFUNCTION(BlueprintCallable, Category = "Passthrough")
+	void AddStaticSurfaceGeometry(UStaticMeshComponent* StaticMeshComponent, bool updateTransform);
+	UFUNCTION(BlueprintCallable, Category = "Passthrough")
+	void AddProceduralSurfaceGeometry(UProceduralMeshComponent* ProceduralMeshComponent, bool updateTransform);
 
 	UFUNCTION(BlueprintCallable, Category ="Passthrough")
 	void RemoveSurfaceGeometry(AStaticMeshActor* StaticMeshActor );
+	UFUNCTION(BlueprintCallable, Category = "Passthrough")
+	void RemoveStaticSurfaceGeometry(UStaticMeshComponent* StaticMeshComponent);
+	UFUNCTION(BlueprintCallable, Category = "Passthrough")
+	void RemoveProceduralSurfaceGeometry(UProceduralMeshComponent* ProceduralMeshComponent);
 
 	UFUNCTION(BlueprintCallable, Category = "Passthrough")
 	bool IsSurfaceGeometry(AStaticMeshActor* StaticMeshActor ) const;
+	UFUNCTION(BlueprintPure, Category = "Passthrough")
+	bool IsSurfaceGeometryComponent(const UMeshComponent* MeshComponent) const;
 
 	// Manually mark the stereo layer passthrough effect for updating
 	UFUNCTION(BlueprintCallable, Category="Components|Stereo Layer")
 	void MarkPassthroughStyleForUpdate();
 
+#if WITH_EDITOR
+	virtual bool CanEditChange(const FProperty* InProperty) const override;
+#endif // WITH_EDITOR
+
 protected:
 	virtual bool LayerRequiresTexture() override;
+	virtual void RemoveSurfaceGeometryComponent(UMeshComponent* MeshComponent);
+
+	UPROPERTY(Transient)
+	TMap<FString, const UMeshComponent*> PassthroughComponentMap;
 
 private:
 
-	OculusHMD::FOculusPassthroughMeshRef CreatePassthroughMesh(UStaticMesh* StaticMesh);
-
-	UPROPERTY(Transient)
-	TMap<FString, AStaticMeshActor*> PassthroughActorMap;
+	OculusHMD::FOculusPassthroughMeshRef CreatePassthroughMesh(UProceduralMeshComponent* ProceduralMeshComponent);
+	OculusHMD::FOculusPassthroughMeshRef CreatePassthroughMesh(UStaticMeshComponent* StaticMeshComponent);
 
 	/** Passthrough style needs to be marked for update **/
 	bool bPassthroughStyleNeedsUpdate;

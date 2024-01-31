@@ -126,8 +126,8 @@ bool FOculusHMDModule::PreInit()
 			if (OVRP_FAILURE(PluginWrapper.PreInitialize5(Activity, PreinitApiType, ovrpPreinitializeFlags::ovrpPreinitializeFlag_None)))
 			{
 				UE_LOG(LogHMD, Log, TEXT("Failed initializing OVRPlugin %s"), TEXT(OVRP_VERSION_STR));
-#if PLATFORM_WINDOWS
-				return true;
+#if WITH_EDITOR && PLATFORM_WINDOWS
+				return GIsEditor;
 #else
 				return false;
 #endif
@@ -165,6 +165,13 @@ bool FOculusHMDModule::PreInit()
 				UE_LOG(LogHMD, Log, TEXT("Could not determine HMD audio output device"));
 			}
 #endif
+			float ModulePriority;
+			if (!GConfig->GetFloat(TEXT("HMDPluginPriority"), *GetModuleKeyName(), ModulePriority, GEngineIni))
+			{
+				// if user doesn't set priority set it for them to allow this hmd to be used if enabled
+				ModulePriority = 45.0f;
+				GConfig->SetFloat(TEXT("HMDPluginPriority"), *GetModuleKeyName(), ModulePriority, GEngineIni);
+			}
 
 			UE_LOG(LogHMD, Log, TEXT("FOculusHMDModule PreInit successfully"));
 
@@ -261,7 +268,7 @@ FString FOculusHMDModule::GetAudioOutputDevice()
 TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FOculusHMDModule::CreateTrackingSystem()
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
-	if (PreInit())
+	if (bPreInit || (GIsEditor && PLATFORM_WINDOWS))
 	{
 		OculusHMD::FOculusHMDPtr OculusHMD = FSceneViewExtensions::NewExtension<OculusHMD::FOculusHMD>();
 
@@ -280,13 +287,35 @@ TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FOculusHMDModule::Cre
 TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe >  FOculusHMDModule::GetVulkanExtensions()
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
-	if (PreInit())
+	if (bPreInit)
 	{
 		if (!VulkanExtensions.IsValid())
 		{
 			VulkanExtensions = MakeShareable(new OculusHMD::FVulkanExtensions);
 		}
 	}
+#if WITH_EDITOR && PLATFORM_WINDOWS
+	else if (GIsEditor)
+	{
+		// OpenXR has no ability to query for possible vulkan extensions without connecting a HMD.
+		// This is a problem, because we need to create our VkInstance and VkDevice to render in 2D and there's no HMD.
+		// For now, as a workaround, we hardcode the extensions that Oculus's OpenXR implementation needs.
+		// Eventually, one of three things has to happen for a proper fix:
+		//
+		// 1. OculusXRHMD (or, better, OVRPlugin) maintains a separate VkInstance that has the right extensions,
+		//      and uses the vk_external extensions to transfer data between them when needed.
+		// 2. OpenXR changes to allow querying instance and device extensions without an active HMD.
+		//      It may still require a physical device handle to list device extensions.
+		// 3. Oculus's Link implementation for OpenXR changes to allow an XrSystemId to be created before a headset
+		//      is connected (possibly as an opt-in OpenXR extension for backwards compatibility).
+		//
+		// (2) or (3) are preferable, but if OpenXR is held constant we will have to do (1).
+		if (!VulkanExtensions.IsValid())
+		{
+			VulkanExtensions = MakeShareable(new OculusHMD::FEditorVulkanExtensions);
+		}
+	}
+#endif
 	return VulkanExtensions;
 #endif
 	return nullptr;
@@ -349,35 +378,13 @@ void* FOculusHMDModule::GetOVRPluginHandle()
 	void* OVRPluginHandle = nullptr;
 
 #if PLATFORM_WINDOWS
-	EOculusXrApi XrApi = OculusHMD::FSettings().XrApi;
-	FString SettingsText;
-
-	if (GConfig->GetString(TEXT("/Script/OculusHMD.OculusHMDRuntimeSettings"), TEXT("XrApi"), SettingsText, GEngineIni))
+	FString XrApi;
+	if (!FModuleManager::Get().IsModuleLoaded("OpenXRHMD") || !GConfig->GetString(TEXT("/Script/OculusXRHMD.OculusXRHMDRuntimeSettings"), TEXT("XrApi"), XrApi, GEngineIni) || XrApi.Equals(FString("OVRPluginOpenXR")))
 	{
-		if (SettingsText.Equals(XrApiToString(EOculusXrApi::OVRPluginOpenXR)))
-		{
-			XrApi = EOculusXrApi::OVRPluginOpenXR;
-		} 
-		else if (SettingsText.Equals(XrApiToString(EOculusXrApi::NativeOpenXR)))
-		{
-			XrApi = EOculusXrApi::NativeOpenXR;
-		} 
-		else
-		{
-			UE_LOG(LogHMD, Warning, TEXT("XrApi=%s is not valid in config. Defaulting to %s."),*SettingsText, *XrApiToString(XrApi));
-		}
-	}
-
-	if (XrApi == EOculusXrApi::OVRPluginOpenXR)
-	{
-#if PLATFORM_64BITS
-		const FString BinariesPath = FPaths::EngineDir() / FString(TEXT("Binaries/ThirdParty/Oculus/OVRPlugin/OVRPlugin/Win64"));
+		FString BinariesPath = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("OculusVR"))->GetBaseDir(), TEXT("/Source/ThirdParty/OVRPlugin/OVRPlugin/Lib/Win64"));
 		FPlatformProcess::PushDllDirectory(*BinariesPath);
 		OVRPluginHandle = FPlatformProcess::GetDllHandle(*(BinariesPath / "OpenXR/OVRPlugin.dll"));
 		FPlatformProcess::PopDllDirectory(*BinariesPath);
-#else
-		UE_LOG(LogHMD, Error, TEXT("OVRPlugin OpenXR only supported on 64-bit Windows."));
-#endif
 	}
 
 #elif PLATFORM_ANDROID

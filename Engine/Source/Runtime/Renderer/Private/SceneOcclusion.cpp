@@ -1124,7 +1124,14 @@ static FViewOcclusionQueriesPerView AllocateOcclusionTests(const FScene* Scene, 
 	// Perform occlusion queries for each view
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
+		// BEGIN META SECTION - GPU Occlusion Query Optimizations
+		// Don't draw occlusion queries for both eyes in multiview
 		FViewInfo& View = Views[ViewIndex];
+		if ((View.bIsMobileMultiViewEnabled || View.bIsInstancedStereoEnabled) && IStereoRendering::IsASecondaryPass(View.StereoPass))
+		{
+			continue;
+		}
+		// END META SECTION - GPU Occlusion Query Optimizations
 		FViewOcclusionQueries& ViewQuery = QueriesPerView[ViewIndex];
 		FSceneViewState* ViewState = (FSceneViewState*)View.State;
 		const FSceneViewFamily& ViewFamily = *View.Family;
@@ -1285,7 +1292,14 @@ static void BeginOcclusionTests(
 	{
 		SCOPED_DRAW_EVENTF(RHICmdList, ViewOcclusionTests, TEXT("ViewOcclusionTests %d"), ViewIndex);
 
+		// BEGIN META SECTION - GPU Occlusion Query Optimizations
+		// Don't draw occlusion queries for both eyes in multiview
 		FViewInfo& View = Views[ViewIndex];
+		if ((View.bIsMobileMultiViewEnabled || View.bIsInstancedStereoEnabled) && IStereoRendering::IsASecondaryPass(View.StereoPass))
+		{
+			continue;
+		}
+		// END META SECTION - GPU Occlusion Query Optimizations
 		const FViewOcclusionQueries& ViewQuery = QueriesPerView[ViewIndex];
 		FSceneViewState* ViewState = (FSceneViewState*)View.State;
 		SCOPED_GPU_MASK(RHICmdList, View.GPUMask);

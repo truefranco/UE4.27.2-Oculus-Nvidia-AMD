@@ -47,6 +47,7 @@ public:
 	uint32 GetId() const { return Id; }
 	int GetOvrpId() const { return OvrpLayerId; }
 	void SetDesc(const IStereoLayers::FLayerDesc& InDesc);
+	void SetDesc(const FSettings* Settings, const IStereoLayers::FLayerDesc& InDesc);
 	const IStereoLayers::FLayerDesc& GetDesc() const { return Desc; }
 	void SetEyeLayerDesc(const ovrpLayerDesc_EyeFov& InEyeLayerDesc);
 	const FXRSwapChainPtr& GetSwapChain() const { return SwapChain; }
@@ -117,7 +118,7 @@ protected:
 	void UpdatePassthroughStyle_RenderThread(const FEdgeStyleParameters& EdgeStyleParameters);
 	bool BuildPassthroughPokeActor(FOculusPassthroughMeshRef PassthroughMesh, FPassthroughPokeActor& OutPassthroughPokeActor);
 	void UpdatePassthroughPokeActors_GameThread();
-	bool IsDepthEnabled() { return (Desc.Flags & IStereoLayers::LAYER_FLAG_SUPPORT_DEPTH) != 0; }
+	bool IsDepthEnabled() { return !bSupportDepthComposite && (Desc.Flags & IStereoLayers::LAYER_FLAG_SUPPORT_DEPTH) != 0; }
 	bool IsPassthroughShape() { return Desc.HasShape<FReconstructedLayer>() || Desc.HasShape<FUserDefinedLayer>(); }
 
 	uint32 Id;
@@ -137,6 +138,7 @@ protected:
 	bool bUpdateTexture;
 	bool bInvertY;
 	bool bHasDepth;
+	bool bSupportDepthComposite;
 
 	UProceduralMeshComponent* PokeAHoleComponentPtr;
 	AActor* PokeAHoleActor;

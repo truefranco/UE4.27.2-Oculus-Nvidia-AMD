@@ -1677,9 +1677,12 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 		}
 		else if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
 		{
-			bool bSubmitQueries = !View.bDisableQuerySubmissions;
+			bool bSubmitQueries = !(View.bDisableQuerySubmissions ||
+				(View.bIsMobileMultiViewEnabled || View.bIsInstancedStereoEnabled) &&
+				IStereoRendering::IsASecondaryPass(View.StereoPass));
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			bSubmitQueries = bSubmitQueries && !ViewState->HasViewParent() && !ViewState->bIsFrozen;
+			bSubmitQueries = bSubmitQueries && !ViewState->HasViewParent() && 
+				!ViewState->bIsFrozen;
 #endif
 
 			if( bHZBOcclusion )
@@ -1691,6 +1694,7 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
  
 			// Perform round-robin occlusion queries
 			if (View.ViewState->IsRoundRobinEnabled() &&
+				!(View.bIsMobileMultiViewEnabled || View.bIsInstancedStereoEnabled) &&
 				!View.bIsSceneCapture && // We only round-robin on the main renderer (not scene captures)
 				!View.bIgnoreExistingQueries && // We do not alternate occlusion queries when we want to refresh the occlusion history
 				(IStereoRendering::IsStereoEyeView(View))) // Only relevant to stereo views

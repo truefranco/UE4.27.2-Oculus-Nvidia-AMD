@@ -649,57 +649,8 @@ static void SetupViewFrustum(FSceneView& View)
 
 	// Derive the view's near clipping distance and plane.
 	// The GetFrustumFarPlane() is the near plane because of reverse Z projection.
-	/*static_assert((int32)ERHIZBuffer::IsInverted != 0, "Fix Near Clip distance!");
-	View.bHasNearClippingPlane = View.ViewMatrices.GetViewProjectionMatrix().GetFrustumFarPlane(View.NearClippingPlane);
-	if (View.ViewMatrices.GetProjectionMatrix().M[2][3] > DELTA)
-	{
-		// Infinite projection with reversed Z.
-		View.NearClippingDistance = View.ViewMatrices.GetProjectionMatrix().M[3][2];
-	}
-	else
-	{
-		// Ortho projection with reversed Z.
-		View.NearClippingDistance = (1.0f - View.ViewMatrices.GetProjectionMatrix().M[3][2]) / View.ViewMatrices.GetProjectionMatrix().M[2][2];
-	}*/
-	// Use a unified frustum for culling an instanced stereo pass.
-	if (IStereoRendering::IsStereoEyeView(View) && GEngine->StereoRenderingDevice.IsValid())
-	{
-		FVector MonoLocation = View.ViewLocation;
-		FRotator MonoRotation = View.ViewRotation;
-		GEngine->StereoRenderingDevice->CalculateStereoViewOffset(eSSE_MONOSCOPIC , MonoRotation, View.WorldToMetersScale, MonoLocation);
-		const FMatrix ViewRotationMatrix = FInverseRotationMatrix(MonoRotation) * FMatrix(
-			FPlane(0, 0, 1, 0),
-			FPlane(1, 0, 0, 0),
-			FPlane(0, 1, 0, 0),
-			FPlane(0, 0, 0, 1));
-		const FMatrix ViewMatrixForCulling = FTranslationMatrix(-MonoLocation) * ViewRotationMatrix;
-		const FMatrix ViewProjForCulling = ViewMatrixForCulling * GEngine->StereoRenderingDevice->GetStereoProjectionMatrix(eSSE_MONOSCOPIC);
-
-		if (View.SceneViewInitOptions.OverrideFarClippingPlaneDistance > 0.0f)
-		{
-			const FPlane FarPlane(View.ViewMatrices.GetViewOrigin() + View.GetViewDirection() * View.SceneViewInitOptions.OverrideFarClippingPlaneDistance, View.GetViewDirection());
-			// Derive the frustum from the view projection matrix, overriding the far plane
-			GetViewFrustumBounds(View.CullingFrustum, ViewProjForCulling, FarPlane, true, false);
-		}
-		else
-		{
-			// Derive the frustum from the view projection matrix.
-			GetViewFrustumBounds(View.CullingFrustum, ViewProjForCulling, false);
-		}
-
-		View.CullingOrigin = MonoLocation;
-	}
-	else
-	{
-		View.CullingFrustum = View.ViewFrustum;
-		View.CullingOrigin = View.ViewMatrices.GetViewOrigin();
-	}
-
-	// Derive the view's near clipping distance and plane.
 	static_assert((int32)ERHIZBuffer::IsInverted != 0, "Fix Near Clip distance!");
-	FPlane NearClippingPlane;
-	View.bHasNearClippingPlane = View.ViewMatrices.GetViewProjectionMatrix().GetFrustumNearPlane(NearClippingPlane);
-	View.NearClippingPlane = NearClippingPlane;
+	View.bHasNearClippingPlane = View.ViewMatrices.GetViewProjectionMatrix().GetFrustumFarPlane(View.NearClippingPlane);
 	if (View.ViewMatrices.GetProjectionMatrix().M[2][3] > DELTA)
 	{
 		// Infinite projection with reversed Z.

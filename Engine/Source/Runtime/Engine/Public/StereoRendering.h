@@ -17,7 +17,6 @@ class IStereoRenderTargetManager;
 */
 enum EStereoscopicPass
 {
-	eSSE_MONOSCOPIC = INDEX_NONE,
 	eSSP_FULL,
 	eSSP_LEFT_EYE,
 	eSSP_RIGHT_EYE,
@@ -79,8 +78,7 @@ public:
 
 		case eSSP_RIGHT_EYE:
 			return 1;
-		case eSSE_MONOSCOPIC:
-			return -1;
+
 		default:
 			check(0);
 			return -1;

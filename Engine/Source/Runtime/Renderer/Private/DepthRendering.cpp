@@ -634,7 +634,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
 	bool bParallel = GRHICommandList.UseParallelAlgorithms() && CVarParallelPrePass.GetValueOnRenderThread();
-
+	
 	if (!bParallel)
 	{
 		// nothing to be gained by delaying this.
@@ -735,8 +735,8 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 void FMobileSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHICmdList)
 {
 	check(!RHICmdList.IsOutsideRenderPass());
-
-	SCOPED_NAMED_EVENT(FMobileSceneRenderer_RenderPrePass, FColor::Emerald);
+	
+    SCOPED_NAMED_EVENT(FMobileSceneRenderer_RenderPrePass, FColor::Emerald);
 	SCOPED_DRAW_EVENT(RHICmdList, MobileRenderPrePass);
 
 	SCOPE_CYCLE_COUNTER(STAT_DepthDrawTime);

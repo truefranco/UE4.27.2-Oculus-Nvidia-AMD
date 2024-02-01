@@ -446,76 +446,58 @@ bool FConvexVolume::IntersectLineSegment(const FVector& InStart, const FVector& 
 	return true;
 }
 
-void GetViewFrustumBoundsInternal(FConvexVolume& OutResult, const FMatrix& ViewProjectionMatrix, bool bUseNearPlane, bool bUseFarPlane, const FPlane* InFarPlaneOverride)
-{
-	OutResult.Planes.Empty(6);
-	FPlane Temp;
-
-	// NOTE: Be careful changing anything here! Some callers make assumptions about the order of the planes returned.
-	// See for instance BuildLightViewFrustumConvexHull in ShadowSetup.cpp
-
-	// Near clipping plane.
-	if (bUseNearPlane && ViewProjectionMatrix.GetFrustumNearPlane(Temp))
-	{
-		OutResult.Planes.Add(Temp);
-	}
-
-	// Left clipping plane.
-	if (ViewProjectionMatrix.GetFrustumLeftPlane(Temp))
-	{
-		OutResult.Planes.Add(Temp);
-	}
-
-	// Right clipping plane.
-	if (ViewProjectionMatrix.GetFrustumRightPlane(Temp))
-	{
-		OutResult.Planes.Add(Temp);
-	}
-
-	// Top clipping plane.
-	if (ViewProjectionMatrix.GetFrustumTopPlane(Temp))
-	{
-		OutResult.Planes.Add(Temp);
-	}
-
-	// Bottom clipping plane.
-	if (ViewProjectionMatrix.GetFrustumBottomPlane(Temp))
-	{
-		OutResult.Planes.Add(Temp);
-	}
-
-	// Far clipping plane.
-	if (bUseFarPlane)
-	{
-		if (InFarPlaneOverride != nullptr)
-		{
-			OutResult.Planes.Add(*InFarPlaneOverride);
-		}
-		else if (ViewProjectionMatrix.GetFrustumFarPlane(Temp))
-		{
-			OutResult.Planes.Add(Temp);
-		}
-	}
-
-	OutResult.Init();
-}
-
 void GetViewFrustumBounds(FConvexVolume& OutResult, const FMatrix& ViewProjectionMatrix, bool UseNearPlane)
 {
 	GetViewFrustumBounds(OutResult, ViewProjectionMatrix, FPlane(), false, UseNearPlane);
 }
 
-void GetViewFrustumBounds(FConvexVolume& OutResult, const FMatrix& ViewProjectionMatrix, bool bUseNearPlane, bool bUseFarPlane)
+void GetViewFrustumBounds(FConvexVolume& OutResult, const FMatrix& ViewProjectionMatrix, const FPlane& InFarPlane, bool bOverrideFarPlane, bool UseNearPlane)
 {
-	GetViewFrustumBoundsInternal(OutResult, ViewProjectionMatrix, bUseNearPlane, bUseFarPlane, nullptr);
+	OutResult.Planes.Empty( 6 );
+	FPlane	Temp;
+
+	// Near clipping plane.
+	if(UseNearPlane && ViewProjectionMatrix.GetFrustumNearPlane(Temp))
+	{
+		OutResult.Planes.Add(Temp);
+	}
+
+	// Left clipping plane.
+	if(ViewProjectionMatrix.GetFrustumLeftPlane(Temp))
+	{
+		OutResult.Planes.Add(Temp);
+	}
+
+	// Right clipping plane.
+	if(ViewProjectionMatrix.GetFrustumRightPlane(Temp))
+	{
+		OutResult.Planes.Add(Temp);
+	}
+
+	// Top clipping plane.
+	if(ViewProjectionMatrix.GetFrustumTopPlane(Temp))
+	{
+		OutResult.Planes.Add(Temp);
+	}
+
+	// Bottom clipping plane.
+	if(ViewProjectionMatrix.GetFrustumBottomPlane(Temp))
+	{
+		OutResult.Planes.Add(Temp);
+	}
+
+	// Far clipping plane.
+	if (bOverrideFarPlane)
+	{
+		OutResult.Planes.Add(InFarPlane);
+	}
+	else if(ViewProjectionMatrix.GetFrustumFarPlane(Temp))
+	{
+		OutResult.Planes.Add(Temp);
+	}
+
+	OutResult.Init();
 }
-
-void GetViewFrustumBounds(FConvexVolume& OutResult, const FMatrix& ViewProjectionMatrix, const FPlane& InFarPlane, bool bOverrideFarPlane, bool bUseNearPlane)
-{
-	GetViewFrustumBoundsInternal(OutResult, ViewProjectionMatrix, bUseNearPlane, true, bOverrideFarPlane ? &InFarPlane : nullptr);
-}
-
-
 
 /**
  * Serializor

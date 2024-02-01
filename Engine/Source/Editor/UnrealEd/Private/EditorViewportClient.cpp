@@ -3176,7 +3176,7 @@ void FEditorViewportClient::DrawAxes(FViewport* InViewport, FCanvas* Canvas, con
 		ViewTM = FRotationMatrix( *InRotation );
 	}
 
-	const int32 SizeX = InViewport->GetSizeXY().X / Canvas->GetDPIScale();
+	//const int32 SizeX = InViewport->GetSizeXY().X / Canvas->GetDPIScale();
 	const int32 SizeY = InViewport->GetSizeXY().Y / Canvas->GetDPIScale();
 
 	const FIntPoint AxisOrigin( 30, SizeY - 30 );

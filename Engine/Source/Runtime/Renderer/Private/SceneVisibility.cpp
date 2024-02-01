@@ -1677,12 +1677,9 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 		}
 		else if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
 		{
-			bool bSubmitQueries = !(View.bDisableQuerySubmissions ||
-				(View.bIsMobileMultiViewEnabled || View.bIsInstancedStereoEnabled) &&
-				IStereoRendering::IsASecondaryPass(View.StereoPass));
+			bool bSubmitQueries = !View.bDisableQuerySubmissions;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			bSubmitQueries = bSubmitQueries && !ViewState->HasViewParent() && 
-				!ViewState->bIsFrozen;
+			bSubmitQueries = bSubmitQueries && !ViewState->HasViewParent() && !ViewState->bIsFrozen;
 #endif
 
 			if( bHZBOcclusion )
@@ -1694,7 +1691,6 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
  
 			// Perform round-robin occlusion queries
 			if (View.ViewState->IsRoundRobinEnabled() &&
-				!(View.bIsMobileMultiViewEnabled || View.bIsInstancedStereoEnabled) &&
 				!View.bIsSceneCapture && // We only round-robin on the main renderer (not scene captures)
 				!View.bIgnoreExistingQueries && // We do not alternate occlusion queries when we want to refresh the occlusion history
 				(IStereoRendering::IsStereoEyeView(View))) // Only relevant to stereo views
@@ -3764,13 +3760,8 @@ void FSceneRenderer::DumpPrimitives(const FViewCommands& ViewCommands)
 }
 #endif
 
-void FSceneRenderer::ComputeViewVisibility(
-	FRHICommandListImmediate& RHICmdList, 
-	FExclusiveDepthStencil::Type BasePassDepthStencilAccess, 
-	FViewVisibleCommandsPerView& ViewCommandsPerView, 
-	FGlobalDynamicIndexBuffer& DynamicIndexBuffer, 
-	FGlobalDynamicVertexBuffer& DynamicVertexBuffer,
-	FGlobalDynamicReadBuffer& DynamicReadBuffer)
+void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView, 
+	FGlobalDynamicIndexBuffer& DynamicIndexBuffer, FGlobalDynamicVertexBuffer& DynamicVertexBuffer, FGlobalDynamicReadBuffer& DynamicReadBuffer)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime);
 	SCOPED_NAMED_EVENT(FSceneRenderer_ComputeViewVisibility, FColor::Magenta);

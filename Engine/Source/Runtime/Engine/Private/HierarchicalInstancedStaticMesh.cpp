@@ -91,11 +91,6 @@ TAutoConsoleVariable<float> CVarFoliageMinimumScreenSize(
 	TEXT("This controls the screen size at which we cull foliage instances entirely."),
 	ECVF_Scalability);
 
-TAutoConsoleVariable<int32> CVarFoliageMaxEndCullDistance(
-	TEXT("foliage.MaxEndCullDistance"),
-	0,
-	TEXT("Max distance for end culling (0 disabled)."));
-
 TAutoConsoleVariable<float> CVarFoliageLODDistanceScale(
 	TEXT("foliage.LODDistanceScale"),
 	1.0f,
@@ -1461,14 +1456,10 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 	SCOPE_CYCLE_COUNTER(STAT_HISMCGetDynamicMeshElement);
 
 	bool bMultipleSections = ALLOW_DITHERED_LOD_FOR_INSTANCED_STATIC_MESHES && bDitheredLODTransitions && CVarDitheredLOD.GetValueOnRenderThread() > 0;
-	// Disable multiple selections when forced LOD is set
-	bMultipleSections = bMultipleSections && ForcedLodModel <= 0 && CVarForceLOD.GetValueOnRenderThread() < 0;
 	bool bSingleSections = !bMultipleSections;
 	bool bOverestimate = CVarOverestimateLOD.GetValueOnRenderThread() > 0;
 
 	int32 MinVertsToSplitNode = CVarMinVertsToSplitNode.GetValueOnRenderThread();
-
-	const FMatrix WorldToLocal = GetLocalToWorld().Inverse();
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
@@ -1499,6 +1490,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 
 				InstanceParams.View = View;
 
+				FMatrix WorldToLocal = GetLocalToWorld().Inverse();
 				bool bUseVectorCull = GUseVectorCull;
 				bool bIsOrtho = false;
 
@@ -1520,16 +1512,11 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 				}
 				else
 				{
-					// build view frustum with no near plane / no far plane in frustum (far plane culling is done later in the function) : 
-					static constexpr bool bViewFrustumUsesNearPlane = false;
-					static constexpr bool bViewFrustumUsesFarPlane = false;
-					const bool bIsPerspectiveProjection = View->ViewMatrices.IsPerspectiveProjection();
-
 					// Instanced stereo needs to use the right plane from the right eye when constructing the frustum bounds to cull against.
 					// Otherwise we'll cull objects visible in the right eye, but not the left.
-					if ((View->IsInstancedStereoPass() || View->bIsMobileMultiViewEnabled) && IStereoRendering::IsStereoEyeView(*View) && GEngine->StereoRenderingDevice.IsValid())
+					if ((Views[0]->IsInstancedStereoPass() || Views[0]->bIsMobileMultiViewEnabled) && IStereoRendering::IsStereoEyeView(*Views[0]) && ViewIndex == 0)
 					{
-						/*check(Views.Num() == 2);
+						check(Views.Num() == 2);
 
 						const FMatrix LeftEyeLocalViewProjForCulling  = GetLocalToWorld() * Views[0]->ViewMatrices.GetViewProjectionMatrix();
 						const FMatrix RightEyeLocalViewProjForCulling = GetLocalToWorld() * Views[1]->ViewMatrices.GetViewProjectionMatrix();
@@ -1550,62 +1537,43 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 						InstanceParams.ViewFrustumLocal.Planes.Add(LeftEyeBounds.Planes[2]);
 						InstanceParams.ViewFrustumLocal.Planes.Add(LeftEyeBounds.Planes[3]);
 						InstanceParams.ViewFrustumLocal.Planes.Add(LeftEyeBounds.Planes[4]);
-						InstanceParams.ViewFrustumLocal.Init();*/
-						// TODO: Stereo culling frustum needs to use the culling origin instead of the view origin.
-						InstanceParams.ViewFrustumLocal = View->CullingFrustum;
-						for (FPlane& Plane : InstanceParams.ViewFrustumLocal.Planes)
-						{
-							Plane = Plane.TransformBy(WorldToLocal);
-						}
 						InstanceParams.ViewFrustumLocal.Init();
-
-						// Invalid bounds retrieved, so skip render of this frame :
-						if (bIsPerspectiveProjection && (InstanceParams.ViewFrustumLocal.Planes.Num() != 4))
-						{
-							// Report the error as a warning (instead of an ensure or a check) as the problem can come from improper user data (invalid transform or view-proj matrix) : 
-							ensureMsgf(false, TEXT("Invalid frustum, skipping render of HISM"));
-							continue;
-						}
 					}
 					else
 					{
 						const FMatrix LocalViewProjForCulling = GetLocalToWorld() * View->ViewMatrices.GetViewProjectionMatrix();
-
-						GetViewFrustumBounds(InstanceParams.ViewFrustumLocal, LocalViewProjForCulling, bViewFrustumUsesNearPlane, bViewFrustumUsesFarPlane);
-
-						// Invalid bounds retrieved, so skip render of this frame :
-						if (bIsPerspectiveProjection && (InstanceParams.ViewFrustumLocal.Planes.Num() != 4))
-						{
-							// Report the error as a warning (instead of an ensure or a check) as the problem can come from improper user data (invalid transform or view-proj matrix) : 
-							ensureMsgf(false, TEXT("Invalid frustum, skipping render of HISM : culling view projection matrix:%s"), *LocalViewProjForCulling.ToString());
-							continue;
-						}
+						GetViewFrustumBounds(InstanceParams.ViewFrustumLocal, LocalViewProjForCulling, false);
 					}
 
-					if (bIsPerspectiveProjection)
+					if (View->ViewMatrices.IsPerspectiveProjection())
 					{
-						check(InstanceParams.ViewFrustumLocal.Planes.Num() == 4);
-
-						//InstanceParams.ViewFrustumLocal.Planes.Pop(false); // we don't want the far plane either
-						FMatrix ThreePlanes;
-						ThreePlanes.SetIdentity();
-						ThreePlanes.SetAxes(&InstanceParams.ViewFrustumLocal.Planes[0], &InstanceParams.ViewFrustumLocal.Planes[1], &InstanceParams.ViewFrustumLocal.Planes[2]);
-						FVector ProjectionOrigin = ThreePlanes.Inverse().GetTransposed().TransformVector(FVector(InstanceParams.ViewFrustumLocal.Planes[0].W, InstanceParams.ViewFrustumLocal.Planes[1].W, InstanceParams.ViewFrustumLocal.Planes[2].W));
-
-						for (int32 Index = 0; Index < InstanceParams.ViewFrustumLocal.Planes.Num(); Index++)
+						if (InstanceParams.ViewFrustumLocal.Planes.Num() == 5)
 						{
-							FPlane Src = InstanceParams.ViewFrustumLocal.Planes[Index];
-							FVector Normal = Src.GetSafeNormal();
-							InstanceParams.ViewFrustumLocal.Planes[Index] = FPlane(Normal, Normal | ProjectionOrigin);
+							InstanceParams.ViewFrustumLocal.Planes.Pop(false); // we don't want the far plane either
+							FMatrix ThreePlanes;
+							ThreePlanes.SetIdentity();
+							ThreePlanes.SetAxes(&InstanceParams.ViewFrustumLocal.Planes[0], &InstanceParams.ViewFrustumLocal.Planes[1], &InstanceParams.ViewFrustumLocal.Planes[2]);
+							FVector ProjectionOrigin = ThreePlanes.Inverse().GetTransposed().TransformVector(FVector(InstanceParams.ViewFrustumLocal.Planes[0].W, InstanceParams.ViewFrustumLocal.Planes[1].W, InstanceParams.ViewFrustumLocal.Planes[2].W));
+
+							for (int32 Index = 0; Index < InstanceParams.ViewFrustumLocal.Planes.Num(); Index++)
+							{
+								FPlane Src = InstanceParams.ViewFrustumLocal.Planes[Index];
+								FVector Normal = Src.GetSafeNormal();
+								InstanceParams.ViewFrustumLocal.Planes[Index] = FPlane(Normal, Normal | ProjectionOrigin);
+							}
+						}
+						else
+						{
+							 // zero scaling or something, cull everything
+							continue;
 						}
 					}
 					else
 					{
-							bIsOrtho = true;
-							bUseVectorCull = false;
+						bIsOrtho = true;
+						bUseVectorCull = false;
 					}
-					
-	            }
+				}
 				if (!InstanceParams.ViewFrustumLocal.Planes.Num())
 				{
 					bDisableCull = true;
@@ -1622,7 +1590,6 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 
 				float MinSize = bIsOrtho ? 0.0f : CVarFoliageMinimumScreenSize.GetValueOnRenderThread();
 				float LODScale = CVarFoliageLODDistanceScale.GetValueOnRenderThread();
-				int MaxEndCullDistance = CVarFoliageMaxEndCullDistance.GetValueOnRenderThread();
 				float LODRandom = CVarRandomLODRange.GetValueOnRenderThread();
 				float MaxDrawDistanceScale = GetCachedScalabilityCVars().ViewDistanceScale;
 				
@@ -1639,21 +1606,9 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 				{
 					FinalCull = FMath::Min(FinalCull, View->SceneViewInitOptions.OverrideFarClippingPlaneDistance * MaxDrawDistanceScale);
 				}
-				int32 EndCullDistance = UserData_AllInstances.EndCullDistance * MaxDrawDistanceScale;
-				if (MaxEndCullDistance > 0)
+				if (UserData_AllInstances.EndCullDistance > 0.0f)
 				{
-					if (EndCullDistance > 0)
-					{
-						EndCullDistance = FMath::Min(MaxEndCullDistance, EndCullDistance);
-					}
-					else
-					{
-						EndCullDistance = MaxEndCullDistance;
-					}
-				}
-				if (EndCullDistance > 0.0f)
-				{
-					FinalCull = FMath::Min((int)FinalCull, EndCullDistance);
+					FinalCull = FMath::Min(FinalCull, UserData_AllInstances.EndCullDistance * MaxDrawDistanceScale);
 				}
 				ElementParams.FinalCullDistance = FinalCull;
 
@@ -1748,10 +1703,6 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 						UseMaxLOD = FMath::Clamp(Force, 0, InstanceParams.LODs - 1);
 					}
 
-					// Clamp the min LOD to available LOD taking mesh streaming into account as well
-					const int8 CurFirstLODIdx = GetCurrentFirstLODIdx_RenderThread();
-					UseMinLOD = FMath::Max(UseMinLOD, (int32)CurFirstLODIdx);
-
 					if (CVarCullAll.GetValueOnRenderThread() < 1)
 					{
 						if (bUseVectorCull)
@@ -1812,7 +1763,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 					}
 					else
 					{
-						//FMatrix WorldToLocal = GetLocalToWorld().Inverse();
+						FMatrix WorldToLocal = GetLocalToWorld().Inverse();
 						FVector ViewOriginInLocalZero = WorldToLocal.TransformPosition(View->GetTemporalLODOrigin(0, bMultipleSections));
 						FVector ViewOriginInLocalOne  = WorldToLocal.TransformPosition(View->GetTemporalLODOrigin(1, bMultipleSections));
 						float LODPlanesMax[MAX_STATIC_MESH_LODS];
@@ -1821,7 +1772,6 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 						const bool bIsOrtho = !View->ViewMatrices.IsPerspectiveProjection();
 						const float MinSize = bIsOrtho ? 0.0f : CVarFoliageMinimumScreenSize.GetValueOnRenderThread();
 						const float LODScale = CVarFoliageLODDistanceScale.GetValueOnRenderThread();
-						int MaxEndCullDistance = CVarFoliageMaxEndCullDistance.GetValueOnRenderThread();
 						const float LODRandom = CVarRandomLODRange.GetValueOnRenderThread();
 						const float MaxDrawDistanceScale = GetCachedScalabilityCVars().ViewDistanceScale;
 						const float SphereRadius = RenderData->Bounds.SphereRadius;
@@ -1837,22 +1787,9 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 						{
 							FinalCull = FMath::Min(FinalCull, View->SceneViewInitOptions.OverrideFarClippingPlaneDistance * MaxDrawDistanceScale);
 						}
-						int32 EndCullDistance = UserData_AllInstances.EndCullDistance * MaxDrawDistanceScale;
-
-						if (MaxEndCullDistance > 0)
+						if (UserData_AllInstances.EndCullDistance > 0.0f)
 						{
-							if (EndCullDistance > 0)
-							{
-								EndCullDistance = FMath::Min(MaxEndCullDistance, EndCullDistance);
-							}
-							else
-							{
-								EndCullDistance = MaxEndCullDistance;
-							}
-						}
-						if (EndCullDistance > 0.0f)
-						{
-							FinalCull = FMath::Min((int)FinalCull, EndCullDistance);
+							FinalCull = FMath::Min(FinalCull, UserData_AllInstances.EndCullDistance * MaxDrawDistanceScale);
 						}
 						ElementParams.FinalCullDistance = FinalCull;
 
@@ -1870,11 +1807,6 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 						// calculate runs
 						int32 MinLOD = ClampedMinLOD;
 						int32 MaxLOD = NumLODs;
-
-						// Clamp the min LOD to available LOD taking mesh streaming into account as well
-						const int8 CurFirstLODIdx = GetCurrentFirstLODIdx_RenderThread();
-						MinLOD = FMath::Max(MinLOD, (int32)CurFirstLODIdx);
-
 						CalcLOD(MinLOD, MaxLOD, UnbuiltBounds[0].Min, UnbuiltBounds[0].Max, ViewOriginInLocalZero, ViewOriginInLocalOne, LODPlanesMin, LODPlanesMax);
 						int32 FirstIndexInRun = 0;
 						for (int32 Index = 1; Index < UnbuiltInstanceCount; ++Index)
@@ -1887,22 +1819,22 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 								if (MinLOD < NumLODs)
 								{
 									int32 LastInstanceIndex = (Index - 1) + FirstUnbuiltIndex;
-									InstanceParams.AddRun(MinLOD, MinLOD, FirstIndexInRun + FirstUnbuiltIndex, (Index - 1) + FirstUnbuiltIndex - 1);
+									InstanceParams.AddRun(MinLOD, MinLOD, FirstIndexInRun + FirstUnbuiltIndex, LastInstanceIndex);
 								}
 								MinLOD = TempMinLOD;
 								FirstIndexInRun = Index;
 							}
 						}
-						//int32 LastInstanceIndex = FirstIndexInRun + FirstUnbuiltIndex + UnbuiltInstanceCount - 1;
-						InstanceParams.AddRun(MinLOD, MinLOD, FirstIndexInRun + FirstUnbuiltIndex, FirstUnbuiltIndex + UnbuiltInstanceCount - 1);
+						int32 LastInstanceIndex = FirstIndexInRun + FirstUnbuiltIndex + UnbuiltInstanceCount - 1;
+						InstanceParams.AddRun(MinLOD, MinLOD, FirstIndexInRun + FirstUnbuiltIndex, LastInstanceIndex);
 					}
 				}
 				else
 				{
 					// more than 1000, render them all at lowest LOD (until we have an updated tree)
 					const int8 LowestLOD = (RenderData->LODResources.Num() - 1);
-					//int32 LastInstanceIndex = FirstUnbuiltIndex + UnbuiltInstanceCount - 1;
-					InstanceParams.AddRun(LowestLOD, LowestLOD, FirstUnbuiltIndex, FirstUnbuiltIndex + UnbuiltInstanceCount - 1);
+					int32 LastInstanceIndex = FirstUnbuiltIndex + UnbuiltInstanceCount - 1;
+					InstanceParams.AddRun(LowestLOD, LowestLOD, FirstUnbuiltIndex, LastInstanceIndex);
 				}
 				FillDynamicMeshElements(Collector, ElementParams, InstanceParams);
 			}
@@ -1926,11 +1858,6 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 					StartingColor.G += 5;
 					StartingColor.B += 5;
 				}
-			}
-
-			if (View->Family->EngineShowFlags.InstancedStaticMeshes)
-			{
-				RenderBounds(Collector.GetPDI(ViewIndex), ViewFamily.EngineShowFlags, GetBounds(), IsSelected());
 			}
 		}
 	}
@@ -2442,7 +2369,7 @@ void UHierarchicalInstancedStaticMeshComponent::PreAllocateInstancesMemory(int32
 	UnbuiltInstanceBoundsList.Reserve(UnbuiltInstanceBoundsList.Num() + AddedInstanceCount);
 }
 
-int32 UHierarchicalInstancedStaticMeshComponent::AddInstance(const FTransform& InstanceTransform, bool bWorldSpace)
+int32 UHierarchicalInstancedStaticMeshComponent::AddInstance(const FTransform& InstanceTransform)
 {
 	SCOPE_CYCLE_COUNTER(STAT_HISMCAddInstance);
 

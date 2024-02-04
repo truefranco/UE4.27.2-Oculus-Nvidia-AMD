@@ -2369,7 +2369,7 @@ void UHierarchicalInstancedStaticMeshComponent::PreAllocateInstancesMemory(int32
 	UnbuiltInstanceBoundsList.Reserve(UnbuiltInstanceBoundsList.Num() + AddedInstanceCount);
 }
 
-int32 UHierarchicalInstancedStaticMeshComponent::AddInstance(const FTransform& InstanceTransform)
+int32 UHierarchicalInstancedStaticMeshComponent::AddInstance(const FTransform& InstanceTransform, bool bWorldSpace)
 {
 	SCOPE_CYCLE_COUNTER(STAT_HISMCAddInstance);
 

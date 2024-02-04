@@ -31,12 +31,25 @@ static FAutoConsoleVariableRef CVarDisableLatencyMarkerOptimize(
 	TEXT("Disable Latency Marker Optimize")
 );
 
+bool bEnableReflexInEditor = 0;
+static FAutoConsoleVariableRef CVarEnableReflexInEditor(
+	TEXT("t.EnableReflexInEditor"),
+	bEnableReflexInEditor,
+	TEXT("Enable Reflex in the editor")
+);
+
 DEFINE_LOG_CATEGORY_STATIC(LogMaxTickRateHandler, Log, All);
 
 void FReflexMaxTickRateHandler::Initialize()
 {
 	if (IsRHIDeviceNVIDIA())
 	{
+		FString RHIName = GDynamicRHI->GetName();
+		if (RHIName.StartsWith(TEXT("Vulkan")))
+		{
+			return;
+		}
+
 		NvU32 DriverVersion;
 		NvAPI_ShortString BranchString;
 
@@ -63,7 +76,7 @@ void FReflexMaxTickRateHandler::Initialize()
 
 bool FReflexMaxTickRateHandler::HandleMaxTickRate(float DesiredMaxTickRate)
 {
-	if (DisableCustomTickRateHandler == 0 && bProperDriverVersion && !GIsEditor && IsRHIDeviceNVIDIA() && bFeatureSupport)
+	if (DisableCustomTickRateHandler == 0 && bProperDriverVersion && (bEnableReflexInEditor || !GIsEditor) && IsRHIDeviceNVIDIA() && bFeatureSupport)
 	{
 		if (bEnabled)
 		{
@@ -159,7 +172,7 @@ void FReflexMaxTickRateHandler::SetEnabled(bool bInEnabled)
 
 bool FReflexMaxTickRateHandler::GetEnabled()
 {
-	if (DisableCustomTickRateHandler == 1 || !bProperDriverVersion || GIsEditor || !IsRHIDeviceNVIDIA() || !bFeatureSupport)
+	if (DisableCustomTickRateHandler == 1 || !bProperDriverVersion || (GIsEditor && !bEnableReflexInEditor) || !IsRHIDeviceNVIDIA() || !bFeatureSupport)
 	{
 		return false;
 	}
@@ -169,7 +182,7 @@ bool FReflexMaxTickRateHandler::GetEnabled()
 
 bool FReflexMaxTickRateHandler::GetAvailable()
 {
-	if (DisableCustomTickRateHandler == 1 || !bProperDriverVersion || GIsEditor || !IsRHIDeviceNVIDIA() || !bFeatureSupport)
+	if (DisableCustomTickRateHandler == 1 || !bProperDriverVersion || (GIsEditor && !bEnableReflexInEditor) || !IsRHIDeviceNVIDIA() || !bFeatureSupport)
 	{
 		return false;
 	}

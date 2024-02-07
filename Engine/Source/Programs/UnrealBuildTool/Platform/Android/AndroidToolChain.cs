@@ -466,6 +466,13 @@ namespace UnrealBuildTool
 			return Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bDisableFunctionDataSections", out bDisableFunctionDataSections) && bDisableFunctionDataSections;
 		}
 
+		private bool EnableAdvancedBinaryCompression()
+		{
+			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.Android);
+			bool bEnableAdvancedBinaryCompression = false;
+			return Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bEnableAdvancedBinaryCompression", out bEnableAdvancedBinaryCompression) && bEnableAdvancedBinaryCompression;
+		}
+
 		public override void SetUpGlobalEnvironment(ReadOnlyTargetRules Target)
 		{
 			base.SetUpGlobalEnvironment(Target);
@@ -541,6 +548,15 @@ namespace UnrealBuildTool
 			MinPlatform = CachedMinPlatform;
 			MaxPlatform = CachedMaxPlatform;
 			return CachedPlatformsValid;
+		}
+
+		//This doesn't take into account SDK version overrides in packaging
+		public int GetMinSdkVersion(int MinSdk = 26)
+		{
+			int MinSDKVersion = MinSdk;
+			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.Android);
+			Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "MinSDKVersion", out MinSDKVersion);
+			return MinSDKVersion;
 		}
 
 		protected virtual bool ValidateNDK(string PlatformsFilename, string ApiString)
@@ -934,7 +950,7 @@ namespace UnrealBuildTool
 
 				if (Sanitizer == ClangSanitizer.Address || Sanitizer == ClangSanitizer.HwAddress)
 				{
-					Result += " -fno-omit-frame-pointer -DRUNNING_WITH_ASAN=1";
+					Result += " -fno-omit-frame-pointer -DRUNNING_WITH_ASAN=1 -DFORCE_ANSI_ALLOCATOR=1";
 				}
 			}
 
@@ -1125,6 +1141,25 @@ namespace UnrealBuildTool
 			if (Sanitizer != ClangSanitizer.None)
 			{
 				Result += " -fsanitize=" + GetCompilerOption(Sanitizer);
+			}
+
+			if (EnableAdvancedBinaryCompression())
+			{
+				int MinSDKVersion = GetMinSdkVersion();
+				if (MinSDKVersion >= 28)
+				{
+					//Pack relocations in RELR format and Android APS2 packed format for RELA relocations if they can't be expressed in RELR
+					Result += " -Wl,--pack-dyn-relocs=android+relr,--use-android-relr-tags";
+				}
+				else if (MinSDKVersion >= 23)
+				{
+					Result += " -Wl,--pack-dyn-relocs=android";
+				}
+
+				if (MinSDKVersion >= 23)
+				{
+					Result += " -Wl,--hash-style=gnu";  // generate GNU style hashes, faster lookup and faster startup. Avoids generating old .hash section. Supported on >= Android M
+				}
 			}
 
 			return Result;

@@ -4352,9 +4352,9 @@ namespace UnrealBuildTool
 					File.SetLastWriteTimeUtc(FinalSOName, File.GetLastWriteTimeUtc(SourceSOName));
 				}
 
-				// after ndk-build is called, we can now copy in the stl .so (ndk-build deletes old files)
-				// copy libc++_shared.so to library
-				CopySTL(ToolChain, UE4BuildPath, Arch, NDKArch, bForDistribution);
+					// after ndk-build is called, we can now copy in the stl .so (ndk-build deletes old files)
+					// copy libc++_shared.so to library
+					CopySTL(ToolChain, UE4BuildPath, Arch, NDKArch, bForDistribution);
 				CopyGfxDebugger(UE4BuildPath, Arch, NDKArch);
 				CopyVulkanValidationLayers(UE4BuildPath, Arch, NDKArch, Configuration.ToString());
 				//AndroidToolChain.ClangSanitizer Sanitizer = AndroidToolChain.BuildWithSanitizer(ProjectFile);
@@ -4374,7 +4374,7 @@ namespace UnrealBuildTool
 					string SymbolSODirectory = Path.Combine(Path.Combine(ProjectDirectory, "Binaries\\Android"), ProjectName + "_Symbols_v" + StoreVersion + "\\" + ProjectName + Arch + GPUArchitecture);
 					WriteVSCodeDebugProject(ProjectName, PackageName, SymbolSODirectory, lldbVisualizerPath);
 				}
-
+				
 				Log.TraceInformation("\n===={0}====PERFORMING FINAL APK PACKAGE OPERATION====={1}===========================================", DateTime.Now.ToString(), Arch);
 
 				// check if any plugins want to increase the required compile SDK version

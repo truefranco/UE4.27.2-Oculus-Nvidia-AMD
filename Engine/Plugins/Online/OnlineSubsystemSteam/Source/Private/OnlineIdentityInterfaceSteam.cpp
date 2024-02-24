@@ -186,7 +186,7 @@ FString FOnlineIdentitySteam::GetAuthToken(int32 LocalUserNum) const
 		{
 			uint8 AuthToken[1024];
 			uint32 AuthTokenSize = 0;
-			if (SteamUserPtr->GetAuthSessionTicket(AuthToken, UE_ARRAY_COUNT(AuthToken), &AuthTokenSize) != k_HAuthTicketInvalid &&
+			if (SteamUserPtr->GetAuthSessionTicket(AuthToken, UE_ARRAY_COUNT(AuthToken), &AuthTokenSize, nullptr) != k_HAuthTicketInvalid &&
 				AuthTokenSize > 0)
 			{
 				ResultToken = BytesToHex(AuthToken, AuthTokenSize);

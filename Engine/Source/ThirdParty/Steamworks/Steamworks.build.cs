@@ -10,7 +10,7 @@ public class Steamworks : ModuleRules
 	public Steamworks(ReadOnlyTargetRules Target) : base(Target)
 	{
         // The current SDK version number.
-        double SteamVersionNumber = 1.51;
+        double SteamVersionNumber = 1.59;
         if (Target.Platform == UnrealTargetPlatform.Mac)
         {
             // 1.51 on Mac is crashing on 4.27, quick fix to make sure Steam still works on Mac

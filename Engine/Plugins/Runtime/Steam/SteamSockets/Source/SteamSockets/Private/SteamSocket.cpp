@@ -415,8 +415,10 @@ ESocketConnectionState FSteamSocket::GetConnectionState()
 		return SCS_NotConnected;
 	}
 
-	SteamNetworkingQuickConnectionStatus QuickSocketData;
-	if (SocketInterface->GetQuickConnectionStatus(InternalHandle, &QuickSocketData))
+	SteamNetConnectionRealTimeStatus_t QuickSocketData;
+	int nLanes = 0;
+	SteamNetConnectionRealTimeLaneStatus_t* pLanes = NULL;
+	if (SocketInterface->GetConnectionRealTimeStatus(InternalHandle, &QuickSocketData, nLanes, pLanes))
 	{
 		switch (QuickSocketData.m_eState)
 		{

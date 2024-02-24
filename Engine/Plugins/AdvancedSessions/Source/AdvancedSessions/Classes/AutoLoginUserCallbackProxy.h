@@ -5,10 +5,10 @@
 #include "BlueprintDataDefinitions.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Engine/LocalPlayer.h"
-#include "LogoutUserCallbackProxy.generated.h"
+#include "AutoLoginUserCallbackProxy.generated.h"
 
 UCLASS(MinimalAPI)
-class ULogoutUserCallbackProxy : public UOnlineBlueprintCallProxyBase
+class UAutoLoginUserCallbackProxy : public UOnlineBlueprintCallProxyBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -20,9 +20,17 @@ class ULogoutUserCallbackProxy : public UOnlineBlueprintCallProxyBase
 	UPROPERTY(BlueprintAssignable)
 	FEmptyOnlineDelegate OnFailure;
 
-	// Logs out of the identity interface
+	/**
+	 * Logs the player into the online service using parameters passed on the
+	 * command line. Expects -AUTH_LOGIN=<UserName> -AUTH_PASSWORD=<password>. If either
+	 * are missing, the function returns false and doesn't start the login
+	 * process
+	 *
+	 * @param LocalUserNum the controller number of the associated user
+	 *
+	 */
 	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true", WorldContext="WorldContextObject"), Category = "Online|AdvancedIdentity")
-	static ULogoutUserCallbackProxy* LogoutUser(UObject* WorldContextObject, class APlayerController* PlayerController);
+	static UAutoLoginUserCallbackProxy* AutoLoginUser(UObject* WorldContextObject, int32 LocalUserNum);
 
 	// UOnlineBlueprintCallProxyBase interface
 	virtual void Activate() override;
@@ -30,14 +38,14 @@ class ULogoutUserCallbackProxy : public UOnlineBlueprintCallProxyBase
 
 private:
 	// Internal callback when the operation completes, calls out to the public success/failure callbacks
-	void OnCompleted(int LocalUserNum, bool bWasSuccessful);
+	void OnCompleted(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& ErrorVal);
 
 private:
-	// The player controller triggering things
-	TWeakObjectPtr<APlayerController> PlayerControllerWeakPtr;
+	// The controller number of the associated user
+	int32 LocalUserNumber;
 
 	// The delegate executed by the online subsystem
-	FOnLogoutCompleteDelegate Delegate;
+	FOnLoginCompleteDelegate Delegate;
 
 	// Handle to the registered OnDestroySessionComplete delegate
 	FDelegateHandle DelegateHandle;

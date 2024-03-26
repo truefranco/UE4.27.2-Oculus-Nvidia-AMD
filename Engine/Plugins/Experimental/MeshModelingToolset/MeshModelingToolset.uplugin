@@ -24,7 +24,8 @@
 		{
 			"Name": "ModelingComponentsEditorOnly",
 			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [ "Win64" ]
 		},
 		{
 			"Name": "ModelingOperators",

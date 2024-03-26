@@ -24,7 +24,9 @@
 	"Plugins": [
 		{
 			"Name": "MeshModelingToolset",
-			"Enabled": true
+			"Enabled": true,
+			"Type": "Editor",
+			"TargetAllowList": [ "Editor" ]
 		},
 		{
 			"Name": "StylusInput",

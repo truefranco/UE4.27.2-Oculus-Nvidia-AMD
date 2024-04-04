@@ -63,9 +63,9 @@ void FUEWorkManagerNativeWrapper::FJavaClassInfo::Initialize()
 
 			//Find jclass information
 			{
-				DefaultUEWorkerJavaClass = FAndroidApplication::FindJavaClassGlobalRef("com/epicgames/unreal/workmanager/UEWorker");
-				UEWorkManagerJavaInterfaceClass = FAndroidApplication::FindJavaClassGlobalRef("com/epicgames/unreal/workmanager/UEWorkManagerJavaInterface");
-				WorkRequestParametersJavaInterfaceClass = FAndroidApplication::FindJavaClassGlobalRef("com/epicgames/unreal/workmanager/UEWorkManagerJavaInterface$FWorkRequestParametersJavaInterface");
+				DefaultUEWorkerJavaClass = FAndroidApplication::FindJavaClassGlobalRef("com/epicgames/ue4/workmanager/UEWorker");
+				UEWorkManagerJavaInterfaceClass = FAndroidApplication::FindJavaClassGlobalRef("com/epicgames/ue4/workmanager/UEWorkManagerJavaInterface");
+				WorkRequestParametersJavaInterfaceClass = FAndroidApplication::FindJavaClassGlobalRef("com/epicgames/ue4/workmanager/UEWorkManagerJavaInterface$FWorkRequestParametersJavaInterface");
 			}
 
 			//find general jmethodID information
@@ -75,8 +75,8 @@ void FUEWorkManagerNativeWrapper::FJavaClassInfo::Initialize()
 
 			//find jmethodID for UEWorkManagerJavaInterface
 			{
-				JavaInterface_Method_CreateWorkRequestParameters = FJavaWrapper::FindStaticMethod(Env, UEWorkManagerJavaInterfaceClass, "AndroidThunkJava_CreateWorkRequestParameters", "()Lcom/epicgames/unreal/workmanager/UEWorkManagerJavaInterface$FWorkRequestParametersJavaInterface;", bIsOptional);
-				JavaInterface_Method_RegisterWork = FJavaWrapper::FindStaticMethod(Env, UEWorkManagerJavaInterfaceClass, "AndroidThunkJava_RegisterWork", "(Landroid/content/Context;Ljava/lang/String;Lcom/epicgames/unreal/workmanager/UEWorkManagerJavaInterface$FWorkRequestParametersJavaInterface;)Z", bIsOptional);
+				JavaInterface_Method_CreateWorkRequestParameters = FJavaWrapper::FindStaticMethod(Env, UEWorkManagerJavaInterfaceClass, "AndroidThunkJava_CreateWorkRequestParameters", "()Lcom/epicgames/ue4/workmanager/UEWorkManagerJavaInterface$FWorkRequestParametersJavaInterface;", bIsOptional);
+				JavaInterface_Method_RegisterWork = FJavaWrapper::FindStaticMethod(Env, UEWorkManagerJavaInterfaceClass, "AndroidThunkJava_RegisterWork", "(Landroid/content/Context;Ljava/lang/String;Lcom/epicgames/ue4/workmanager/UEWorkManagerJavaInterface$FWorkRequestParametersJavaInterface;)Z", bIsOptional);
 				JavaInterface_Method_CancelWork = FJavaWrapper::FindStaticMethod(Env, UEWorkManagerJavaInterfaceClass, "AndroidThunkJava_CancelWork", "(Landroid/content/Context;Ljava/lang/String;)V", bIsOptional);
 			}
 		}
@@ -441,7 +441,7 @@ FUEWorkManagerNativeWrapper::EAndroidBackgroundWorkResult FUEWorkManagerNativeWr
 
 
 
-JNI_METHOD void Java_com_epicgames_unreal_workmanager_UEWorker_nativeAndroidBackgroundServicesOnWorkerStart(JNIEnv* jenv, jobject thiz, jstring WorkID)
+JNI_METHOD void Java_com_epicgames_ue4_workmanager_UEWorker_nativeAndroidBackgroundServicesOnWorkerStart(JNIEnv* jenv, jobject thiz, jstring WorkID)
 {
 	FString UEWorkID = FJavaHelper::FStringFromParam(jenv, WorkID);
 	
@@ -450,7 +450,7 @@ JNI_METHOD void Java_com_epicgames_unreal_workmanager_UEWorker_nativeAndroidBack
 
 }
 
-JNI_METHOD void Java_com_epicgames_unreal_workmanager_UEWorker_nativeAndroidBackgroundServicesOnWorkerStop(JNIEnv* jenv, jobject thiz, jstring WorkID)
+JNI_METHOD void Java_com_epicgames_ue4_workmanager_UEWorker_nativeAndroidBackgroundServicesOnWorkerStop(JNIEnv* jenv, jobject thiz, jstring WorkID)
 {
 	FString UEWorkID = FJavaHelper::FStringFromParam(jenv, WorkID);
 

@@ -1,3 +1,4 @@
+// @lint-ignore-every LICENSELINT
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;

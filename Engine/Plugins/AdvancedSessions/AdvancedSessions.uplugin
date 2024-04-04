@@ -7,6 +7,9 @@
 	"Category": "Advanced Sessions Plugin",
 	"CreatedBy": "Joshua Statzer",
 	"CreatedByURL": "N/A",
+        "SupportedTargetPlatforms": [
+		"Win64"
+	],
 	"Modules": [
 		{
 			"Name": "AdvancedSessions",

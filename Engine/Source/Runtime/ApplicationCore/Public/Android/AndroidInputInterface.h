@@ -119,6 +119,7 @@ struct FAndroidInputDeviceInfo {
 	int32 ControllerId;
 	FString Name;
 	FString Descriptor;
+	int32 FeedbackMotorCount;
 };
 
 struct FAndroidGamepadDeviceMapping
@@ -189,6 +190,14 @@ struct FAndroidControllerData
 	float RYAnalog;
 	float LTAnalog;
 	float RTAnalog;
+};
+
+struct FAndroidControllerVibeState
+{
+	FForceFeedbackValues VibeValues;
+	int32 LeftIntensity;
+	int32 RightIntensity;
+	double LastVibeUpdateTime;
 };
 
 enum FAndroidMessageType
@@ -297,6 +306,9 @@ private:
 	/** Push Vibration changes to the controllers */
 	void UpdateVibeMotors();
 
+	/** Push Vibration changes to the controller */
+	void UpdateControllerVibeMotors(int32 ControllerId);
+
 	struct MotionData
 	{
 		FVector Tilt;
@@ -349,6 +361,7 @@ private:
 
 	static FAndroidControllerData OldControllerData[MAX_NUM_CONTROLLERS];
 	static FAndroidControllerData NewControllerData[MAX_NUM_CONTROLLERS];
+	static FAndroidControllerVibeState ControllerVibeState[MAX_NUM_CONTROLLERS];
 
 	static FGamepadKeyNames::Type ButtonMapping[MAX_NUM_CONTROLLER_BUTTONS];
 

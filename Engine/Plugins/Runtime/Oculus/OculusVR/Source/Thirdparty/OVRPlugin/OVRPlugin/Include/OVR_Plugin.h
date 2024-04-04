@@ -396,6 +396,9 @@ OVRP_EXPORT ovrpResult ovrp_GetNodeFrustum2(ovrpNode nodeId, ovrpFrustum2f* node
 
 
 
+
+
+
 /// Set relative rotation/translation to the eye pose
 OVRP_EXPORT ovrpResult
 ovrp_SetHeadPoseModifier(const ovrpQuatf* relativeRotation, const ovrpVector3f* relativeTranslation);
@@ -719,6 +722,8 @@ OVRP_EXPORT ovrpResult ovrp_GetViewportStencil(
     ovrpUInt16* indices,
     int* indexCount);
 
+OVRP_EXPORT ovrpResult ovrp_SetDeveloperTelemetryConsent(ovrpBool consent);
+
 OVRP_EXPORT ovrpResult ovrp_SendEvent(const char* eventName, const char* param);
 
 OVRP_EXPORT ovrpResult ovrp_SendEvent2(const char* eventName, const char* param, const char* source);
@@ -763,6 +768,13 @@ OVRP_EXPORT ovrpResult ovrp_SetControllerDrivenHandPoses(ovrpBool controllerDriv
 OVRP_EXPORT ovrpResult ovrp_SetControllerDrivenHandPosesAreNatural(ovrpBool controllerDrivenHandPosesAreNatural);
 OVRP_EXPORT ovrpResult ovrp_IsControllerDrivenHandPosesEnabled(ovrpBool* enabled);
 OVRP_EXPORT ovrpResult ovrp_AreControllerDrivenHandPosesNatural(ovrpBool* natural);
+
+OVRP_EXPORT ovrpResult ovrp_SetWideMotionModeHandPoses(ovrpBool wideMotionModeHandPoses);
+OVRP_EXPORT ovrpResult ovrp_IsWideMotionModeHandPosesEnabled(ovrpBool* enabled);
+
+
+
+
 
 
 
@@ -1122,6 +1134,20 @@ OVRP_EXPORT ovrpResult ovrp_GetEyeLayerRecommendedResolution(ovrpSizei* recommen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 OVRP_EXPORT ovrpResult ovrp_IsLayerShapeSupported(ovrpShape shape, ovrpBool* isLayerShapeSupported);
 
 OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthSupported(ovrpBool* supported);
@@ -1135,6 +1161,23 @@ OVRP_EXPORT ovrpResult ovrp_SetEnvironmentDepthHandRemoval(ovrpBool enabled);
 OVRP_EXPORT ovrpResult ovrp_StartEnvironmentDepth();
 OVRP_EXPORT ovrpResult ovrp_StopEnvironmentDepth();
 OVRP_EXPORT ovrpResult ovrp_GetEnvironmentDepthFrameDesc(ovrpEye eyeId, ovrpEnvironmentDepthFrameDesc* frameDesc);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #ifdef __cplusplus
 }

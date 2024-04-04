@@ -2905,6 +2905,17 @@ bool FAndroidMisc::HasActiveWiFiConnection()
 }
 #endif
 
+JNI_METHOD void Java_com_epicgames_unreal_GameActivity_nativeNetworkChanged(JNIEnv* jenv, jobject thiz)
+{
+	if (FTaskGraphInterface::IsRunning())
+	{
+		FFunctionGraphTask::CreateAndDispatchWhenReady([]()
+			{
+				FCoreDelegates::OnNetworkConnectionChanged.Broadcast(FAndroidMisc::GetNetworkConnectionType());
+			}, TStatId(), NULL, ENamedThreads::GameThread);
+	}
+}
+
 static FAndroidMisc::ReInitWindowCallbackType OnReInitWindowCallback;
 
 FAndroidMisc::ReInitWindowCallbackType FAndroidMisc::GetOnReInitWindowCallback()

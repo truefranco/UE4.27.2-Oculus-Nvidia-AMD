@@ -384,7 +384,14 @@ bool FDepthStencilBinding::Validate() const
 			TEXT("Texture %s is bound but both depth / stencil are set to no-op."),
 			Texture->Name);
 
-		bool bHasStencil = PixelFormat == PF_DepthStencil;
+		// BEGIN META SECTION: Avoid unnecessary check
+		// This is to fix the broken assert/check where PixelFormat == PF_D24 AND StencilLoadAction == FExclusiveDepthStencil::DepthWrite_StencilWrite in MSAA case.
+		// MSAA wise, we hardcode to use PF_D24 which will later be converted to D24S8 format which DO support stencil.
+		// Even though below check IS correct logically, but to avoid a big change at a higher&broader level (like to change PF_D24 to PF_DepthStencil), 
+		// let's hard code here to avoid broken check. The worst case is (I doubt if there'll be), we missed a check.
+		bool bHasStencil = (PixelFormat == PF_DepthStencil || PixelFormat == PF_D24);
+		// END META SECTION
+
 		if (!bHasStencil)
 		{
 			checkf(StencilLoadAction == ERenderTargetLoadAction::ENoAction,

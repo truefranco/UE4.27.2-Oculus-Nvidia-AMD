@@ -1044,7 +1044,7 @@ void FMobileSceneRenderer::RenderForwardHmdMotionVectors(FRHICommandListImmediat
 		RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
 		RPInfo.SubpassHint = ESubpassHint::None;
 		RPInfo.MultiViewCount = View.bIsMobileMultiViewEnabled ? 2 : 1;
-		RPInfo.ResolveParameters.Rect = FResolveRect(View.ViewRect);
+		RPInfo.ResolveParameters.Rect = FResolveRect(0, 0, VelocityTexture->GetSizeXYZ().X, VelocityTexture->GetSizeXYZ().Y);
 		RHICmdList.BeginRenderPass(RPInfo, TEXT("RenderVelocity"));
 		RenderHmdMotionVectors(RHICmdList, VelocityTexture, ViewList, EVelocityPass::Opaque);
 		RHICmdList.EndRenderPass();

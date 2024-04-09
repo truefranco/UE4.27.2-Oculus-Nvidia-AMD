@@ -1,17 +1,22 @@
-/************************************************************************************
-
-Copyright (c) Facebook Technologies, LLC and its affiliates.  All rights reserved.
-
-Your use of this SDK or tool is subject to the Oculus SDK License Agreement, available at
-https://developer.oculus.com/licenses/oculussdk/
-
-Unless required by applicable law or agreed to in writing, the Oculus SDK
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-************************************************************************************/
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * Licensed under the Oculus SDK License Agreement (the "License");
+ * you may not use the Oculus SDK except in compliance with the License,
+ * which is provided at the time of installation or download, or which
+ * otherwise accompanies this software in either electronic or hard copy form.
+ *
+ * You may obtain a copy of the License at
+ *
+ * https://developer.oculus.com/licenses/oculussdk/
+ *
+ * Unless required by applicable law or agreed to in writing, the Oculus SDK
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #ifndef OVR_Plugin_Types_h
 #define OVR_Plugin_Types_h
@@ -21,12 +26,16 @@ limitations under the License.
 #define OVRP_STRINGIFY(x) OVRP_STRINGIFYIMPL(x)
 #endif
 
+// Note: OVRP_MINOR_VERSION == OCULUS_SDK_VERSION + 32
+
 #define OVRP_MAJOR_VERSION 1
-#define OVRP_MINOR_VERSION 65
+#define OVRP_MINOR_VERSION 95
 #define OVRP_PATCH_VERSION 0
 
 #define OVRP_VERSION OVRP_MAJOR_VERSION, OVRP_MINOR_VERSION, OVRP_PATCH_VERSION
 #define OVRP_VERSION_STR OVRP_STRINGIFY(OVRP_MAJOR_VERSION.OVRP_MINOR_VERSION.OVRP_PATCH_VERSION)
+
+
 
 
 
@@ -39,8 +48,8 @@ limitations under the License.
 #ifndef OVRP_EXPORT
 #ifdef _WIN32
 #define OVRP_EXPORT __declspec(dllexport)
-#elif __ANDROID__
-#define OVRP_EXPORT __attribute__ ((visibility ("default")))
+#elif defined(__ANDROID__) || defined(__APPLE__)
+#define OVRP_EXPORT __attribute__((visibility("default")))
 #else
 #define OVRP_EXPORT
 #endif
@@ -68,6 +77,24 @@ limitations under the License.
 #define OVRP_MIXED_REALITY_PRIVATE 0
 #endif
 
+#ifndef OVR_PLUGIN_PC_OPENXR
+#define OVR_PLUGIN_PC_OPENXR 0
+#endif
+
+#ifndef OVR_PLUGIN_MOBILE_OPENXR
+#define OVR_PLUGIN_MOBILE_OPENXR 0
+#endif
+
+#if OVR_PLUGIN_PC_OPENXR || OVR_PLUGIN_MOBILE_OPENXR
+#define OVR_PLUGIN_USE_OPENXR 1
+#endif
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+#pragma clang diagnostic ignored "-Wpedantic"
+#endif // __clang__
+
 /// True or false
 enum {
   ovrpBool_False = 0,
@@ -94,7 +121,7 @@ typedef long long ovrpInt64;
 typedef unsigned long long ovrpUInt64;
 
 /// Epsilon for floating point comparison
-#define OVRP_FLOAT_EPSILON    (1e-5f)
+#define OVRP_FLOAT_EPSILON (1e-5f)
 
 /// Success and failure
 typedef enum {
@@ -114,6 +141,57 @@ typedef enum {
   ovrpFailure_InsufficientSize = -1007,
   ovrpFailure_DataIsInvalid = -1008,
   ovrpFailure_DeprecatedOperation = -1009,
+  ovrpFailure_ErrorLimitReached = -1010,
+  ovrpFailure_ErrorInitializationFailed = -1011,
+  ovrpFailure_RuntimeUnavailable = -1012,
+  ovrpFailure_HandleInvalid = -1013,
+
+  /// Space error cases
+  ovrpFailure_SpaceCloudStorageDisabled = -2000,
+  ovrpFailure_SpaceMappingInsufficient = -2001,
+  ovrpFailure_SpaceLocalizationFailed = -2002,
+  ovrpFailure_SpaceNetworkTimeout = -2003,
+  ovrpFailure_SpaceNetworkRequestFailed = -2004,
+
+  /// XR_FB_spatial_entity extension
+  ovrpFailure_SpaceComponentNotSupported = -2005,
+  ovrpFailure_SpaceComponentNotEnabled = -2006,
+  ovrpFailure_SpaceComponentStatusPending = -2007,
+  ovrpFailure_SpaceComponentStatusAlreadySet = -2008,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 } ovrpResult;
 
 #define OVRP_SUCCESS(result) ((result) >= 0)
@@ -128,6 +206,23 @@ typedef enum {
   ovrpXrApi_EnumSize = 0x7fffffff
 } ovrpXrApi;
 
+/// Pre-initialization flags
+typedef enum {
+  ovrpPreinitializeFlag_None = 0,
+  /// Unity native OpenXR Plugin is being used
+  ovrpPreinitializeFlag_UseUnityOpenXR = (1 << 0),
+  /// Unreal native OpenXR Plugin is being used
+  ovrpPreinitializeFlag_UseUnrealOpenXR = (1 << 1),
+
+
+
+
+
+  /// Allow OVRPlugin (OpenXR backend) runs with non-Oculus OpenXR runtime
+  ovrpPreinitializeFlag_SupportNonOculusRuntime = (1 << 3),
+  ovrpPreinitializeFlag_EnumSize = 0x7fffffff
+} ovrpPreinitializeFlags;
+
 /// Initialization flags
 typedef enum {
   /// Start GearVR battery and volume receivers
@@ -139,9 +234,12 @@ typedef enum {
   /// DEPRECATED - Turn off Legacy Core Affinity Patch
   /// Background: Some legacy unity versions set thread affinities wrong on newer hardware like Oculus Go
   /// We need patch it in the runtime for published legacy apps.
-  /// This flag will be passed from fixed Unity versions explicitly, so we can skip the runtime patch mechanism since we already have proper fixes.
-  /// Deprecated Background: Several Unity versions incorrectly indicated they handled applying thread affinity, so this flag has been deprecated
-  /// in order to fallback to runtime thread affinity handling. In the future, a new flag will be introduced to allow engine opt-out of
+  /// This flag will be passed from fixed Unity versions explicitly, so we can skip the runtime patch mechanism since we
+  /// already have proper fixes.
+  /// Deprecated Background: Several Unity versions incorrectly indicated they handled applying thread affinity, so this
+  /// flag has been deprecated
+  /// in order to fallback to runtime thread affinity handling. In the future, a new flag will be introduced to allow
+  /// engine opt-out of
   /// runtime affinity handling.
   ovrpInitializeFlag_NoLegacyCoreAffinityPatch = (1 << 3), // DEPRECATED
 
@@ -156,6 +254,9 @@ typedef enum {
 
   /// Enable Application SpaceWarp support
   ovrpInitializeFlag_SupportAppSpaceWarp = (1 << 6),
+
+  /// XR instance / session would be created by external engine, to support their OpenXR Plugins
+  ovrpInitializeFlag_ExternalXrObjects = (1 << 7),
 
   ovrpInitializeFlag_EnumSize = 0x7fffffff
 
@@ -208,16 +309,6 @@ typedef enum {
   ovrpTracker_EnumSize = 0x7fffffff
 } ovrpTracker;
 
-
-
-
-
-
-
-
-
-
-
 /// Identifies a tracked VR Node.
 typedef enum {
   ovrpNode_None = -1,
@@ -235,6 +326,8 @@ typedef enum {
 
 
 
+  ovrpNode_ControllerLeft = 12,
+  ovrpNode_ControllerRight = 13,
   ovrpNode_Count,
   ovrpNode_EnumSize = 0x7fffffff
 } ovrpNode;
@@ -262,11 +355,11 @@ typedef enum {
   ovrpBatteryStatus_EnumSize = 0x7fffffff
 } ovrpBatteryStatus;
 
-//Handedness of user as specified in the mobile device
+// Handedness of user as specified in the mobile device
 typedef enum {
-    ovrpHandedness_Unsupported = 0,
-    ovrpHandedness_LeftHanded = 1,
-    ovrpHandedness_RightHanded = 2
+  ovrpHandedness_Unsupported = 0,
+  ovrpHandedness_LeftHanded = 1,
+  ovrpHandedness_RightHanded = 2
 } ovrpHandedness;
 
 /// An oculus platform UI.
@@ -290,17 +383,17 @@ typedef enum {
   ovrpSystemHeadset_None = 0,
 
   // Mobile & Standalone headsets
-  ovrpSystemHeadset_GearVR_R320,    // Note4 Innovator
-  ovrpSystemHeadset_GearVR_R321,    // S6 Innovator
-  ovrpSystemHeadset_GearVR_R322,    // GearVR Commercial 1
-  ovrpSystemHeadset_GearVR_R323,    // GearVR Commercial 2 (USB Type C)
-  ovrpSystemHeadset_GearVR_R324,    // GearVR Commercial 3 (USB Type C)
-  ovrpSystemHeadset_GearVR_R325,    // GearVR Commercial 4 (USB Type C)
-  ovrpSystemHeadset_Oculus_Go,      // Oculus Go Commercial 1
-  ovrpSystemHeadset_Oculus_Quest,   // Oculus Quest
-  ovrpSystemHeadset_Oculus_Quest_2,  // Oculus Quest 2
-  ovrpSystemHeadset_Placeholder_10,
-  ovrpSystemHeadset_Placeholder_11,
+  ovrpSystemHeadset_GearVR_R320, // Note4 Innovator
+  ovrpSystemHeadset_GearVR_R321, // S6 Innovator
+  ovrpSystemHeadset_GearVR_R322, // GearVR Commercial 1
+  ovrpSystemHeadset_GearVR_R323, // GearVR Commercial 2 (USB Type C)
+  ovrpSystemHeadset_GearVR_R324, // GearVR Commercial 3 (USB Type C)
+  ovrpSystemHeadset_GearVR_R325, // GearVR Commercial 4 (USB Type C)
+  ovrpSystemHeadset_Oculus_Go, // Oculus Go Commercial 1
+  ovrpSystemHeadset_Oculus_Quest, // Oculus Quest
+  ovrpSystemHeadset_Oculus_Quest_2, // Oculus Quest 2
+  ovrpSystemHeadset_Meta_Quest_Pro, // Meta Quest Pro
+  ovrpSystemHeadset_Meta_Quest_3, // Meta Quest 3
   ovrpSystemHeadset_Placeholder_12,
   ovrpSystemHeadset_Placeholder_13,
   ovrpSystemHeadset_Placeholder_14,
@@ -311,10 +404,10 @@ typedef enum {
   ovrpSystemHeadset_Rift_CV1,
   ovrpSystemHeadset_Rift_CB,
   ovrpSystemHeadset_Rift_S,
-  ovrpSystemHeadset_Oculus_Link_Quest,    // Quest connected through Oculus Link
+  ovrpSystemHeadset_Oculus_Link_Quest, // Quest connected through Oculus Link
   ovrpSystemHeadset_Oculus_Link_Quest_2,
-  ovrpSystemHeadset_PC_Placeholder_4103,
-  ovrpSystemHeadset_PC_Placeholder_4104,
+  ovrpSystemHeadset_Meta_Link_Quest_Pro,
+  ovrpSystemHeadset_Meta_Link_Quest_3,
   ovrpSystemHeadset_PC_Placeholder_4105,
   ovrpSystemHeadset_PC_Placeholder_4106,
   ovrpSystemHeadset_PC_Placeholder_4107,
@@ -413,6 +506,16 @@ typedef enum {
   ovrpController_EnumSize = 0x7fffffff
 } ovrpController;
 
+
+/// Identifies a haptics location on a controller.
+typedef enum {
+  ovrpHapticsLocation_None = 0,
+  ovrpHapticsLocation_Hand = 0x01,
+  ovrpHapticsLocation_Thumb = 0x02,
+  ovrpHapticsLocation_Index = 0x04,
+  ovrpHapticsLocation_EnumSize = 0x7fffffff
+} ovrpHapticsLocation;
+
 /// Used to specify recentering behavior.
 typedef enum {
   /// Recenter all default axes as defined by the current tracking origin type.
@@ -446,6 +549,13 @@ typedef enum {
   ovrpTiledMultiResLevel_EnumSize = 0x7fffffff
 } ovrpTiledMultiResLevel;
 
+typedef enum {
+  ovrpFoveationFlag_EyeTracked = (1 << 0),
+
+
+
+} ovrpFoveationFlags;
+
 /// Control the activation of mixed reality capture
 typedef enum {
   ovrpMediaMrcActivationMode_Automatic = 0,
@@ -457,11 +567,11 @@ typedef enum {
 typedef enum {
   ovrpPlatformCameraMode_Disabled = -1,
   ovrpPlatformCameraMode_Initialized = 0,
-  ovrpPlatformCameraMode_UserControlled = 1,        //Ex: Quest user grab and
-  ovrpPlatformCameraMode_SmartNavigated = 2,        //Ex: Program to follow/zoom, avoid obstacle ...etc
-  ovrpPlatformCameraMode_StabilizedPoV = 3,         //Ex: Stabilized 1st person view
-  ovrpPlatformCameraMode_RemoteDroneControlled = 4, //Ex: Control by remote clients
-  ovrpPlatformCameraMode_RemoteSpatialMapped = 5,   //Ex: Control by anchor pose and SLAM tracking
+  ovrpPlatformCameraMode_UserControlled = 1, // Ex: Quest user grab and
+  ovrpPlatformCameraMode_SmartNavigated = 2, // Ex: Program to follow/zoom, avoid obstacle ...etc
+  ovrpPlatformCameraMode_StabilizedPoV = 3, // Ex: Stabilized 1st person view
+  ovrpPlatformCameraMode_RemoteDroneControlled = 4, // Ex: Control by remote clients
+  ovrpPlatformCameraMode_RemoteSpatialMapped = 5, // Ex: Control by anchor pose and SLAM tracking
   ovrpPlatformCameraMode_EnumSize = 0x7fffffff
 } ovrpPlatformCameraMode;
 
@@ -474,10 +584,62 @@ typedef enum {
   ovrpMediaInputVideoBufferType_EnumSize = 0x7fffffff
 } ovrpMediaInputVideoBufferType;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/// Feature fidelity for XR Runtime Performance Manager
+typedef enum {
+  ovrpFeatureType_HandTracking = 0,
+  ovrpFeatureType_KeyboardTracking = 1,
+  ovrpFeatureType_EyeTracking = 2,
+  ovrpFeatureType_FaceTracking = 3,
+  ovrpFeatureType_BodyTracking = 4,
+  ovrpFeatureType_Passthrough = 5,
+  ovrpFeatureType_GazeBasedFoveatedRendering = 6,
+  ovrpFeatureType_Count,
+  ovrpFeatureType_EnumSize = 0x7fffffff
+} ovrpFeatureType;
+
+typedef enum {
+  ovrpFeatureFidelity_Default = -1,
+  ovrpFeatureFidelity_Low = 0,
+  ovrpFeatureFidelity_MediumLow = 1,
+  ovrpFeatureFidelity_Medium = 2,
+  ovrpFeatureFidelity_MediumHigh = 3,
+  ovrpFeatureFidelity_High = 4,
+  ovrpFeatureFidelity_EnumSize = 0x7fffffff
+} ovrpFeatureFidelity;
+
+typedef enum {
+  ovrpFeatureEnableState_Default = -1,
+  ovrpFeatureEnableState_Off = 0,
+  ovrpFeatureEnableState_On = 1,
+  ovrpFeatureEnableState_EnumSize = 0x7fffffff
+} ovrpFeatureEnableState;
+
+typedef struct {
+  ovrpFeatureEnableState enableState;
+  ovrpFeatureFidelity fidelity;
+} ovrpFeatureState;
+
 #if defined(__arm__)
-typedef void(* ovrpLogCallback)(ovrpLogLevel, const char*);
+typedef void (*ovrpLogCallback)(ovrpLogLevel, const char*);
+typedef void (*ovrpLogCallback2)(ovrpLogLevel, const char* /*msg*/, int /*length*/);
 #else
 typedef void(__cdecl* ovrpLogCallback)(ovrpLogLevel, const char*);
+typedef void(__cdecl* ovrpLogCallback2)(ovrpLogLevel, const char* /*msg*/, int /*length*/);
 #endif
 
 typedef struct {
@@ -539,48 +701,91 @@ typedef enum {
   ovrpPerfMetrics_System_CpuUtilAveragePercentage_Float = 8,
   ovrpPerfMetrics_System_CpuUtilWorstPercentage_Float = 9,
 
-  // 1.32.0
-  ovrpPerfMetrics_Device_CpuClockFrequencyInMHz_Float = 10,
-  ovrpPerfMetrics_Device_GpuClockFrequencyInMHz_Float = 11,
-  ovrpPerfMetrics_Device_CpuClockLevel_Int = 12,
-  ovrpPerfMetrics_Device_GpuClockLevel_Int = 13,
+  // Added 1.32.0
+  ovrpPerfMetrics_Device_CpuClockFrequencyInMHz_Float = 10, // Deprecated 1.68.0
+  ovrpPerfMetrics_Device_GpuClockFrequencyInMHz_Float = 11, // Deprecated 1.68.0
+  ovrpPerfMetrics_Device_CpuClockLevel_Int = 12, // Deprecated 1.68.0
+  ovrpPerfMetrics_Device_GpuClockLevel_Int = 13, // Deprecated 1.68.0
+
+  ovrpPerfMetrics_Compositor_SpaceWarp_Mode_Int = 14,
+
+  ovrpPerfMetrics_Device_CpuCore0UtilPercentage_Float = 32,
+  ovrpPerfMetrics_Device_CpuCore1UtilPercentage_Float = ovrpPerfMetrics_Device_CpuCore0UtilPercentage_Float + 1,
+  ovrpPerfMetrics_Device_CpuCore2UtilPercentage_Float = ovrpPerfMetrics_Device_CpuCore0UtilPercentage_Float + 2,
+  ovrpPerfMetrics_Device_CpuCore3UtilPercentage_Float = ovrpPerfMetrics_Device_CpuCore0UtilPercentage_Float + 3,
+  ovrpPerfMetrics_Device_CpuCore4UtilPercentage_Float = ovrpPerfMetrics_Device_CpuCore0UtilPercentage_Float + 4,
+  ovrpPerfMetrics_Device_CpuCore5UtilPercentage_Float = ovrpPerfMetrics_Device_CpuCore0UtilPercentage_Float + 5,
+  ovrpPerfMetrics_Device_CpuCore6UtilPercentage_Float = ovrpPerfMetrics_Device_CpuCore0UtilPercentage_Float + 6,
+  ovrpPerfMetrics_Device_CpuCore7UtilPercentage_Float = ovrpPerfMetrics_Device_CpuCore0UtilPercentage_Float + 7,
+  // Enum value 32~63 are reserved for CPU Cores' utilization (assuming at most 32 cores).
 
   ovrpPerfMetrics_Count,
   ovrpPerfMetrics_Max = 0x7fffffff,
 } ovrpPerfMetrics;
 
 /// A 2D size with integer components.
-typedef struct { int w, h; } ovrpSizei;
+typedef struct {
+  int w, h;
+} ovrpSizei;
 
 /// A 2D size with float components.
-typedef struct { float w, h; } ovrpSizef;
+typedef struct {
+  float w, h;
+} ovrpSizef;
+
+/// A 3D size (width, height, depth) with float components.
+typedef struct {
+  float w, h, d;
+} ovrpSize3f;
 
 /// A 2D vector with integer components.
-typedef struct { int x, y; } ovrpVector2i;
+typedef struct {
+  int x, y;
+} ovrpVector2i;
 
 /// A 2D vector with float components.
-typedef struct { float x, y; } ovrpVector2f;
+typedef struct {
+  float x, y;
+} ovrpVector2f;
 
 /// A 3D vector with float components.
-typedef struct { float x, y, z; } ovrpVector3f;
+typedef struct {
+  float x, y, z;
+} ovrpVector3f;
 
 /// A 4D vector with float components.
-typedef struct { float x, y, z, w; } ovrpVector4f;
+typedef struct {
+  float x, y, z, w;
+} ovrpVector4f;
 
 /// A 4D vector with Int16 components.
-typedef struct { ovrpInt16 x, y, z, w; } ovrpVector4s;
+typedef struct {
+  ovrpInt16 x, y, z, w;
+} ovrpVector4s;
 
 /// A quaternion rotation.
-typedef struct { float x, y, z, w; } ovrpQuatf;
+typedef struct {
+  float x, y, z, w;
+} ovrpQuatf;
 
 /// Row-major 4x4 matrix.
-typedef struct { float M[4][4]; } ovrpMatrix4f;
+typedef struct {
+  float M[4][4];
+} ovrpMatrix4f;
 
 /// Position and orientation together.
 typedef struct {
   ovrpQuatf Orientation;
   ovrpVector3f Position;
 } ovrpPosef;
+
+/// Equivalent to XrSpaceLocationFlags, see openxr.h for flag values
+typedef ovrpUInt64 ovrpSpaceLocationFlags;
+
+typedef struct {
+  ovrpSpaceLocationFlags locationFlags;
+  ovrpPosef pose;
+} ovrpSpaceLocationf;
 
 /// Position and orientation together.
 typedef struct {
@@ -621,6 +826,14 @@ typedef struct {
   ovrpSizef Size;
 } ovrpRectf;
 
+/// A 3D bounds with a position and size as floats.
+/// \note: Bounds is defined in Unity with center & extent (half size) but ovrpBoundsf here is
+/// defined consistent with ovrpRectf using Pos (min) & Size.
+typedef struct {
+  ovrpVector3f Pos;
+  ovrpSize3f Size;
+} ovrpBoundsf;
+
 typedef struct {
   ovrpRectf LeftRect;
   ovrpRectf RightRect;
@@ -639,7 +852,9 @@ typedef struct {
   float SizeDown;
 } ovrpOctilinearLayout;
 
-typedef struct { float r, g, b, a; } ovrpColorf;
+typedef struct {
+  float r, g, b, a;
+} ovrpColorf;
 
 /// Describes Input State for use with Gamepads and Oculus Controllers.
 typedef struct {
@@ -655,6 +870,50 @@ typedef struct {
   unsigned char RecenterCount[2];
   unsigned char Reserved[28];
 } ovrpControllerState4;
+
+typedef struct {
+  unsigned int ConnectedControllerTypes;
+  unsigned int Buttons;
+  unsigned int Touches;
+  unsigned int NearTouches;
+  float IndexTrigger[2];
+  float HandTrigger[2];
+  ovrpVector2f Thumbstick[2];
+  ovrpVector2f Touchpad[2];
+  unsigned char BatteryPercentRemaining[2];
+  unsigned char RecenterCount[2];
+  float ThumbRestForce[2];
+  float StylusForce[2];
+  float IndexTriggerCurl[2];
+  float IndexTriggerSlide[2];
+} ovrpControllerState5;
+
+typedef struct {
+  unsigned int ConnectedControllerTypes;
+  unsigned int Buttons;
+  unsigned int Touches;
+  unsigned int NearTouches;
+  float IndexTrigger[2];
+  float HandTrigger[2];
+  ovrpVector2f Thumbstick[2];
+  ovrpVector2f Touchpad[2];
+  unsigned char BatteryPercentRemaining[2];
+  unsigned char RecenterCount[2];
+  float ThumbRestForce[2];
+  float StylusForce[2];
+  float IndexTriggerCurl[2];
+  float IndexTriggerSlide[2];
+  float IndexTriggerForce[2];
+} ovrpControllerState6;
+
+
+
+
+
+
+
+
+
 
 /// Describes Haptics Buffer for use with Oculus Controllers.
 typedef struct {
@@ -675,6 +934,25 @@ typedef struct {
   int OptimalBufferSamplesCount;
   int MaximumBufferSamplesCount;
 } ovrpHapticsDesc;
+
+typedef struct {
+  float Duration;
+  ovrpUInt32 AmplitudeCount;
+  const float* Amplitudes;
+} ovrpHapticsAmplitudeEnvelopeVibration;
+
+typedef struct {
+  ovrpUInt32 BufferSize;
+  const float* Buffer;
+  float SampleRateHz;
+  ovrpBool Append;
+  ovrpUInt32* SamplesConsumed;
+} ovrpHapticsPcmVibration;
+
+typedef enum ovrpHapticsConstants_ {
+  ovrpHapticsConstants_MaxSamples = 4000,
+  ovrpHapticsConstants_EnumSize = 0x7fffffff
+} ovrpHapticsConstants;
 
 /// Boundary types that specify a surface in the boundary system
 typedef enum {
@@ -738,10 +1016,10 @@ typedef enum {
 
 // Camera anchor types
 typedef enum {
-	ovrpCameraAnchorType_PreDefined = 0,
-	ovrpCameraAnchorType_Custom = 1,
+  ovrpCameraAnchorType_PreDefined = 0,
+  ovrpCameraAnchorType_Custom = 1,
   ovrpCameraAnchorType_Count,
-	ovrpCameraAnchorType_EnumSize = 0x7fffffff
+  ovrpCameraAnchorType_EnumSize = 0x7fffffff
 } ovrpCameraAnchorType;
 
 /// Camera intrinsics
@@ -764,7 +1042,7 @@ typedef struct {
 } ovrpCameraExtrinsics;
 
 typedef void* ovrpCameraAnchorHandle;
-#define OVRP_ANCHOR_INVALID_HANDLE    nullptr
+#define OVRP_ANCHOR_INVALID_HANDLE nullptr
 
 #define OVRP_EXTERNAL_CAMERA_NAME_SIZE 32
 #define OVRP_ANCHOR_NAME_SIZE 32
@@ -819,11 +1097,8 @@ const static ovrpVector3f s_vec3One = {1, 1, 1};
 const static ovrpQuatf s_identityQuat = {0, 0, 0, 1};
 const static ovrpFovf s_identityFov = {1.0f, 1.0f, 1.0f, 1.0f};
 const static ovrpCameraIntrinsics s_invalidCameraIntrinsics = {ovrpBool_False, -1, {0, 0, 0, 0}, 0, 0, {0, 0}};
-const static ovrpCameraExtrinsics s_invalidCameraExtrinsics = {ovrpBool_False,
-                                                               -1,
-                                                               ovrpCameraStatus_None,
-                                                               ovrpNode_None,
-                                                               {{0, 0, 0, 1}, {0, 0, 0}}};
+const static ovrpCameraExtrinsics s_invalidCameraExtrinsics =
+    {ovrpBool_False, -1, ovrpCameraStatus_None, ovrpNode_None, {{0, 0, 0, 1}, {0, 0, 0}}};
 
 /// Texture handle which can be cast to GLuint, VkImage, ID3D11Texture2D*, or ID3D12Resource*
 typedef unsigned long long ovrpTextureHandle;
@@ -861,9 +1136,8 @@ typedef enum {
   ovrpShape_ReconstructionPassthrough = 7,
   ovrpShape_SurfaceProjectedPassthrough = 8,
   ovrpShape_Fisheye = 9,
-
-
-
+  ovrpShape_KeyboardHandsPassthrough = 10,
+  ovrpShape_KeyboardMaskedHandsPassthrough = 11,
   ovrpShape_EnumSize = 0xF
 } ovrpShape;
 
@@ -886,12 +1160,15 @@ typedef enum {
   ovrpTextureFormat_R5G6B5 = 11,
   ovrpTextureFormat_R16G16_FP = 12,
   ovrpTextureFormat_A2B10G10R10 = 13,
+  ovrpTextureFormat_R16 = 15,
+  ovrpTextureFormat_R16_FP = 16,
+  ovrpTextureFormat_R32_FP = 17,
 
-  //depth texture formats
+  // depth texture formats
   ovrpTextureFormat_D16 = 6,
   ovrpTextureFormat_D24_S8 = 7,
   ovrpTextureFormat_D32_FP = 8,
-  ovrpTextureFormat_D32_S824_FP = 9,
+  ovrpTextureFormat_D32_FP_S8 = 9,
 
   ovrpTextureFormat_None = 10,
 
@@ -927,12 +1204,14 @@ typedef enum {
   ovrpLayerFlag_Subsampled = (1 << 12),
   /// if non-static, allocate 4 elements in a swapchain
   ovrpLayerFlag_4DeepSwapchain = (1 << 13),
-
-
-
-
+  /// Bicubic Filtering
+  ovrpLayerFlag_BicubicFiltering = (1 << 14),
   /// The layer is created through ovrp_EnqueueSetupLayer()
   ovrpLayerFlag_LegacyOverlay = (1 << 15),
+
+
+
+
 } ovrpLayerFlags;
 
 /// Layer description used by ovrp_SetupLayer to create the layer
@@ -958,9 +1237,6 @@ typedef OVRP_LAYER_DESC ovrpLayerDesc;
 typedef OVRP_LAYER_DESC_TYPE ovrpLayerDesc_Quad;
 typedef OVRP_LAYER_DESC_TYPE ovrpLayerDesc_Cylinder;
 typedef OVRP_LAYER_DESC_TYPE ovrpLayerDesc_Cubemap;
-
-
-
 typedef OVRP_LAYER_DESC_TYPE ovrpLayerDesc_InsightPassthrough;
 
 typedef struct {
@@ -968,10 +1244,10 @@ typedef struct {
   ovrpFovf Fov[ovrpEye_Count];
   ovrpRectf VisibleRect[ovrpEye_Count];
   ovrpSizei MaxViewportSize;
-  //added for 1.17
+  // added for 1.17
   ovrpTextureFormat DepthFormat;
 
-  //added for 1.49
+  // added for 1.49
   ovrpTextureFormat MotionVectorFormat;
   ovrpTextureFormat MotionVectorDepthFormat;
   ovrpSizei MotionVectorTextureSize;
@@ -990,9 +1266,6 @@ typedef union {
   ovrpLayerDesc_OffcenterCubemap OffcenterCubemap;
   ovrpLayerDesc_Equirect Equirect;
   ovrpLayerDesc_Fisheye Fisheye;
-
-
-
   ovrpLayerDesc_InsightPassthrough InsightPassthrough;
 } ovrpLayerDescUnion;
 
@@ -1021,11 +1294,20 @@ typedef enum {
   ovrpLayerSubmitFlag_IgnoreSourceAlpha = (1 << 10),
   /// Enable Space warp on Fov layer
   ovrpLayerSubmitFlag_SpaceWarp = (1 << 11),
-
-
-
-
-
+  /// An efficient version of ovrpLayerSubmitFlag_ExpensiveSuperSample
+  ovrpLayerSubmitFlag_EfficientSuperSample = (1 << 12),
+  /// Applies a post-distortion space sharpening filtering
+  ovrpLayerSubmitFlag_EfficientSharpen = (1 << 13),
+  /// Be used as a placeholder in combining native layers which was created outside OVRPlugin
+  ovrpLayerSubmitFlag_ExternalNativeLayer = (1 << 14),
+  /// Layer submit flag version of bicubic filtering
+  ovrpLayerSubmitFlag_BicubicFiltering = (1 << 15),
+  // Higher quality but more costly version of ovrpLayerSubmitFlag_Sharpen
+  ovrpLayerSubmitFlag_QualitySharpen = (1 << 16),
+  // Layer submit flag version of secure content
+  ovrpLayerSubmitFlag_SecureContent = (1 << 17),
+  // Layer flag to automatically apply sharpening or supersamping filter
+  ovrpLayerSubmitFlag_AutoLayerFilter = (1 << 18),
 
 } ovrpLayerSubmitFlags;
 
@@ -1040,30 +1322,30 @@ typedef enum {
 } ovrpBlendFactor;
 
 /// Layer state to submit to ovrp_EndFrame
-#define OVRP_LAYER_SUBMIT                         \
-  struct {                                        \
-    int LayerId;                                  \
-    int TextureStage;                             \
-    ovrpRecti ViewportRect[ovrpEye_Count];        \
-    ovrpPosef Pose;                               \
-    int LayerSubmitFlags;                         \
-    /* Added in 1.31 */                           \
-    ovrpVector4f ColorScale;                      \
-    ovrpVector4f ColorOffset;                     \
-    /* Added in 1.34 */                           \
-    ovrpBool OverrideTextureRectMatrix;           \
-    ovrpTextureRectMatrixf TextureRectMatrix;     \
-    ovrpBool OverridePerLayerColorScaleAndOffset; \
-    /* Added in 1.60 */                           \
-    /* If blend factors are present (signaled by `HasBlendFactors == true`),*/\
-    /* they override the default blend function and all other influences    */\
-    /* like the layer submit flags `ovrpLayerSubmitFlag_InverseAlpha` and   */\
-    /* `ovrpLayerSubmitFlag_IgnoreSourceAlpha`.                             */\
-    /* Blend factors are not supported by CAPI and are ignored in the CAPI  */\
-    /* implementation.                                                      */\
-    ovrpBool HasBlendFactors;                     \
-    ovrpBlendFactor SrcBlendFactor;               \
-    ovrpBlendFactor DstBlendFactor;               \
+#define OVRP_LAYER_SUBMIT                                                      \
+  struct {                                                                     \
+    int LayerId;                                                               \
+    int TextureStage;                                                          \
+    ovrpRecti ViewportRect[ovrpEye_Count];                                     \
+    ovrpPosef Pose;                                                            \
+    int LayerSubmitFlags;                                                      \
+    /* Added in 1.31 */                                                        \
+    ovrpVector4f ColorScale;                                                   \
+    ovrpVector4f ColorOffset;                                                  \
+    /* Added in 1.34 */                                                        \
+    ovrpBool OverrideTextureRectMatrix;                                        \
+    ovrpTextureRectMatrixf TextureRectMatrix;                                  \
+    ovrpBool OverridePerLayerColorScaleAndOffset;                              \
+    /* Added in 1.60 */                                                        \
+    /* If blend factors are present (signaled by `HasBlendFactors == true`),*/ \
+    /* they override the default blend function and all other influences    */ \
+    /* like the layer submit flags `ovrpLayerSubmitFlag_InverseAlpha` and   */ \
+    /* `ovrpLayerSubmitFlag_IgnoreSourceAlpha`.                             */ \
+    /* Blend factors are not supported by CAPI and are ignored in the CAPI  */ \
+    /* implementation.                                                      */ \
+    ovrpBool HasBlendFactors;                                                  \
+    ovrpBlendFactor SrcBlendFactor;                                            \
+    ovrpBlendFactor DstBlendFactor;                                            \
   }
 
 typedef OVRP_LAYER_SUBMIT ovrpLayerSubmit;
@@ -1085,14 +1367,6 @@ typedef struct {
   float Height;
   float Radius;
 } ovrpLayerSubmit_Cylinder;
-
-
-
-
-
-
-
-
 
 typedef OVRP_LAYER_SUBMIT_TYPE ovrpLayerSubmit_Cubemap;
 
@@ -1132,9 +1406,6 @@ typedef union {
   ovrpLayerSubmit_OffcenterCubemap OffcenterCubemap;
   ovrpLayerSubmit_Equirect Equirect;
   ovrpLayerSubmit_Fisheye Fisheye;
-
-
-
 } ovrpLayerSubmitUnion;
 
 typedef enum {
@@ -1156,7 +1427,8 @@ typedef enum ovrpHandStatus_ {
   ovrpHandStatus_InputValid = (1 << 1), // if this is set the pointer pose and pinch data is usable
   ovrpHandStatus_SystemGestureInProgress = (1 << 6), // if this is set the user is performing the system gesture
   ovrpHandStatus_DominantHand = (1 << 7), // if this is set the hand is considered the dominant hand
-  ovrpHandStatus_MenuPressed = (1 << 8), // if this is set the hand performed the system gesture as the non-dominant hand
+  ovrpHandStatus_MenuPressed =
+      (1 << 8), // if this is set the hand performed the system gesture as the non-dominant hand
   ovrpHandStatus_EnumSize = 0x7fffffff
 } ovrpHandStatus;
 
@@ -1170,6 +1442,7 @@ typedef enum ovrpHandFinger_ {
   ovrpHandFinger_EnumSize = 0x7fffffff
 } ovrpHandFinger;
 
+// clang-format off
 typedef enum ovrpHandFingerPinch_ {
   ovrpHandFingerPinch_Thumb    = (1 << ovrpHandFinger_Thumb),
   ovrpHandFingerPinch_Index    = (1 << ovrpHandFinger_Index),
@@ -1179,7 +1452,9 @@ typedef enum ovrpHandFingerPinch_ {
   ovrpHandFingerPinch_Max,
   ovrpHandFingerPinch_EnumSize = 0x7fffffff
 } ovrpHandFingerPinch;
+// clang-format on
 
+// clang-format off
 typedef enum ovrpBoneId_ {
   ovrpBoneId_Invalid                 = -1,
 
@@ -1214,71 +1489,177 @@ typedef enum ovrpBoneId_ {
   ovrpBoneId_Hand_PinkyTip           = ovrpBoneId_Hand_MaxSkinnable + 4, // tip of the pinky
   ovrpBoneId_Hand_End                = ovrpBoneId_Hand_MaxSkinnable + 5,
 
+  // body bones (upper body)
+  ovrpBoneId_Body_Start                       = 0,
+  ovrpBoneId_Body_Root                        = ovrpBoneId_Body_Start + 0,
+  ovrpBoneId_Body_Hips                        = ovrpBoneId_Body_Start + 1,
+  ovrpBoneId_Body_SpineLower                  = ovrpBoneId_Body_Start + 2,
+  ovrpBoneId_Body_SpineMiddle                 = ovrpBoneId_Body_Start + 3,
+  ovrpBoneId_Body_SpineUpper                  = ovrpBoneId_Body_Start + 4,
+  ovrpBoneId_Body_Chest                       = ovrpBoneId_Body_Start + 5,
+  ovrpBoneId_Body_Neck                        = ovrpBoneId_Body_Start + 6,
+  ovrpBoneId_Body_Head                        = ovrpBoneId_Body_Start + 7,
+  ovrpBoneId_Body_LeftShoulder                = ovrpBoneId_Body_Start + 8,
+  ovrpBoneId_Body_LeftScapula                 = ovrpBoneId_Body_Start + 9,
+  ovrpBoneId_Body_LeftArmUpper                = ovrpBoneId_Body_Start + 10,
+  ovrpBoneId_Body_LeftArmLower                = ovrpBoneId_Body_Start + 11,
+  ovrpBoneId_Body_LeftHandWristTwist          = ovrpBoneId_Body_Start + 12,
+  ovrpBoneId_Body_RightShoulder               = ovrpBoneId_Body_Start + 13,
+  ovrpBoneId_Body_RightScapula                = ovrpBoneId_Body_Start + 14,
+  ovrpBoneId_Body_RightArmUpper               = ovrpBoneId_Body_Start + 15,
+  ovrpBoneId_Body_RightArmLower               = ovrpBoneId_Body_Start + 16,
+  ovrpBoneId_Body_RightHandWristTwist         = ovrpBoneId_Body_Start + 17,
+  ovrpBoneId_Body_LeftHandPalm                = ovrpBoneId_Body_Start + 18,
+  ovrpBoneId_Body_LeftHandWrist               = ovrpBoneId_Body_Start + 19,
+  ovrpBoneId_Body_LeftHandThumbMetacarpal     = ovrpBoneId_Body_Start + 20,
+  ovrpBoneId_Body_LeftHandThumbProximal       = ovrpBoneId_Body_Start + 21,
+  ovrpBoneId_Body_LeftHandThumbDistal         = ovrpBoneId_Body_Start + 22,
+  ovrpBoneId_Body_LeftHandThumbTip            = ovrpBoneId_Body_Start + 23,
+  ovrpBoneId_Body_LeftHandIndexMetacarpal     = ovrpBoneId_Body_Start + 24,
+  ovrpBoneId_Body_LeftHandIndexProximal       = ovrpBoneId_Body_Start + 25,
+  ovrpBoneId_Body_LeftHandIndexIntermediate   = ovrpBoneId_Body_Start + 26,
+  ovrpBoneId_Body_LeftHandIndexDistal         = ovrpBoneId_Body_Start + 27,
+  ovrpBoneId_Body_LeftHandIndexTip            = ovrpBoneId_Body_Start + 28,
+  ovrpBoneId_Body_LeftHandMiddleMetacarpal    = ovrpBoneId_Body_Start + 29,
+  ovrpBoneId_Body_LeftHandMiddleProximal      = ovrpBoneId_Body_Start + 30,
+  ovrpBoneId_Body_LeftHandMiddleIntermediate  = ovrpBoneId_Body_Start + 31,
+  ovrpBoneId_Body_LeftHandMiddleDistal        = ovrpBoneId_Body_Start + 32,
+  ovrpBoneId_Body_LeftHandMiddleTip           = ovrpBoneId_Body_Start + 33,
+  ovrpBoneId_Body_LeftHandRingMetacarpal      = ovrpBoneId_Body_Start + 34,
+  ovrpBoneId_Body_LeftHandRingProximal        = ovrpBoneId_Body_Start + 35,
+  ovrpBoneId_Body_LeftHandRingIntermediate    = ovrpBoneId_Body_Start + 36,
+  ovrpBoneId_Body_LeftHandRingDistal          = ovrpBoneId_Body_Start + 37,
+  ovrpBoneId_Body_LeftHandRingTip             = ovrpBoneId_Body_Start + 38,
+  ovrpBoneId_Body_LeftHandLittleMetacarpal    = ovrpBoneId_Body_Start + 39,
+  ovrpBoneId_Body_LeftHandLittleProximal      = ovrpBoneId_Body_Start + 40,
+  ovrpBoneId_Body_LeftHandLittleIntermediate  = ovrpBoneId_Body_Start + 41,
+  ovrpBoneId_Body_LeftHandLittleDistal        = ovrpBoneId_Body_Start + 42,
+  ovrpBoneId_Body_LeftHandLittleTip           = ovrpBoneId_Body_Start + 43,
+  ovrpBoneId_Body_RightHandPalm               = ovrpBoneId_Body_Start + 44,
+  ovrpBoneId_Body_RightHandWrist              = ovrpBoneId_Body_Start + 45,
+  ovrpBoneId_Body_RightHandThumbMetacarpal    = ovrpBoneId_Body_Start + 46,
+  ovrpBoneId_Body_RightHandThumbProximal      = ovrpBoneId_Body_Start + 47,
+  ovrpBoneId_Body_RightHandThumbDistal        = ovrpBoneId_Body_Start + 48,
+  ovrpBoneId_Body_RightHandThumbTip           = ovrpBoneId_Body_Start + 49,
+  ovrpBoneId_Body_RightHandIndexMetacarpal    = ovrpBoneId_Body_Start + 50,
+  ovrpBoneId_Body_RightHandIndexProximal      = ovrpBoneId_Body_Start + 51,
+  ovrpBoneId_Body_RightHandIndexIntermediate  = ovrpBoneId_Body_Start + 52,
+  ovrpBoneId_Body_RightHandIndexDistal        = ovrpBoneId_Body_Start + 53,
+  ovrpBoneId_Body_RightHandIndexTip           = ovrpBoneId_Body_Start + 54,
+  ovrpBoneId_Body_RightHandMiddleMetacarpal   = ovrpBoneId_Body_Start + 55,
+  ovrpBoneId_Body_RightHandMiddleProximal     = ovrpBoneId_Body_Start + 56,
+  ovrpBoneId_Body_RightHandMiddleIntermediate = ovrpBoneId_Body_Start + 57,
+  ovrpBoneId_Body_RightHandMiddleDistal       = ovrpBoneId_Body_Start + 58,
+  ovrpBoneId_Body_RightHandMiddleTip          = ovrpBoneId_Body_Start + 59,
+  ovrpBoneId_Body_RightHandRingMetacarpal     = ovrpBoneId_Body_Start + 60,
+  ovrpBoneId_Body_RightHandRingProximal       = ovrpBoneId_Body_Start + 61,
+  ovrpBoneId_Body_RightHandRingIntermediate   = ovrpBoneId_Body_Start + 62,
+  ovrpBoneId_Body_RightHandRingDistal         = ovrpBoneId_Body_Start + 63,
+  ovrpBoneId_Body_RightHandRingTip            = ovrpBoneId_Body_Start + 64,
+  ovrpBoneId_Body_RightHandLittleMetacarpal   = ovrpBoneId_Body_Start + 65,
+  ovrpBoneId_Body_RightHandLittleProximal     = ovrpBoneId_Body_Start + 66,
+  ovrpBoneId_Body_RightHandLittleIntermediate = ovrpBoneId_Body_Start + 67,
+  ovrpBoneId_Body_RightHandLittleDistal       = ovrpBoneId_Body_Start + 68,
+  ovrpBoneId_Body_RightHandLittleTip          = ovrpBoneId_Body_Start + 69,
+  ovrpBoneId_Body_End                         = ovrpBoneId_Body_Start + 70,
 
+  // full body bones
+  ovrpBoneId_FullBody_Start                       = 0,
+  ovrpBoneId_FullBody_Root                        = ovrpBoneId_FullBody_Start + 0,
+  ovrpBoneId_FullBody_Hips                        = ovrpBoneId_FullBody_Start + 1,
+  ovrpBoneId_FullBody_SpineLower                  = ovrpBoneId_FullBody_Start + 2,
+  ovrpBoneId_FullBody_SpineMiddle                 = ovrpBoneId_FullBody_Start + 3,
+  ovrpBoneId_FullBody_SpineUpper                  = ovrpBoneId_FullBody_Start + 4,
+  ovrpBoneId_FullBody_Chest                       = ovrpBoneId_FullBody_Start + 5,
+  ovrpBoneId_FullBody_Neck                        = ovrpBoneId_FullBody_Start + 6,
+  ovrpBoneId_FullBody_Head                        = ovrpBoneId_FullBody_Start + 7,
+  ovrpBoneId_FullBody_LeftShoulder                = ovrpBoneId_FullBody_Start + 8,
+  ovrpBoneId_FullBody_LeftScapula                 = ovrpBoneId_FullBody_Start + 9,
+  ovrpBoneId_FullBody_LeftArmUpper                = ovrpBoneId_FullBody_Start + 10,
+  ovrpBoneId_FullBody_LeftArmLower                = ovrpBoneId_FullBody_Start + 11,
+  ovrpBoneId_FullBody_LeftHandWristTwist          = ovrpBoneId_FullBody_Start + 12,
+  ovrpBoneId_FullBody_RightShoulder               = ovrpBoneId_FullBody_Start + 13,
+  ovrpBoneId_FullBody_RightScapula                = ovrpBoneId_FullBody_Start + 14,
+  ovrpBoneId_FullBody_RightArmUpper               = ovrpBoneId_FullBody_Start + 15,
+  ovrpBoneId_FullBody_RightArmLower               = ovrpBoneId_FullBody_Start + 16,
+  ovrpBoneId_FullBody_RightHandWristTwist         = ovrpBoneId_FullBody_Start + 17,
+  ovrpBoneId_FullBody_LeftHandPalm                = ovrpBoneId_FullBody_Start + 18,
+  ovrpBoneId_FullBody_LeftHandWrist               = ovrpBoneId_FullBody_Start + 19,
+  ovrpBoneId_FullBody_LeftHandThumbMetacarpal     = ovrpBoneId_FullBody_Start + 20,
+  ovrpBoneId_FullBody_LeftHandThumbProximal       = ovrpBoneId_FullBody_Start + 21,
+  ovrpBoneId_FullBody_LeftHandThumbDistal         = ovrpBoneId_FullBody_Start + 22,
+  ovrpBoneId_FullBody_LeftHandThumbTip            = ovrpBoneId_FullBody_Start + 23,
+  ovrpBoneId_FullBody_LeftHandIndexMetacarpal     = ovrpBoneId_FullBody_Start + 24,
+  ovrpBoneId_FullBody_LeftHandIndexProximal       = ovrpBoneId_FullBody_Start + 25,
+  ovrpBoneId_FullBody_LeftHandIndexIntermediate   = ovrpBoneId_FullBody_Start + 26,
+  ovrpBoneId_FullBody_LeftHandIndexDistal         = ovrpBoneId_FullBody_Start + 27,
+  ovrpBoneId_FullBody_LeftHandIndexTip            = ovrpBoneId_FullBody_Start + 28,
+  ovrpBoneId_FullBody_LeftHandMiddleMetacarpal    = ovrpBoneId_FullBody_Start + 29,
+  ovrpBoneId_FullBody_LeftHandMiddleProximal      = ovrpBoneId_FullBody_Start + 30,
+  ovrpBoneId_FullBody_LeftHandMiddleIntermediate  = ovrpBoneId_FullBody_Start + 31,
+  ovrpBoneId_FullBody_LeftHandMiddleDistal        = ovrpBoneId_FullBody_Start + 32,
+  ovrpBoneId_FullBody_LeftHandMiddleTip           = ovrpBoneId_FullBody_Start + 33,
+  ovrpBoneId_FullBody_LeftHandRingMetacarpal      = ovrpBoneId_FullBody_Start + 34,
+  ovrpBoneId_FullBody_LeftHandRingProximal        = ovrpBoneId_FullBody_Start + 35,
+  ovrpBoneId_FullBody_LeftHandRingIntermediate    = ovrpBoneId_FullBody_Start + 36,
+  ovrpBoneId_FullBody_LeftHandRingDistal          = ovrpBoneId_FullBody_Start + 37,
+  ovrpBoneId_FullBody_LeftHandRingTip             = ovrpBoneId_FullBody_Start + 38,
+  ovrpBoneId_FullBody_LeftHandLittleMetacarpal    = ovrpBoneId_FullBody_Start + 39,
+  ovrpBoneId_FullBody_LeftHandLittleProximal      = ovrpBoneId_FullBody_Start + 40,
+  ovrpBoneId_FullBody_LeftHandLittleIntermediate  = ovrpBoneId_FullBody_Start + 41,
+  ovrpBoneId_FullBody_LeftHandLittleDistal        = ovrpBoneId_FullBody_Start + 42,
+  ovrpBoneId_FullBody_LeftHandLittleTip           = ovrpBoneId_FullBody_Start + 43,
+  ovrpBoneId_FullBody_RightHandPalm               = ovrpBoneId_FullBody_Start + 44,
+  ovrpBoneId_FullBody_RightHandWrist              = ovrpBoneId_FullBody_Start + 45,
+  ovrpBoneId_FullBody_RightHandThumbMetacarpal    = ovrpBoneId_FullBody_Start + 46,
+  ovrpBoneId_FullBody_RightHandThumbProximal      = ovrpBoneId_FullBody_Start + 47,
+  ovrpBoneId_FullBody_RightHandThumbDistal        = ovrpBoneId_FullBody_Start + 48,
+  ovrpBoneId_FullBody_RightHandThumbTip           = ovrpBoneId_FullBody_Start + 49,
+  ovrpBoneId_FullBody_RightHandIndexMetacarpal    = ovrpBoneId_FullBody_Start + 50,
+  ovrpBoneId_FullBody_RightHandIndexProximal      = ovrpBoneId_FullBody_Start + 51,
+  ovrpBoneId_FullBody_RightHandIndexIntermediate  = ovrpBoneId_FullBody_Start + 52,
+  ovrpBoneId_FullBody_RightHandIndexDistal        = ovrpBoneId_FullBody_Start + 53,
+  ovrpBoneId_FullBody_RightHandIndexTip           = ovrpBoneId_FullBody_Start + 54,
+  ovrpBoneId_FullBody_RightHandMiddleMetacarpal   = ovrpBoneId_FullBody_Start + 55,
+  ovrpBoneId_FullBody_RightHandMiddleProximal     = ovrpBoneId_FullBody_Start + 56,
+  ovrpBoneId_FullBody_RightHandMiddleIntermediate = ovrpBoneId_FullBody_Start + 57,
+  ovrpBoneId_FullBody_RightHandMiddleDistal       = ovrpBoneId_FullBody_Start + 58,
+  ovrpBoneId_FullBody_RightHandMiddleTip          = ovrpBoneId_FullBody_Start + 59,
+  ovrpBoneId_FullBody_RightHandRingMetacarpal     = ovrpBoneId_FullBody_Start + 60,
+  ovrpBoneId_FullBody_RightHandRingProximal       = ovrpBoneId_FullBody_Start + 61,
+  ovrpBoneId_FullBody_RightHandRingIntermediate   = ovrpBoneId_FullBody_Start + 62,
+  ovrpBoneId_FullBody_RightHandRingDistal         = ovrpBoneId_FullBody_Start + 63,
+  ovrpBoneId_FullBody_RightHandRingTip            = ovrpBoneId_FullBody_Start + 64,
+  ovrpBoneId_FullBody_RightHandLittleMetacarpal   = ovrpBoneId_FullBody_Start + 65,
+  ovrpBoneId_FullBody_RightHandLittleProximal     = ovrpBoneId_FullBody_Start + 66,
+  ovrpBoneId_FullBody_RightHandLittleIntermediate = ovrpBoneId_FullBody_Start + 67,
+  ovrpBoneId_FullBody_RightHandLittleDistal       = ovrpBoneId_FullBody_Start + 68,
+  ovrpBoneId_FullBody_RightHandLittleTip          = ovrpBoneId_FullBody_Start + 69,
+  ovrpBoneId_FullBody_LeftUpperLeg                = ovrpBoneId_FullBody_Start + 70,
+  ovrpBoneId_FullBody_LeftLowerLeg                = ovrpBoneId_FullBody_Start + 71,
+  ovrpBoneId_FullBody_LeftFootAnkleTwist          = ovrpBoneId_FullBody_Start + 72,
+  ovrpBoneId_FullBody_LeftFootAnkle               = ovrpBoneId_FullBody_Start + 73,
+  ovrpBoneId_FullBody_LeftFootSubtalar            = ovrpBoneId_FullBody_Start + 74,
+  ovrpBoneId_FullBody_LeftFootTransverse          = ovrpBoneId_FullBody_Start + 75,
+  ovrpBoneId_FullBody_LeftFootBall                = ovrpBoneId_FullBody_Start + 76,
+  ovrpBoneId_FullBody_RightUpperLeg               = ovrpBoneId_FullBody_Start + 77,
+  ovrpBoneId_FullBody_RightLowerLeg               = ovrpBoneId_FullBody_Start + 78,
+  ovrpBoneId_FullBody_RightFootAnkleTwist         = ovrpBoneId_FullBody_Start + 79,
+  ovrpBoneId_FullBody_RightFootAnkle              = ovrpBoneId_FullBody_Start + 80,
+  ovrpBoneId_FullBody_RightFootSubtalar           = ovrpBoneId_FullBody_Start + 81,
+  ovrpBoneId_FullBody_RightFootTransverse         = ovrpBoneId_FullBody_Start + 82,
+  ovrpBoneId_FullBody_RightFootBall               = ovrpBoneId_FullBody_Start + 83,
+  ovrpBoneId_FullBody_End                         = ovrpBoneId_FullBody_Start + 84,
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  // The new OpenXR extension has invalid mapped to FullBody_End + 1 to avoid using negative values
+  ovrpBoneId_FullBody_Invalid                     = ovrpBoneId_FullBody_Start + 85,
 
   // add other skeleton bone definitions here...
-
-
-
-
-  ovrpBoneId_Max                     = (ovrpBoneId_Hand_End > 50) ? ovrpBoneId_Hand_End : 50,
+  ovrpBoneId_Max                     = ovrpBoneId_FullBody_End,
 
   ovrpBoneId_EnumSize = 0x7fff
 } ovrpBoneId;
+// clang-format on
 
 //-----------------------------------------------------------------
 // Hand skeleton
@@ -1313,11 +1694,33 @@ typedef struct ovrpBone_ {
   ovrpPosef Pose;
 } ovrpBone;
 
+
+
+
+
+
+
+
+
+
+
+typedef enum ovrpBodyTrackingCalibrationState_ {
+  orvpBodyTrackingCalibrationState_Valid = 1,
+  orvpBodyTrackingCalibrationState_Calibrating = 2,
+  orvpBodyTrackingCalibrationState_Invalid = 3,
+
+  orvpBodyTrackingCalibrationState_EnumSize = 0x7fffffff
+} ovrpBodyTrackingCalibrationState;
+
+typedef struct ovrpBodyTrackingCalibrationInfo_ {
+  float bodyHeight;
+} ovrpBodyTrackingCalibrationInfo;
+
 typedef enum ovrpSkeletonConstants_ {
   ovrpSkeletonConstants_MaxHandBones = ovrpBoneId_Hand_End,
-
-
-
+  ovrpSkeletonConstants_MaxBodyBones = ovrpBoneId_Body_End,
+  ovrpSkeletonConstants_MaxFullBodyBones = ovrpBoneId_FullBody_End,
+  ovrpSkeletonConstants_MaxUpperBodyBones = ovrpBoneId_Body_End,
   ovrpSkeletonConstants_MaxBones = ovrpBoneId_Max,
   ovrpSkeletonConstants_MaxBoneCapsules = 19,
   ovrpSkeletonConstants_EnumSize = 0x7fffffff
@@ -1328,18 +1731,24 @@ typedef enum ovrpSkeletonType_ {
   ovrpSkeletonType_None = -1,
   ovrpSkeletonType_HandLeft = 0,
   ovrpSkeletonType_HandRight = 1,
-
-
-
+  ovrpSkeletonType_Body = 2,
+  ovrpSkeletonType_FullBody = 3,
   ovrpSkeletonType_Count,
   ovrpSkeletonType_EnumSize = 0x7fffffff
 } ovrpSkeletonType;
 
-typedef struct ovrpSkeleton2_ {
+typedef struct ovrpSkeleton3_ {
   ovrpSkeletonType SkeletonType;
   unsigned int NumBones;
   unsigned int NumBoneCapsules;
   ovrpBone Bones[ovrpSkeletonConstants_MaxBones];
+  ovrpBoneCapsule BoneCapsules[ovrpSkeletonConstants_MaxBoneCapsules];
+} ovrpSkeleton3;
+typedef struct ovrpSkeleton2_ {
+  ovrpSkeletonType SkeletonType;
+  unsigned int NumBones;
+  unsigned int NumBoneCapsules;
+  ovrpBone Bones[ovrpSkeletonConstants_MaxUpperBodyBones];
   ovrpBoneCapsule BoneCapsules[ovrpSkeletonConstants_MaxBoneCapsules];
 } ovrpSkeleton2;
 
@@ -1405,8 +1814,8 @@ typedef struct ovrpHandState_ {
   // Current rotation of each bone.
   ovrpQuatf BoneRotations[ovrpSkeletonConstants_MaxHandBones];
 
-  // Provides a bitmask indicating if each finger is "pinched" or not. Indexable via bitshifting with the ovrpHandFinger enum
-  // i.e. (1 << ovrpHandFinger_Index)
+  // Provides a bitmask indicating if each finger is "pinched" or not. Indexable via bitshifting with the ovrpHandFinger
+  // enum i.e. (1 << ovrpHandFinger_Index)
   unsigned int Pinches;
 
   // Provides a 0.0f to 1.0f value of how "pinched" each finger is. Indexable via the ovrpHandFinger enum.
@@ -1433,6 +1842,25 @@ typedef struct ovrpHandState_ {
   double SampleTimeStamp;
 } ovrpHandState;
 
+typedef struct ovrpBodyJointLocation_ {
+  ovrpUInt64 LocationFlags;
+  ovrpPosef Pose;
+} ovrpBodyJointLocation;
+
+typedef struct ovrpBodyState_ {
+  ovrpBool IsActive;
+  float Confidence;
+  ovrpUInt32 SkeletonChangedCount;
+  double Time;
+  ovrpBodyJointLocation JointLocations[ovrpBoneId_Body_End];
+} ovrpBodyState;
+
+typedef enum ovrpBodyJointSet_ {
+  ovrpBodyJointSet_None = -1,
+  ovrpBodyJointSet_UpperBody = 0,
+  ovrpBodyJointSet_FullBody = 1,
+  ovrpBodyJointSet_Count = 2
+} ovrpBodyJointSet;
 
 
 
@@ -1449,12 +1877,244 @@ typedef struct ovrpHandState_ {
 
 
 
+// Must match XrBodyTrackingFidelityMETA
+typedef enum ovrpBodyTrackingFidelity2_ {
+  ovrpBodyTrackingFidelity2_Low = 1,
+  ovrpBodyTrackingFidelity2_High = 2,
+  ovrpBodyTrackingFidelity2_EnumSize = 0x7fffffff,
+} ovrpBodyTrackingFidelity2;
 
 
 
 
 
 
+
+
+
+
+
+
+typedef struct ovrpBodyState4_ {
+  ovrpBool IsActive;
+  float Confidence;
+  ovrpUInt32 SkeletonChangedCount;
+  double Time;
+  ovrpBodyJointLocation JointLocations[ovrpBoneId_Max];
+  ovrpBodyTrackingCalibrationState calibrationStatus;
+  ovrpBodyTrackingFidelity2 fidelity;
+} ovrpBodyState4;
+
+typedef enum ovrpFaceExpression_ {
+  ovrpFaceExpression_Invalid = -1,
+  ovrpFaceExpression_Brow_Lowerer_L = 0,
+  ovrpFaceExpression_Brow_Lowerer_R = 1,
+  ovrpFaceExpression_Cheek_Puff_L = 2,
+  ovrpFaceExpression_Cheek_Puff_R = 3,
+  ovrpFaceExpression_Cheek_Raiser_L = 4,
+  ovrpFaceExpression_Cheek_Raiser_R = 5,
+  ovrpFaceExpression_Cheek_Suck_L = 6,
+  ovrpFaceExpression_Cheek_Suck_R = 7,
+  ovrpFaceExpression_Chin_Raiser_B = 8,
+  ovrpFaceExpression_Chin_Raiser_T = 9,
+  ovrpFaceExpression_Dimpler_L = 10,
+  ovrpFaceExpression_Dimpler_R = 11,
+  ovrpFaceExpression_Eyes_Closed_L = 12,
+  ovrpFaceExpression_Eyes_Closed_R = 13,
+  ovrpFaceExpression_Eyes_Look_Down_L = 14,
+  ovrpFaceExpression_Eyes_Look_Down_R = 15,
+  ovrpFaceExpression_Eyes_Look_Left_L = 16,
+  ovrpFaceExpression_Eyes_Look_Left_R = 17,
+  ovrpFaceExpression_Eyes_Look_Right_L = 18,
+  ovrpFaceExpression_Eyes_Look_Right_R = 19,
+  ovrpFaceExpression_Eyes_Look_Up_L = 20,
+  ovrpFaceExpression_Eyes_Look_Up_R = 21,
+  ovrpFaceExpression_Inner_Brow_Raiser_L = 22,
+  ovrpFaceExpression_Inner_Brow_Raiser_R = 23,
+  ovrpFaceExpression_Jaw_Drop = 24,
+  ovrpFaceExpression_Jaw_Sideways_Left = 25,
+  ovrpFaceExpression_Jaw_Sideways_Right = 26,
+  ovrpFaceExpression_Jaw_Thrust = 27,
+  ovrpFaceExpression_Lid_Tightener_L = 28,
+  ovrpFaceExpression_Lid_Tightener_R = 29,
+  ovrpFaceExpression_Lip_Corner_Depressor_L = 30,
+  ovrpFaceExpression_Lip_Corner_Depressor_R = 31,
+  ovrpFaceExpression_Lip_Corner_Puller_L = 32,
+  ovrpFaceExpression_Lip_Corner_Puller_R = 33,
+  ovrpFaceExpression_Lip_Funneler_LB = 34,
+  ovrpFaceExpression_Lip_Funneler_LT = 35,
+  ovrpFaceExpression_Lip_Funneler_RB = 36,
+  ovrpFaceExpression_Lip_Funneler_RT = 37,
+  ovrpFaceExpression_Lip_Pressor_L = 38,
+  ovrpFaceExpression_Lip_Pressor_R = 39,
+  ovrpFaceExpression_Lip_Pucker_L = 40,
+  ovrpFaceExpression_Lip_Pucker_R = 41,
+  ovrpFaceExpression_Lip_Stretcher_L = 42,
+  ovrpFaceExpression_Lip_Stretcher_R = 43,
+  ovrpFaceExpression_Lip_Suck_LB = 44,
+  ovrpFaceExpression_Lip_Suck_LT = 45,
+  ovrpFaceExpression_Lip_Suck_RB = 46,
+  ovrpFaceExpression_Lip_Suck_RT = 47,
+  ovrpFaceExpression_Lip_Tightener_L = 48,
+  ovrpFaceExpression_Lip_Tightener_R = 49,
+  ovrpFaceExpression_Lips_Toward = 50,
+  ovrpFaceExpression_Lower_Lip_Depressor_L = 51,
+  ovrpFaceExpression_Lower_Lip_Depressor_R = 52,
+  ovrpFaceExpression_Mouth_Left = 53,
+  ovrpFaceExpression_Mouth_Right = 54,
+  ovrpFaceExpression_Nose_Wrinkler_L = 55,
+  ovrpFaceExpression_Nose_Wrinkler_R = 56,
+  ovrpFaceExpression_Outer_Brow_Raiser_L = 57,
+  ovrpFaceExpression_Outer_Brow_Raiser_R = 58,
+  ovrpFaceExpression_Upper_Lid_Raiser_L = 59,
+  ovrpFaceExpression_Upper_Lid_Raiser_R = 60,
+  ovrpFaceExpression_Upper_Lip_Raiser_L = 61,
+  ovrpFaceExpression_Upper_Lip_Raiser_R = 62,
+  ovrpFaceExpression_Max = 63,
+
+
+
+
+
+
+
+
+
+
+  ovrpFaceExpression_EnumSize = 0x7FFFFFFF
+} ovrpFaceExpression;
+
+typedef enum ovrpFaceExpression2_ {
+  ovrpFaceExpression2_Invalid = -1,
+  ovrpFaceExpression2_Brow_Lowerer_L = 0,
+  ovrpFaceExpression2_Brow_Lowerer_R = 1,
+  ovrpFaceExpression2_Cheek_Puff_L = 2,
+  ovrpFaceExpression2_Cheek_Puff_R = 3,
+  ovrpFaceExpression2_Cheek_Raiser_L = 4,
+  ovrpFaceExpression2_Cheek_Raiser_R = 5,
+  ovrpFaceExpression2_Cheek_Suck_L = 6,
+  ovrpFaceExpression2_Cheek_Suck_R = 7,
+  ovrpFaceExpression2_Chin_Raiser_B = 8,
+  ovrpFaceExpression2_Chin_Raiser_T = 9,
+  ovrpFaceExpression2_Dimpler_L = 10,
+  ovrpFaceExpression2_Dimpler_R = 11,
+  ovrpFaceExpression2_Eyes_Closed_L = 12,
+  ovrpFaceExpression2_Eyes_Closed_R = 13,
+  ovrpFaceExpression2_Eyes_Look_Down_L = 14,
+  ovrpFaceExpression2_Eyes_Look_Down_R = 15,
+  ovrpFaceExpression2_Eyes_Look_Left_L = 16,
+  ovrpFaceExpression2_Eyes_Look_Left_R = 17,
+  ovrpFaceExpression2_Eyes_Look_Right_L = 18,
+  ovrpFaceExpression2_Eyes_Look_Right_R = 19,
+  ovrpFaceExpression2_Eyes_Look_Up_L = 20,
+  ovrpFaceExpression2_Eyes_Look_Up_R = 21,
+  ovrpFaceExpression2_Inner_Brow_Raiser_L = 22,
+  ovrpFaceExpression2_Inner_Brow_Raiser_R = 23,
+  ovrpFaceExpression2_Jaw_Drop = 24,
+  ovrpFaceExpression2_Jaw_Sideways_Left = 25,
+  ovrpFaceExpression2_Jaw_Sideways_Right = 26,
+  ovrpFaceExpression2_Jaw_Thrust = 27,
+  ovrpFaceExpression2_Lid_Tightener_L = 28,
+  ovrpFaceExpression2_Lid_Tightener_R = 29,
+  ovrpFaceExpression2_Lip_Corner_Depressor_L = 30,
+  ovrpFaceExpression2_Lip_Corner_Depressor_R = 31,
+  ovrpFaceExpression2_Lip_Corner_Puller_L = 32,
+  ovrpFaceExpression2_Lip_Corner_Puller_R = 33,
+  ovrpFaceExpression2_Lip_Funneler_LB = 34,
+  ovrpFaceExpression2_Lip_Funneler_LT = 35,
+  ovrpFaceExpression2_Lip_Funneler_RB = 36,
+  ovrpFaceExpression2_Lip_Funneler_RT = 37,
+  ovrpFaceExpression2_Lip_Pressor_L = 38,
+  ovrpFaceExpression2_Lip_Pressor_R = 39,
+  ovrpFaceExpression2_Lip_Pucker_L = 40,
+  ovrpFaceExpression2_Lip_Pucker_R = 41,
+  ovrpFaceExpression2_Lip_Stretcher_L = 42,
+  ovrpFaceExpression2_Lip_Stretcher_R = 43,
+  ovrpFaceExpression2_Lip_Suck_LB = 44,
+  ovrpFaceExpression2_Lip_Suck_LT = 45,
+  ovrpFaceExpression2_Lip_Suck_RB = 46,
+  ovrpFaceExpression2_Lip_Suck_RT = 47,
+  ovrpFaceExpression2_Lip_Tightener_L = 48,
+  ovrpFaceExpression2_Lip_Tightener_R = 49,
+  ovrpFaceExpression2_Lips_Toward = 50,
+  ovrpFaceExpression2_Lower_Lip_Depressor_L = 51,
+  ovrpFaceExpression2_Lower_Lip_Depressor_R = 52,
+  ovrpFaceExpression2_Mouth_Left = 53,
+  ovrpFaceExpression2_Mouth_Right = 54,
+  ovrpFaceExpression2_Nose_Wrinkler_L = 55,
+  ovrpFaceExpression2_Nose_Wrinkler_R = 56,
+  ovrpFaceExpression2_Outer_Brow_Raiser_L = 57,
+  ovrpFaceExpression2_Outer_Brow_Raiser_R = 58,
+  ovrpFaceExpression2_Upper_Lid_Raiser_L = 59,
+  ovrpFaceExpression2_Upper_Lid_Raiser_R = 60,
+  ovrpFaceExpression2_Upper_Lip_Raiser_L = 61,
+  ovrpFaceExpression2_Upper_Lip_Raiser_R = 62,
+  ovrpFaceExpression2_Tongue_Tip_Interdental = 63,
+  ovrpFaceExpression2_Tongue_Tip_Alveolar = 64,
+  ovrpFaceExpression2_Tongue_Front_Dorsal_Palate = 65,
+  ovrpFaceExpression2_Tongue_Mid_Dorsal_Palate = 66,
+  ovrpFaceExpression2_Tongue_Back_Dorsal_Velar = 67,
+  ovrpFaceExpression2_Tongue_Out = 68,
+  ovrpFaceExpression2_Tongue_Retreat = 69,
+  ovrpFaceExpression2_Max = 70,
+  ovrpFaceExpression2_EnumSize = 0x7FFFFFFF
+} ovrpFaceExpression2;
+
+typedef enum ovrpFaceTrackingDataSource2_ {
+  ovrpFaceTrackingDataSource2_Visual = 0,
+  ovrpFaceTrackingDataSource2_Audio = 1,
+  ovrpFaceTrackingDataSource2_EnumSize = 0x7FFFFFFF
+} ovrpFaceTrackingDataSource2;
+
+typedef enum ovrpFaceConfidence_ {
+  ovrpFaceConfidence_Lower = 0,
+  ovrpFaceConfidence_Upper = 1,
+  ovrpFaceConfidence_Max = 2,
+  ovrpFaceConfidence_None = -1,
+  ovrpFaceConfidence_EnumSize = 0x7FFFFFFF
+} ovrpFaceConfidence;
+
+typedef enum ovrpFaceConstants_ {
+
+
+
+
+  ovrpFaceConstants_FaceTrackingDataSourcesCount = 2,
+  ovrpFaceConstants_MaxFaceExpressionsWithoutTongue = ovrpFaceExpression_Max,
+  ovrpFaceConstants_MaxFaceConfidenceWeights = ovrpFaceConfidence_Max,
+  ovrpFaceConstants_EnumSize = 0x7fffffff
+} ovrpFaceConstants;
+
+typedef struct ovrpFaceExpressionStatus_ {
+  ovrpBool IsValid;
+  ovrpBool IsEyeFollowingBlendshapesValid;
+} ovrpFaceExpressionStatus;
+
+typedef struct ovrpFaceState_ {
+  float ExpressionWeights[ovrpFaceConstants_MaxFaceExpressionsWithoutTongue];
+  float ExpressionWeightConfidences[ovrpFaceConstants_MaxFaceConfidenceWeights];
+  ovrpFaceExpressionStatus Status;
+  double Time;
+} ovrpFaceState;
+
+typedef struct ovrpFaceState2_ {
+  float ExpressionWeights[ovrpFaceExpression2_Max];
+  float ExpressionWeightConfidences[ovrpFaceConstants_MaxFaceConfidenceWeights];
+  ovrpFaceExpressionStatus Status;
+  ovrpFaceTrackingDataSource2 DataSource;
+  double Time;
+} ovrpFaceState2;
+
+typedef struct ovrpEyeGazeState_ {
+  ovrpPosef Pose;
+  float Confidence;
+  ovrpBool IsValid;
+} ovrpEyeGazeState;
+
+typedef struct ovrpEyeGazesState_ {
+  ovrpEyeGazeState EyeGazes[ovrpEye_Count];
+  double Time;
+} ovrpEyeGazesState;
 
 
 
@@ -1568,25 +2228,25 @@ typedef struct ovrpHandState_ {
 /// avoided, and the content is instead spread across a larger brightness range when possible.
 ///
 typedef enum ovrpColorSpace_ {
-    /// Default value until client sets calls SetClientColorDesc
-    ovrpColorSpace_Unknown = 0,
-    /// No color correction, not recommended for production use. See notes above for more info
-    ovrpColorSpace_Unmanaged = 1,
-    /// Preferred color space for standardized color across all Oculus HMDs with D65 white point
-    ovrpColorSpace_Rec_2020 = 2,
-    /// Rec. 709 is used on Oculus Go and shares the same primary color coordinates as sRGB
-    ovrpColorSpace_Rec_709 = 3,
-    /// Oculus Rift CV1 uses a unique color space, see enum description for more info
-    ovrpColorSpace_Rift_CV1 = 4,
-    /// Oculus Rift S uses a unique color space, see enum description for more info
-    ovrpColorSpace_Rift_S = 5,
-    /// Oculus Quest's native color space is slightly different than Rift CV1
-    ovrpColorSpace_Quest = 6,
-    /// Similar to DCI-P3. See notes above for more details on P3
-    ovrpColorSpace_P3 = 7,
-    /// Similar to sRGB but with deeper greens using D65 white point
-    ovrpColorSpace_Adobe_RGB = 8,
-    ovrpColorSpace_Count
+  /// Default value until client sets calls SetClientColorDesc
+  ovrpColorSpace_Unknown = 0,
+  /// No color correction, not recommended for production use. See notes above for more info
+  ovrpColorSpace_Unmanaged = 1,
+  /// Preferred color space for standardized color across all Oculus HMDs with D65 white point
+  ovrpColorSpace_Rec_2020 = 2,
+  /// Rec. 709 is used on Oculus Go and shares the same primary color coordinates as sRGB
+  ovrpColorSpace_Rec_709 = 3,
+  /// Oculus Rift CV1 uses a unique color space, see enum description for more info
+  ovrpColorSpace_Rift_CV1 = 4,
+  /// Oculus Rift S uses a unique color space, see enum description for more info
+  ovrpColorSpace_Rift_S = 5,
+  /// Oculus Quest's native color space is slightly different than Rift CV1
+  ovrpColorSpace_Quest = 6,
+  /// Similar to DCI-P3. See notes above for more details on P3
+  ovrpColorSpace_P3 = 7,
+  /// Similar to sRGB but with deeper greens using D65 white point
+  ovrpColorSpace_Adobe_RGB = 8,
+  ovrpColorSpace_Count
 } ovrpColorSpace;
 
 //-----------------------------------------------------------------
@@ -1598,7 +2258,78 @@ typedef enum ovrpEventType_ {
   /// Refresh rate changed event
   ovrpEventType_DisplayRefreshRateChange = 1,
 
+  ovrpEventType_SpatialEntityCreateSpatialAnchorComplete = 49, // Deprecated
+  ovrpEventType_SpatialAnchorCreateComplete = 49,
 
+  ovrpEventType_SpatialEntitySetComponentEnabledComplete = 50, // Deprecated
+  ovrpEventType_SpaceSetComponentStatusComplete = 50,
+
+  ovrpEventType_SpatialEntityQueryResults = 51, // Deprecated
+  ovrpEventType_SpaceQueryResults = 51,
+
+  ovrpEventType_SpatialEntityQueryComplete = 52, // Deprecated
+  ovrpEventType_SpaceQueryComplete = 52,
+
+  ovrpEventType_SpatialEntityStorageSaveResult = 53, // Deprecated
+  ovrpEventType_SpaceSaveComplete = 53,
+
+  ovrpEventType_SpatialEntityStorageEraseResult = 54, // Deprecated
+  ovrpEventType_SpaceEraseComplete = 54,
+  ovrpEventType_SpaceShareResult = 56,
+  ovrpEventType_SpaceListSaveResult = 57,
+  ovrpEventType_SceneCaptureComplete = 100,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ovrpEventType_VirtualKeyboardCommitText = 201,
+  ovrpEventType_VirtualKeyboardBackspace = 202,
+  ovrpEventType_VirtualKeyboardEnter = 203,
+  ovrpEventType_VirtualKeyboardShown = 204,
+  ovrpEventType_VirtualKeyboardHidden = 205,
+
+
+
+
+
+
+
+
+
+  ovrpEventType_PerfSettings = 304,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ovrpEventType_PassthroughLayerResumed = 500,
 
 
 
@@ -1622,11 +2353,46 @@ typedef struct ovrpEventDisplayRefreshRateChange_ {
   float ToRefreshRate;
 } ovrpEventDisplayRefreshRateChange;
 
+//-----------------------------------------------------------------
+// CPU/GPU Performance Levels and associated events
+typedef enum {
+  ovrpProcessorPerformanceLevel_PowerSavings = 0,
+  ovrpProcessorPerformanceLevel_SustainedLow = 1,
+  ovrpProcessorPerformanceLevel_SustainedHigh = 2,
+  ovrpProcessorPerformanceLevel_Boost = 3,
+  ovrpProcessorPerformanceLevel_EnumSize = 0x7fffffff
+} ovrpProcessorPerformanceLevel;
 
+typedef enum ovrpProcessorDomain {
+  ovrpProcessorDomain_CPU = 0,
+  ovrpProcessorDomain_GPU = 1,
+  ovrpProcessorDomain_EnumSize = 0x7fffffff
+} ovrpProcessorDomain;
 
+typedef enum ovrpProcessorSubDomain {
+  ovrpProcessorSubDomain_Compositing = 0,
+  ovrpProcessorSubDomain_Rendering = 1,
+  ovrpProcessorSubDomain_Thermal = 2,
+  ovrpProcessorSubDomain_EnumSize = 0x7fffffff
+} ovrpProcessorSubDomain;
 
+typedef enum ovrpProcessorNotificationLevel {
+  ovrpProcessorNotificationLevel_Normal = 0,
+  ovrpProcessorNotificationLevel_Warning = 1,
+  ovrpProcessorNotificationLevel_Impaired = 2,
+  ovrpProcessorNotificationLevel_EnumSize = 0x7fffffff
+} ovrpProcessorNotificationLevel;
 
+typedef struct ovrpEventDataPerfSettings_ {
+  ovrpEventType EventType;
+  ovrpProcessorDomain Domain;
+  ovrpProcessorSubDomain SubDomain;
+  ovrpProcessorNotificationLevel FromLevel;
+  ovrpProcessorNotificationLevel ToLevel;
+} ovrpEventDataPerfSettings;
 
+//-----------------------------------------------------------------
+// Keyboard Tracking
 
 
 
@@ -1643,19 +2409,64 @@ typedef struct ovrpEventDisplayRefreshRateChange_ {
 
 
 
+#define OVRP_KEYBOARD_DESCRIPTION_NAME_LENGTH 128
 
+// Enum defining the type of the keyboard model, effect render parameters and passthrough configuration.
+typedef enum ovrpKeyboardPresentationStyles_ {
+  ovrpKeyboardPresentationStyles_Unknown = 0,
+  ovrpKeyboardPresentationStyles_Opaque = 1,
+  ovrpKeyboardPresentationStyles_KeyLabel = 2,
+} ovrpKeyboardPresentationStyles;
 
+// Enum defining the type of the keyboard returned
+typedef enum ovrpTrackedKeyboardFlags_ {
+  ovrpTrackedKeyboardFlags_Exists = 1,
+  ovrpTrackedKeyboardFlags_Local = 2,
+  ovrpTrackedKeyboardFlags_Remote = 4,
+  ovrpTrackedKeyboardFlags_Connected = 8,
+} ovrpTrackedKeyboardFlags;
 
+// Enum defining the type of the keyboard requested
+typedef enum ovrpTrackedKeyboardTrackingQueryFlags_ {
+  ovrpTrackedKeyboardQueryFlags_Local = 2,
+  ovrpTrackedKeyboardQueryFlags_Remote = 4,
+} ovrpTrackedKeyboardQueryFlags;
 
+typedef struct ovrpKeyboardDescription_ {
+  // Tracked Object Name
+  char Name[OVRP_KEYBOARD_DESCRIPTION_NAME_LENGTH];
 
+  // Unique Object Identifier
+  ovrpUInt64 TrackedKeyboardId;
 
+  // Keyboard Locale
+  ovrpVector3f Dimensions;
 
+  // State of this keyboard
+  ovrpTrackedKeyboardFlags KeyboardFlags;
 
+  // What type of rendering can be done for the model.
+  ovrpKeyboardPresentationStyles SupportedPresentationStyles;
+} ovrpKeyboardDescription;
 
+typedef struct ovrpKeyboardState_ {
+  // Set to false if keyboard tracking is in an error state
+  ovrpBool IsActive;
 
+  ovrpBool OrientationValid;
+  ovrpBool PositionValid;
+  ovrpBool OrientationTracked;
+  ovrpBool PositionTracked;
 
+  // Position and orientation of keyboard
+  ovrpPoseStatef PoseState;
 
+  // Contrast parameters, provided to Mixed Reality SDK for passthrough visualization
+  // when hands are over keyboard. (Will be deprecated in future.)
+  ovrpVector4f ContrastParameters;
+} ovrpKeyboardState;
 
+// Keyboard Tracking Internal
 
 
 
@@ -1670,28 +2481,124 @@ typedef struct ovrpEventDisplayRefreshRateChange_ {
 
 
 
+#define OVRP_RENDER_MODEL_NAME_MAX_LENGTH 64
+
+typedef struct ovrpRenderModelProperies_ {
+  char modelName[OVRP_RENDER_MODEL_NAME_MAX_LENGTH];
+  ovrpUInt64 modelKey;
+  ovrpUInt32 vendorId;
+  ovrpUInt32 modelVersion;
+} ovrpRenderModelProperties;
 
+// Enum defining the level of GLTF model supported by the application.
+// Must match flags defined in openxr/openxr.h
+typedef enum {
+  ovrpRenderModelFlags_SupportsGltf20Subset1 = 1,
+  ovrpRenderModelFlags_SupportsGltf20Subset2 = 2,
+  ovrpRenderModelFlags_EnumSize = 0x7fffffff
+} ovrpRenderModelFlags;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+typedef enum ovrpVirtualKeyboardLocationType_ {
+  ovrpVirtualKeyboardLocationType_Custom = 0,
+  ovrpVirtualKeyboardLocationType_Far = 1,
+  ovrpVirtualKeyboardLocationType_Direct = 2
+} ovrpVirtualKeyboardLocationType;
+
+// Info necessary to help build a virtual keyboard
+typedef struct ovrpVirtualKeyboardCreateInfo_ {
+  float placeholder;
+} ovrpVirtualKeyboardCreateInfo;
+
+typedef struct ovrpVirtualKeyboardSpaceCreateInfo_ {
+  ovrpVirtualKeyboardLocationType locationType;
+  ovrpPosef pose;
+  ovrpTrackingOrigin trackingOrigin;
+} ovrpVirtualKeyboardSpaceCreateInfo;
+
+typedef struct ovrpVirtualKeyboardLocationInfo_ {
+  ovrpVirtualKeyboardLocationType locationType;
+  ovrpPosef pose;
+  float scale;
+  ovrpTrackingOrigin trackingOrigin;
+} ovrpVirtualKeyboardLocationInfo;
+
+// When supplying input info, specifies which input device was used.
+// Must match XrVirtualKeyboardInputSourceMETA defined in
+// arvr/libraries/openxr/include/openxr/meta_virtual_keyboard.h
+typedef enum {
+  ovrpVirtualKeyboardInputSource_Invalid = 0,
+  ovrpVirtualKeyboardInputSource_ControllerRayLeft = 1,
+  ovrpVirtualKeyboardInputSource_ControllerRayRight = 2,
+  ovrpVirtualKeyboardInputSource_HandRayLeft = 3,
+  ovrpVirtualKeyboardInputSource_HandRayRight = 4,
+  ovrpVirtualKeyboardInputSource_ControllerDirectLeft = 5,
+  ovrpVirtualKeyboardInputSource_ControllerDirectRight = 6,
+  ovrpVirtualKeyboardInputSource_HandDirectIndexTipLeft = 7,
+  ovrpVirtualKeyboardInputSource_HandDirectIndexTipRight = 8,
+  ovrpVirtualKeyboardInputSource_EnumSize = 0x7FFFFFFF
+} ovrpVirtualKeyboardInputSource;
+
+// Indicates an interaction with a location on the virtual keyboard
+typedef struct ovrpVirtualKeyboardInputInfo_ {
+  ovrpVirtualKeyboardInputSource inputSource;
+  ovrpPosef inputPose;
+  ovrpUInt64 inputState;
+  ovrpTrackingOrigin trackingOrigin;
+} ovrpVirtualKeyboardInputInfo;
+
+// Should remain synced with XR_MAX_VIRTUAL_KEYBOARD_COMMIT_TEXT_SIZE_META in meta_virtual_keyboard.h
+#define OVRP_MAX_VIRTUAL_KEYBOARD_COMMIT_TEXT_SIZE 3992
+
+typedef struct ovrpVirtualKeyboardAnimationState_ {
+  int animationIndex;
+  float fraction;
+} ovrpVirtualKeyboardAnimationState;
+
+typedef struct ovrpVirtualKeyboardModelAnimationStates_ {
+  unsigned int stateCapacityInput;
+  unsigned int stateCountOutput;
+  ovrpVirtualKeyboardAnimationState* states;
+} ovrpVirtualKeyboardModelAnimationStates;
+
+typedef struct ovrpVirtualKeyboardTextureIds_ {
+  unsigned int textureIdCapacityInput;
+  unsigned int textureIdCountOutput;
+  ovrpUInt64* textureIds;
+} ovrpVirtualKeyboardTextureIds;
+
+typedef struct ovrpVirtualKeyboardTextureData_ {
+  unsigned int textureWidth;
+  unsigned int textureHeight;
+  unsigned int bufferCapacityInput;
+  unsigned int bufferCountOutput;
+  unsigned char* buffer;
+} ovrpVirtualKeyboardTextureData;
+
+typedef struct ovrpVirtualKeyboardModelVisibility_ {
+  ovrpBool visible;
+} ovrpVirtualKeyboardModelVisibility;
+
+// Events
+typedef struct ovrpEventVirtualKeyboardCommitText_ {
+  ovrpEventType EventType;
+  char Text[OVRP_MAX_VIRTUAL_KEYBOARD_COMMIT_TEXT_SIZE];
+} ovrpEventVirtualKeyboardCommitText;
+
+typedef struct ovrpEventVirtualKeyboardBackspace_ {
+  ovrpEventType EventType;
+} ovrpEventVirtualKeyboardBackspace;
+
+typedef struct ovrpEventVirtualKeyboardEnter_ {
+  ovrpEventType EventType;
+} ovrpEventVirtualKeyboardEnter;
+
+typedef struct ovrpEventVirtualKeyboardShown_ {
+  ovrpEventType EventType;
+} ovrpEventVirtualKeyboardShown;
+
+typedef struct ovrpEventVirtualKeyboardHidden_ {
+  ovrpEventType EventType;
+} ovrpEventVirtualKeyboardHidden;
 
 //-----------------------------------------------------------------
 // Insight Passthrough
@@ -1701,6 +2608,9 @@ typedef enum {
   ovrpInsightPassthroughColorMapType_MonoToRgba = 1,
   ovrpInsightPassthroughColorMapType_MonoToMono = 2,
   ovrpInsightPassthroughColorMapType_HandsContrast = 3,
+  ovrpInsightPassthroughColorMapType_BrightnessContrastSaturation = 4,
+  ovrpInsightPassthroughColorMapType_ColorLut = 6,
+  ovrpInsightPassthroughColorMapType_InterpolatedColorLut = 7,
   ovrpInsightPassthroughColorMapType_EnumSize = 0x7fffffff
 } ovrpInsightPassthroughColorMapType;
 
@@ -1710,6 +2620,8 @@ typedef enum {
   ovrpInsightPassthroughStyleFlags_HasTextureColorMap = 1 << 2,
   ovrpInsightPassthroughStyleFlags_EnumSize = 0x7fffffff
 } ovrpInsightPassthroughStyleFlags;
+
+typedef ovrpUInt64 ovrpPassthroughColorLut;
 
 typedef struct {
   /// The flags determine which fields of the struct have been initialize and
@@ -1735,23 +2647,211 @@ typedef struct {
   /// - For `MonoToMono`, it is an array of 256 uint8 values, i.e. one
   ///   8 bit grayscale output value for each input value.
   /// - For `HandsContrast`, it is an array of 4 float values.
+  /// - For `BrightnessContrastSaturation`, it is an array of 3 float
+  ///   values: [brightness, contrast, saturation].
   ovrpInsightPassthroughColorMapType TextureColorMapType;
   unsigned int TextureColorMapDataSize;
   unsigned char* TextureColorMapData;
+
+  // Added in v1.84:
+
+  /// Color LUTs are specified as part of the color mapping system. Clients must
+  /// set `TextureColorMapType` to `ovrpInsightPassthroughColorMapType_ColorLut`
+  /// or `ovrpInsightPassthroughColorMapType_InterpolatedColorLut` in order
+  /// to apply a color LUT. If that's the case, `TextureColorMapData` will be
+  /// ignored. Instead, `LutSource` and optionally `LutTarget` (for
+  /// `InterpolatedColorLut`) are applied, which must be created using
+  /// `ovrp_CreatePassthroughColorLut` previously.
+  /// There is no specific `ovrpInsightPassthroughStyleFlags` for color LUTs,
+  /// their validity is a consequence of the supplied `TextureColorMapType`.
+  ovrpPassthroughColorLut LutSource;
+  ovrpPassthroughColorLut LutTarget;
+  float LutWeight;
 } ovrpInsightPassthroughStyle;
 
+typedef enum {
+  ovrpInsightPassthroughCapabilityFlags_Passthrough = 1 << 0,
+  ovrpInsightPassthroughCapabilityFlags_Color = 1 << 1,
+  ovrpInsightPassthroughCapabilityFlags_Depth = 1 << 2,
+  ovrpInsightPassthroughCapabilityFlags_ColorLut = 1 << 3,
+  ovrpInsightPassthroughCapabilityFlags_EnumSize = 0x7fffffff
+} ovrpInsightPassthroughCapabilityFlags;
+
+typedef enum {
+  ovrpInsightPassthroughCapabilityFields_Flags = 1 << 0,
+  ovrpInsightPassthroughCapabilityFields_MaxColorLutResolution = 1 << 1,
+  ovrpInsightPassthroughCapabilityFields_EnumSize = 0x7fffffff
+} ovrpInsightPassthroughCapabilityFields;
+
+typedef struct {
+  /// This field determines which other fields of the struct the caller expects to be filled (and has allocated memory
+  /// for). This is used to establish backward compatibility: when new fields are added to the struct, callers of
+  /// `ovrp_GetPassthroughCapabilities` may be built based on an older version and thus only provide enough memory for
+  /// part of the struct. The callee must thus check which fields it is expected to fill. Note that we should only ever
+  /// add new fields using this mechanism, not change or remove existing ones.
+  ovrpInsightPassthroughCapabilityFields Fields;
+
+  /// General capability flags ("supports X").
+  ovrpInsightPassthroughCapabilityFlags Flags;
+
+  /// Maximum color LUT resolution supported by the system.
+  ovrpUInt32 MaxColorLutResolution;
+} ovrpInsightPassthroughCapabilities;
+
+typedef enum {
+  ovrpPassthroughColorLutChannels_Invalid = 0,
+  ovrpPassthroughColorLutChannels_Rgb = 1,
+  ovrpPassthroughColorLutChannels_Rgba = 2,
+  ovrpPassthroughColorLutChannels_Max = 0x7fffffff,
+} ovrpPassthroughColorLutChannels;
+
+typedef struct ovrpPassthroughColorLutData_ {
+  ovrpUInt32 BufferSize;
+  const ovrpByte* Buffer;
+} ovrpPassthroughColorLutData;
+
+//-----------------------------------------------------------------
+// Insight Passthrough Keyboard Hands
+//-----------------------------------------------------------------
+typedef struct {
+  /// An intensity for left tracked hand.
+  /// An intensity value can be in the range [0.0, 1.0] where 0.0 is the lowest intensity.
+  float LeftHandIntensity;
+
+  /// An intensity for right tracked hand.
+  /// An intensity value can be in the range [0.0, 1.0] where 0.0 is the lowest intensity.
+  float RightHandIntensity;
+} ovrpInsightPassthroughKeyboardHandsIntensity;
+
+//-----------------------------------------------------------------
+// Spatial Anchors
+
+typedef ovrpUInt64 ovrpSpace;
+typedef ovrpUInt64 ovrpUser;
+#define OVRP_SPACE_INVALID_HANDLE nullptr
+#define OVRP_SPATIAL_ENTITY_UUID_SIZE 2
+#define OVRP_UUID_SIZE 16
+#define OVRP_SPACE_MAX_QUERY_RESULTS_PER_EVENT 128
+
+// Components used by XrSpaces to determine what functionality they support
+// - Locatable, enables location functionality for pose and orientation
+// - Storable, enables save and erase functionality
+// - Sharable, enables sharing off-device
+// - Bounded2D, used in fb_scene extension
+// - Bounded3D, used in fb_scene extension
+// - SemanticLabels, used in fb_scene extension
+// - RoomLayout, used in fb_scene extension
+// - SpaceContainer, used in fb_spatial_entity_container extension
+typedef enum {
+  ovrpSpatialEntityComponentType_Locatable = 0, // Deprecated
+  ovrpSpaceComponentType_Locatable = 0,
+
+  ovrpSpatialEntityComponentType_Storable = 1, // Deprecated
+  ovrpSpaceComponentType_Storable = 1,
+  ovrpSpaceComponentType_Sharable = 2,
+
+  ovrpSpaceComponentType_Bounded2D = 3,
+  ovrpSpaceComponentType_Bounded3D = 4,
+  ovrpSpaceComponentType_SemanticLabels = 5,
+  ovrpSpaceComponentType_RoomLayout = 6,
+  ovrpSpaceComponentType_SpaceContainer = 7,
+  ovrpSpaceComponentType_TriangleMesh = 1000269000,
+
+
+
+
+  ovrpSpatialEntityComponentType_Max = 0x7ffffff, // Deprecated
+  ovrpSpaceComponentType_Max = 0x7ffffff,
+} ovrpSpaceComponentType;
+
+// ovrpSpatialEntityComponentType is deprecated and replaced by ovrpSpaceComponentType
+typedef ovrpSpaceComponentType ovrpSpatialEntityComponentType;
+
+// The storage location for the spatial entity
+typedef enum {
+  ovrpSpaceStorageLocation_Invalid = 0,
+  ovrpSpaceStorageLocation_Local = 1,
+  ovrpSpaceStorageLocation_Cloud = 2,
+  ovrpSpaceStorageLocation_Max = 0x7ffffff,
+} ovrpSpaceStorageLocation;
 
+typedef enum {
+  ovrpSpaceStoragePersistenceMode_Invalid = 0,
+  ovrpSpaceStoragePersistenceMode_Indefinite = 1,
+  ovrpSpaceStoragePersistenceMode_Max = 0x7ffffff,
+} ovrpSpaceStoragePersistenceMode;
 
+// Action to be performed on queried items.
+// - Load, Query for spaces and attempt a load on the spaces found.
+//   Successfully loaded spaces are returned.
+typedef enum {
+  ovrpSpaceQueryActionType_Load = 0,
+} ovrpSpaceQueryActionType;
 
+// Type of query to be performed
+// - Action, Query for spaces using an ovrpSpaceQueryActionType
+typedef enum {
+  ovrpSpaceQueryType_Action = 0,
+  ovrpSpaceQueryType_Max = 0x7ffffff,
+} ovrpSpaceQueryType;
 
+// Filter to be used to narrow the queried spatial entities
+// - None, Query for all spatial entities
+// - Ids, Query for a single or a list of specific uuids
+typedef enum {
+  ovrpSpaceQueryFilterType_None = 0,
+  ovrpSpaceQueryFilterType_Ids = 1,
+  ovrpSpaceQueryFilterType_Components = 2,
 
 
 
+  ovrpSpaceQueryFilterType_Max = 0x7ffffff,
+} ovrpSpaceQueryFilterType;
 
+typedef struct {
+  ovrpTrackingOrigin trackingSpace;
+  ovrpPosef poseInSpace;
+  double time;
+} ovrpSpatialAnchorCreateInfo;
 
+// New UUID type, uses ovrpByte for uint8_t
+typedef struct ovrpUuid {
+  ovrpByte data[OVRP_UUID_SIZE];
+} ovrpUuid;
 
+typedef struct {
+  // list of uuids used for querying
+  ovrpUuid ids[1024];
+  // size of the list
+  int numIds;
+} ovrpSpaceFilterIdInfo;
 
+typedef struct {
+  // list of components used for querying
+  ovrpSpaceComponentType components[16];
+  // size of the list
+  int numComponents;
+} ovrpSpaceFilterComponentsInfo;
 
+typedef struct {
+  // type of query to be performed
+  ovrpSpaceQueryType queryType;
+  // maximum number of spaces to be returned
+  int maxQuerySpaces;
+  // timeout wait on query
+  double timeout;
+  // location we are querying for the spaces from
+  ovrpSpaceStorageLocation location;
+  // action to be performed on queried items if query type is
+  // of type ovrpSpaceQueryType_Action
+  ovrpSpaceQueryActionType actionType;
+  // type of filtering we wish to use on the spaces we've queried
+  ovrpSpaceQueryFilterType filterType;
+  // use only when filter type is ovrpSpaceQueryFilterType_Ids
+  ovrpSpaceFilterIdInfo IdInfo;
+  // use only when filter type is ovrpSpaceQueryFilterType_Components
+  ovrpSpaceFilterComponentsInfo componentsInfo;
+} ovrpSpaceQueryInfo;
 
 
 
@@ -1782,21 +2882,121 @@ typedef struct {
 
 
 
+typedef struct ovrpSpaceQueryResult {
+  ovrpSpace space;
+  ovrpUuid uuid;
+} ovrpSpaceQueryResult;
 
+typedef struct ovrpEventDataSpatialAnchorCreateComplete_ {
+  ovrpEventType EventType;
+  ovrpUInt64 requestId;
+  ovrpResult result;
+  ovrpSpace space;
+  ovrpUuid uuid;
+} ovrpEventDataSpatialAnchorCreateComplete;
 
+typedef struct ovrpEventDataSpaceSetStatusComplete_ {
+  ovrpEventType EventType;
+  ovrpUInt64 requestId;
+  ovrpResult result;
+  ovrpSpace space;
+  ovrpUuid uuid;
+  ovrpSpaceComponentType componentType;
+  ovrpBool enabled;
+} ovrpEventDataSpaceSetStatusComplete;
 
+typedef struct ovrpEventSpaceQueryResults_ {
+  ovrpEventType EventType;
+  ovrpUInt64 requestId;
+} ovrpEventSpaceQueryResults;
 
+typedef struct ovrpEventSpaceQueryComplete_ {
+  ovrpEventType EventType;
+  ovrpUInt64 requestId;
+  ovrpResult result;
+} ovrpEventSpaceQueryComplete;
 
+typedef struct ovrpEventSpaceStorageSaveResult_ {
+  ovrpEventType EventType;
+  ovrpUInt64 requestId;
+  ovrpSpace space;
+  ovrpResult result;
+  ovrpUuid uuid;
+} ovrpEventSpaceStorageSaveResult;
 
+typedef struct ovrpEventSpaceStorageEraseResult_ {
+  ovrpEventType EventType;
+  ovrpUInt64 requestId;
+  ovrpResult result;
+  ovrpUuid uuid;
+  ovrpSpaceStorageLocation location;
+} ovrpEventSpaceStorageEraseResult;
 
+typedef struct ovrpEventSpaceShareResult_ {
+  ovrpEventType EventType;
+  ovrpUInt64 requestId;
+  ovrpResult result;
+} ovrpEventSpaceShareResult;
 
+typedef struct ovrpEventSpaceListSaveResult_ {
+  ovrpEventType EventType;
+  ovrpUInt64 requestId;
+  ovrpResult result;
+} ovrpEventSpaceListSaveResult;
 
+typedef struct ovrpSpaceContainer_ {
+  // Input, capacity of UUID list.
+  int uuidCapacityInput;
+  // Output, number of spatial entities included in the list.
+  int uuidCountOutput;
+  // List of spatial entities contained in the entity to which this component is attached.
+  ovrpUuid* uuids;
+} ovrpSpaceContainer;
 
+typedef struct ovrpSemanticLabels_ {
+  // Input, capacity of the label buffer in byte.
+  int byteCapacityInput;
+  // Output, size of the label buffer in byte.
+  int byteCountOutput;
+  // Multiple labels represented by raw string, separated by comma (,).
+  char* labels;
+} ovrpSemanticLabels;
 
+typedef struct ovrpRoomLayout_ {
+  // UUID, floor of the room layout.
+  ovrpUuid floorUuid;
+  // UUID, ceiling of the room layout.
+  ovrpUuid ceilingUuid;
+  // Input, indicating the capacity of pointer `wallUuids`.
+  int wallUuidCapacityInput;
+  // Output, number of walls included in the list.
+  int wallUuidCountOutput;
+  // Ordered list of walls of the room layout.
+  ovrpUuid* wallUuids;
+} ovrpRoomLayout;
 
+typedef struct ovrpBoundary2D_ {
+  // Input, capacity of the vertex buffer.
+  int vertexCapacityInput;
+  // Output, size of the vertex buffer.
+  int vertexCountOutput;
+  // Vertices of the polygonal boundary in the coordinate frame of the associated space.
+  // Currently only support outer bounds.
+  ovrpVector2f* vertices;
+} ovrpBoundary2D;
 
+typedef struct ovrpEventSceneCaptureComplete_ {
+  ovrpEventType EventType;
+  ovrpUInt64 requestId;
+  ovrpResult result;
+} ovrpEventSceneCaptureComplete;
 
+#define OVRP_SCENE_CAPTURE_MAX_REQUEST_TYPE_COUNT 30
 
+typedef struct ovrpSceneCaptureRequest_ {
+  int requestByteCount;
+  char* request;
+} ovrpSceneCaptureRequest;
 
 
 
@@ -1870,6 +3070,20 @@ typedef struct {
 
 
 
+typedef struct ovrpTriangleMesh_ {
+  // Input, capacity of the vertex buffer.
+  int vertexCapacityInput;
+  // Output, size of the vertex buffer.
+  int vertexCountOutput;
+  // Vertices of the triangle mesh in the coordinate frame of the associated space.
+  ovrpVector3f* vertices;
+  // Input, capacity of the index buffer.
+  int indexCapacityInput;
+  // Output, size of the index buffer.
+  int indexCountOutput;
+  // Indices of the triangle mesh.
+  int* indices;
+} ovrpTriangleMesh;
 
 
 
@@ -1886,5 +3100,468 @@ typedef struct {
 
 
 
+
+
+
+
+
+
+
+
+
+
+typedef enum {
+  ovrpInteractionProfile_None = 0,
+  ovrpInteractionProfile_Touch = 1,
+  ovrpInteractionProfile_TouchPro = 2,
+
+
+
+  ovrpInteractionProfile_TouchPlus = 4,
+  ovrpInteractionProfile_EnumSize = 0x7fffffff
+} ovrpInteractionProfile;
+
+typedef enum {
+  ovrpPassthroughPreferenceFields_Flags = 1 << 0,
+  ovrpPassthroughPreferenceFields_EnumSize = 0x7fffffff
+} ovrpPassthroughPreferenceFields;
+
+typedef enum {
+  ovrpPassthroughPreferenceFlags_DefaultToActive = 1 << 0,
+  // OpenXR flag words are 64 bit, use the same size to make them binary-compatible
+  ovrpPassthroughPreferenceFlags_EnumSize = 0xffffffffffffffff
+} ovrpPassthroughPreferenceFlags;
+
+typedef struct ovrpPassthroughPreferences_ {
+  ovrpPassthroughPreferenceFields Fields;
+  ovrpPassthroughPreferenceFlags Flags;
+} ovrpPassthroughPreferences;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+typedef struct ovrpEventDataPassthroughLayerResumed_ {
+  ovrpEventType EventType;
+  int LayerId;
+} ovrpEventDataPassthroughLayerResumed;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+typedef struct ovrpEnvironmentDepthTextureDesc_ {
+  ovrpSizei TextureSize;
+  int MipLevels;
+  int SampleCount;
+  ovrpLayout Layout;
+  ovrpTextureFormat Format;
+} ovrpEnvironmentDepthTextureDesc;
+
+typedef struct ovrpEnvironmentDepthFrameDesc_ {
+  ovrpBool IsValid;
+  double CreateTime;
+  double PredictedDisplayTime;
+  int SwapchainIndex;
+  ovrpPosef CreatePose;
+  ovrpFovf Fov;
+  float NearZ;
+  float FarZ;
+  float MinDepth;
+  float MaxDepth;
+} ovrpEnvironmentDepthFrameDesc;
+
+typedef enum {
+  ovrpEnvironmentDepthCreateFlag_None = 0,
+  ovrpEnvironmentDepthCreateFlag_RemoveHands = 1 << 0,
+} ovrpEnvironmentDepthCreateFlag;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif // __clang__
 
 #endif

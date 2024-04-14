@@ -156,11 +156,18 @@ bool FAndroidMisc::bNeedsRestartAfterPSOPrecompile = false;
 // Key/Value pair variables from the optional configuration.txt
 TMap<FString, FString> FAndroidMisc::ConfigRulesVariables;
 
+static FCriticalSection AndroidThreadNamesLock;
+static TMap<uint32, const char*, TFixedSetAllocator<16>> AndroidThreadNames;
+
 EDeviceScreenOrientation FAndroidMisc::DeviceOrientation = EDeviceScreenOrientation::Unknown;
 
 extern void AndroidThunkCpp_ForceQuit();
 
 extern void AndroidThunkCpp_SetOrientation(int32 Value);
+
+extern void AndroidThunkCpp_SetCellularPreference(int32 Value);
+
+extern int32 AndroidThunkCpp_GetCellularPreference();
 
 // From AndroidFile.cpp
 extern FString GFontPathBase;
@@ -1691,9 +1698,9 @@ void FAndroidMisc::PrepareMobileHaptics(EMobileHapticsType Type)
 void FAndroidMisc::TriggerMobileHaptics()
 {
 #if USE_ANDROID_JNI
-	extern void AndroidThunkCpp_Vibrate(int32 Duration);
+	extern void AndroidThunkCpp_Vibrate(int32 Intensity, int32 Duration);
 	// tiny little vibration
-	AndroidThunkCpp_Vibrate(10);
+	AndroidThunkCpp_Vibrate(255, 10);
 #endif
 }
 
@@ -3215,10 +3222,49 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif // UE_SET_REQUEST_EXIT_ON_TICK_ONLY
 }
 
+void FAndroidMisc::RegisterThreadName(const char* Name, uint32 ThreadId)
+{
+	FScopeLock Lock(&AndroidThreadNamesLock);
+	if (!AndroidThreadNames.Contains(ThreadId))
+	{
+		AndroidThreadNames.Add(ThreadId, Name);
+	}
+}
+
+const char* FAndroidMisc::GetThreadName(uint32 ThreadId)
+{
+	FScopeLock Lock(&AndroidThreadNamesLock);
+	const char** ThreadName = AndroidThreadNames.Find(ThreadId);
+	return ThreadName ? *ThreadName : nullptr;
+}
+
 void FAndroidMisc::SetDeviceOrientation(EDeviceScreenOrientation NewDeviceOrentation)
 {
+	SetAllowedDeviceOrientation(NewDeviceOrentation);
+}
+
+void FAndroidMisc::SetCellularPreference(int32 Value)
+{
 #if USE_ANDROID_JNI
-	AndroidThunkCpp_SetOrientation(GetAndroidScreenOrientation(NewDeviceOrentation));
+	AndroidThunkCpp_SetCellularPreference(Value);
+#endif // USE_ANDROID_JNI
+}
+
+int32 FAndroidMisc::GetCellularPreference()
+{
+	int32 value = 0;
+#if USE_ANDROID_JNI
+	value = AndroidThunkCpp_GetCellularPreference();
+#endif // USE_ANDROID_JNI
+	return value;
+}
+
+void FAndroidMisc::SetAllowedDeviceOrientation(EDeviceScreenOrientation NewAllowedDeviceOrientation)
+{
+	AllowedDeviceOrientation = NewAllowedDeviceOrientation;
+
+#if USE_ANDROID_JNI
+	AndroidThunkCpp_SetOrientation(GetAndroidScreenOrientation(NewAllowedDeviceOrientation));
 #endif // USE_ANDROID_JNI
 }
 

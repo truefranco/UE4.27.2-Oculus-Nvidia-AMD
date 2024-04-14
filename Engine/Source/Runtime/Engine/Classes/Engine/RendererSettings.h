@@ -783,7 +783,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		uint32 bMobileAllowMovableDirectionalLights : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = MobileShaderPermutationReduction, meta = (
-		ConsoleVariable = "r.MobileNumDynamicPointLights", DisplayName = "Max Movable Spotlights / Point Lights", ClampMax = 4,
+		ConsoleVariable = "r.MobileNumDynamicPointLights", DisplayName = "Max Movable Spotlights / Point Lights", ClampMax = 8,
 		ToolTip = "The number of dynamic spotlights or point lights to support on mobile devices. Setting this to 0 for games which do not require dynamic spotlights or point lights will reduce the number of shaders generated. Changing this setting requires restarting the editor.",
 		ConfigRestartRequired = true))
 		uint32 MobileNumDynamicPointLights;

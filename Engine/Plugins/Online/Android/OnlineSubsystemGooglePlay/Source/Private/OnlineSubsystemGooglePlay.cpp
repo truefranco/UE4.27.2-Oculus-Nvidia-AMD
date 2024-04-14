@@ -36,7 +36,6 @@ FOnlineSubsystemGooglePlay::FOnlineSubsystemGooglePlay(FName InInstanceName)
 	, IdentityInterface(nullptr)
 	, LeaderboardsInterface(nullptr)
 	, AchievementsInterface(nullptr)
-	, StoreInterface(nullptr)
 	, CurrentLoginTask(nullptr)
 	, CurrentShowLoginUITask(nullptr)
 	, CurrentLogoutTask(nullptr)
@@ -46,11 +45,6 @@ FOnlineSubsystemGooglePlay::FOnlineSubsystemGooglePlay(FName InInstanceName)
 IOnlineIdentityPtr FOnlineSubsystemGooglePlay::GetIdentityInterface() const
 {
 	return IdentityInterface;
-}
-
-IOnlineStorePtr FOnlineSubsystemGooglePlay::GetStoreInterface() const
-{
-	return StoreInterface;
 }
 
 IOnlineStoreV2Ptr FOnlineSubsystemGooglePlay::GetStoreV2Interface() const
@@ -152,11 +146,6 @@ bool FOnlineSubsystemGooglePlay::Init()
 			PurchaseInterface = MakeShareable(new FOnlinePurchaseGooglePlay(this));
 			PurchaseInterface->Init();
 		}
-		else
-		{
-			StoreInterface = MakeShareable(new FOnlineStoreGooglePlay(this));
-			StoreInterface->Init();
-		}
 	}
 	
 	extern struct android_app* GNativeAndroidApp;
@@ -205,7 +194,6 @@ bool FOnlineSubsystemGooglePlay::Shutdown()
 	}
 
 	// Destruct the interfaces
-	DESTRUCT_INTERFACE(StoreInterface);
 	DESTRUCT_INTERFACE(StoreV2Interface);
 	DESTRUCT_INTERFACE(PurchaseInterface);
 	DESTRUCT_INTERFACE(ExternalUIInterface);

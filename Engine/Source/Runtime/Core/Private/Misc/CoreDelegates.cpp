@@ -197,6 +197,8 @@ FCoreDelegates::FOnLogVerbosityChanged FCoreDelegates::OnLogVerbosityChanged;
 
 FCoreDelegates::FApplicationNetworkInitializationChanged FCoreDelegates::ApplicationNetworkInitializationChanged;
 
+FCoreDelegates::FOnNetworkConnectionStatusChanged FCoreDelegates::OnNetworkConnectionStatusChanged;
+
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 FCrashOverrideParameters::~FCrashOverrideParameters()
 {
@@ -208,6 +210,18 @@ FSimpleMulticastDelegate& FCoreDelegates::GetMemoryTrimDelegate()
 {
 	static FSimpleMulticastDelegate OnMemoryTrim;;
 	return OnMemoryTrim;
+}
+
+FSimpleMulticastDelegate& FCoreDelegates::TSConfigReadyForUse()
+{
+	static FSimpleMulticastDelegate Singleton;
+	return Singleton;
+}
+
+FSimpleMulticastDelegate& FCoreDelegates::GetApplicationWillTerminateDelegate()
+{
+	static FSimpleMulticastDelegate Singleton;
+	return Singleton;
 }
 
 /**	 Implemented as a function to address global ctor issues */

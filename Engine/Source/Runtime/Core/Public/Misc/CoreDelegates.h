@@ -559,6 +559,10 @@ public:
 	// Caller is responsible for flushing rendering etc. See UEngine::TrimMemory
 	static FSimpleMulticastDelegate& GetMemoryTrimDelegate();
 
+	static FSimpleMulticastDelegate& TSConfigReadyForUse();
+
+	static FSimpleMulticastDelegate& GetApplicationWillTerminateDelegate();
+
 	// Called when OOM event occurs, after backup memory has been freed, so there's some hope of being effective
 	static FSimpleMulticastDelegate& GetOutOfMemoryDelegate();
 
@@ -594,6 +598,9 @@ public:
 	/** Called when the application's network initializes or shutdowns on platforms where the network stack is not always available */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationNetworkInitializationChanged, bool /*bIsNetworkInitialized*/);
 	static FApplicationNetworkInitializationChanged ApplicationNetworkInitializationChanged;
+
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnNetworkConnectionStatusChanged, ENetworkConnectionStatus /*LastConnectionState*/, ENetworkConnectionStatus /*ConnectionState*/);
+	static FOnNetworkConnectionStatusChanged OnNetworkConnectionStatusChanged;
 
 	// Callback to let code read or write specialized binary data that is generated at Stage time, for optimizing data right before 
 	// final game data is being written to disk

@@ -324,12 +324,12 @@ void FAppEventManager::PauseAudio()
 	{
 		if (AudioDevice->IsAudioMixerEnabled())
 		{
-			FAudioCommandFence Fence;
-			Fence.BeginFence();
-			Fence.Wait();
+		FAudioCommandFence Fence;
+		Fence.BeginFence();
+		Fence.Wait();
 
-			AudioDevice->SuspendContext();
-		}
+		AudioDevice->SuspendContext();
+	}
 		else
 		{
 			GEngine->GetMainAudioDevice()->Suspend(false);
@@ -339,7 +339,7 @@ void FAppEventManager::PauseAudio()
 			Fence.BeginFence();
 			Fence.Wait();
 		}
-	}
+}
 }
 
 
@@ -359,8 +359,8 @@ void FAppEventManager::ResumeAudio()
 	{
 		if (AudioDevice->IsAudioMixerEnabled())
 		{
-			AudioDevice->ResumeContext();
-		}
+		AudioDevice->ResumeContext();
+	}
 		else
 		{
 			GEngine->GetMainAudioDevice()->Suspend(true);

@@ -77,7 +77,7 @@ enum EOutputFormat
 	HDR_LINEAR_64,
 };
 
-#define MAX_BASEPASS_DYNAMIC_POINT_LIGHTS 4
+#define MAX_BASEPASS_DYNAMIC_POINT_LIGHTS 8
 
 /* Info for dynamic point or spot lights rendered in base pass */
 class FMobileBasePassMovableLightInfo

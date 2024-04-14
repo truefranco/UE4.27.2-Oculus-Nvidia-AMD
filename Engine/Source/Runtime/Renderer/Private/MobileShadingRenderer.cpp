@@ -380,7 +380,13 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	// ES requires that the back buffer and depth match dimensions.
 	// For the most part this is not the case when using scene captures. Thus scene captures always render to scene color target.
 	const bool bStereoRenderingAndHMD = ViewFamily.EngineShowFlags.StereoRendering && ViewFamily.EngineShowFlags.HMDDistortion;
-	bRenderToSceneColor = !bGammaSpace || bStereoRenderingAndHMD || bRequiresUpscale || FSceneRenderer::ShouldCompositeEditorPrimitives(Views[0]) || Views[0].bIsSceneCapture || Views[0].bIsReflectionCapture;
+	bRenderToSceneColor = !bGammaSpace 
+		                  || bStereoRenderingAndHMD 
+		                  || bRequiresUpscale 
+		                  || FSceneRenderer::ShouldCompositeEditorPrimitives(Views[0]) 
+		                  || Views[0].bIsSceneCapture 
+		                  || Views[0].bIsReflectionCapture;
+
 	const FPlanarReflectionSceneProxy* PlanarReflectionSceneProxy = Scene ? Scene->GetForwardPassGlobalPlanarReflection() : nullptr;
 
 	bRequiresPixelProjectedPlanarRelfectionPass = IsUsingMobilePixelProjectedReflection(ShaderPlatform)
@@ -425,6 +431,7 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	const bool bSeparateTranslucencyActive = IsMobileSeparateTranslucencyActive(Views.GetData(), Views.Num()); 
 	const bool bPostProcessUsesSceneDepth = PostProcessUsesSceneDepth(Views[0]);
 	bRequiresMultiPass = RequiresMultiPass(RHICmdList, Views[0]);
+
 	bKeepDepthContent = 
 		bRequiresMultiPass || 
 		bForceDepthResolve ||
@@ -1079,7 +1086,7 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 
 	static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
 	const bool bIsMultiViewApplication = (CVarMobileMultiView && CVarMobileMultiView->GetValueOnAnyThread() != 0);
-
+	
 	// AppSpaceWarp
 	FRHITexture* HmdMotionVectorTexture = nullptr;
 	FRHITexture* HmdMotionVectorDepthTexture = nullptr;
@@ -1216,7 +1223,7 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 	//if the scenecolor isn't multiview but the app is, need to render as a single-view multiview due to shaders
 	SceneColorRenderPassInfo.MultiViewCount = View.bIsMobileMultiViewEnabled ? 2 : (bIsMultiViewApplication ? 1 : 0);
 	SceneColorRenderPassInfo.ResolveParameters.Rect = FResolveRect(View.ViewRect);
-
+	
 	RHICmdList.BeginRenderPass(SceneColorRenderPassInfo, TEXT("SceneColorRendering"));
 	
 	if (GIsEditor && !View.bIsSceneCapture)
@@ -1267,7 +1274,7 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 		PostRenderBasePass(RHICmdList);
 		RHICmdList.EndRenderPass();
 	}
-	   
+
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Translucency));
 
 		
@@ -1338,7 +1345,7 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 	// scene depth is read only and can be fetched
 	if (bUseDepthSubpass)
 	{
-	      RHICmdList.NextSubpass();
+		RHICmdList.NextSubpass();
 	}
 
 	if (!View.bIsPlanarReflection)
@@ -1494,8 +1501,8 @@ FRHITexture* FMobileSceneRenderer::RenderDeferred(FRHICommandListImmediate& RHIC
 		RenderOcclusion(RHICmdList);
 		RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 	}
-
-	if (!bRequiresMultiPass)
+	
+    if (!bRequiresMultiPass)
 	{
 		// SceneColor + GBuffer write, SceneDepth is read only
 		RHICmdList.NextSubpass();

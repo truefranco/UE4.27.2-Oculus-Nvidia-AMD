@@ -208,6 +208,14 @@ public:
 	 */
 	virtual void CalculateStereoViewOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, const float WorldToMeters, FVector& ViewLocation) = 0;
 
+	// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
+	/**
+	 * Calculates the scissor rect given the view rect. When multi-view per view viewports (MVPVV) are enabled the rect will be smaller than the viewport rect.
+	 * Default case is to pass back the viewport rect as scissor rect.
+	 */
+	virtual void CalculateScissorRect(const enum EStereoscopicPass StereoPass, const FIntRect& ViewRect, FIntRect& OutRect) { OutRect = ViewRect; }
+	// END META SECTION - Multi-View Per View Viewports / Render Areas
+
 	/**
 	 * Gets a projection matrix for the device, given the specified eye setup
 	 */

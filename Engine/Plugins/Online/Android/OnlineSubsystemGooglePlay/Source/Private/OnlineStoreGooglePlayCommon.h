@@ -9,8 +9,12 @@
 struct FGoogleTransactionData;
 
 /** Possible responses returned from the Java GooglePlay billing interface */
-enum class EGooglePlayBillingResponseCode : uint8
+enum class EGooglePlayBillingResponseCode : int8
 {
+	CustomLogicError = -127, // Custom value. Should match with GooglePlayStoreHelper.CustomLogicErrorResponse on GooglePlayStoreHelper.java
+	ServiceTimeout = -3,
+	FeatureNotSupported = -2,
+	ServiceDisconnected = -1,
 	Ok = 0,
 	UserCancelled = 1,
 	ServiceUnavailable = 2,
@@ -22,10 +26,26 @@ enum class EGooglePlayBillingResponseCode : uint8
 	ItemNotOwned = 8,
 };
 
+/* Possible transaction states returned from the Java GooglePlay billing interface.*/
+enum class EGooglePlayPurchaseState : uint8
+{
+	UnspecifiedState = 0,
+	Purchased = 1,
+	Pending = 2,
+};
+
 inline const TCHAR* const ToString(EGooglePlayBillingResponseCode InResponseCode)
 {
 	switch (InResponseCode)
 	{
+	    case EGooglePlayBillingResponseCode::CustomLogicError:
+		    return TEXT("CustomLogicError");
+	    case EGooglePlayBillingResponseCode::ServiceTimeout:
+		    return TEXT("ServiceTimeout");
+	    case EGooglePlayBillingResponseCode::FeatureNotSupported:
+		    return TEXT("FeatureNotSupported");
+	    case EGooglePlayBillingResponseCode::ServiceDisconnected:
+		    return TEXT("ServiceDisconnected");
 		case EGooglePlayBillingResponseCode::Ok:
 			return TEXT("Ok");
 		case EGooglePlayBillingResponseCode::UserCancelled:
@@ -49,6 +69,21 @@ inline const TCHAR* const ToString(EGooglePlayBillingResponseCode InResponseCode
 	}
 }
 
+inline const TCHAR* const LexToString(EGooglePlayPurchaseState InTransactionState)
+{
+	switch (InTransactionState)
+	{
+	case EGooglePlayPurchaseState::UnspecifiedState:
+		return TEXT("UnspecifiedState");
+	case EGooglePlayPurchaseState::Purchased:
+		return TEXT("Purchased");
+	case EGooglePlayPurchaseState::Pending:
+		return TEXT("Pending");
+	default:
+		return TEXT("UnknownState");
+	}
+}
+
 inline EInAppPurchaseState::Type ConvertGPResponseCodeToIAPState(const EGooglePlayBillingResponseCode InResponseCode)
 {
 	switch (InResponseCode)
@@ -61,6 +96,10 @@ inline EInAppPurchaseState::Type ConvertGPResponseCodeToIAPState(const EGooglePl
 			return EInAppPurchaseState::AlreadyOwned;
 		case EGooglePlayBillingResponseCode::ItemNotOwned:
 			return EInAppPurchaseState::NotAllowed;
+		case EGooglePlayBillingResponseCode::CustomLogicError:
+		case EGooglePlayBillingResponseCode::ServiceTimeout:
+		case EGooglePlayBillingResponseCode::FeatureNotSupported:
+		case EGooglePlayBillingResponseCode::ServiceDisconnected:
 		case EGooglePlayBillingResponseCode::ServiceUnavailable:
 		case EGooglePlayBillingResponseCode::BillingUnavailable:
 		case EGooglePlayBillingResponseCode::ItemUnavailable:
@@ -71,12 +110,25 @@ inline EInAppPurchaseState::Type ConvertGPResponseCodeToIAPState(const EGooglePl
 	}
 }
 
-inline EPurchaseTransactionState ConvertGPResponseCodeToPurchaseTransactionState(const EGooglePlayBillingResponseCode InResponseCode)
+inline EPurchaseTransactionState ConvertGPPurchaseStateToPurchaseTransactionState(const EGooglePlayPurchaseState InTransactionState)
+{
+	switch (InTransactionState)
+	{
+	case EGooglePlayPurchaseState::Purchased:
+		return EPurchaseTransactionState::Purchased;
+	case EGooglePlayPurchaseState::Pending:
+		return EPurchaseTransactionState::Deferred;
+	default:
+		return EPurchaseTransactionState::Invalid;
+	}
+}
+
+inline EPurchaseTransactionState ConvertGPResponseCodeToPurchaseTransactionState(const EGooglePlayBillingResponseCode InResponseCode, const EGooglePlayPurchaseState InPurchaseState)
 {
 	switch (InResponseCode)
 	{
 		case EGooglePlayBillingResponseCode::Ok:
-			return EPurchaseTransactionState::Purchased;
+			return ConvertGPPurchaseStateToPurchaseTransactionState(InPurchaseState);
 		case EGooglePlayBillingResponseCode::UserCancelled:
 			return EPurchaseTransactionState::Canceled;
 		case EGooglePlayBillingResponseCode::ItemAlreadyOwned:
@@ -84,6 +136,10 @@ inline EPurchaseTransactionState ConvertGPResponseCodeToPurchaseTransactionState
 			return EPurchaseTransactionState::Invalid;
 		case EGooglePlayBillingResponseCode::ItemNotOwned:
 			return EPurchaseTransactionState::Invalid;
+		case EGooglePlayBillingResponseCode::CustomLogicError:
+		case EGooglePlayBillingResponseCode::ServiceTimeout:
+		case EGooglePlayBillingResponseCode::FeatureNotSupported:
+		case EGooglePlayBillingResponseCode::ServiceDisconnected:
 		case EGooglePlayBillingResponseCode::ServiceUnavailable:
 		case EGooglePlayBillingResponseCode::BillingUnavailable:
 		case EGooglePlayBillingResponseCode::ItemUnavailable:

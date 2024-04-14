@@ -7,15 +7,18 @@
 #include "Misc/Base64.h"
 #include "Async/TaskGraphInterfaces.h"
 #include <jni.h>
+#include "Algo/Transform.h"
+#include "Algo/AllOf.h"
 #include "Android/AndroidJavaEnv.h"
 
 #define LOCTEXT_NAMESPACE "OnlineSubsystemGooglePlay"
 #define GOOGLEPLAYUSER TEXT("GooglePlayUser")
 
-FGoogleTransactionData::FGoogleTransactionData(const FString& InOfferId, const FString& InProductToken, const FString& InReceiptData, const FString& InSignature)
-	: OfferId(InOfferId)
+FGoogleTransactionData::FGoogleTransactionData(const TArray<FString>& InOfferIds, const FString& InProductToken, const FString& InReceiptData, const FString& InSignature, EGooglePlayPurchaseState InPurchaseState)
+	: OfferIds(InOfferIds)
 	, TransactionIdentifier(InProductToken)
-	, CombinedTransactionData(InReceiptData, InSignature)
+	, CombinedTransactionData(InOfferIds, InReceiptData, InSignature)
+	, PurchaseState(InPurchaseState)
 {
 	if (TransactionIdentifier.IsEmpty())
 	{
@@ -29,6 +32,42 @@ FGoogleTransactionData::FGoogleTransactionData(const FString& InOfferId, const F
 	{
 		ErrorStr = TEXT("Receipt does not contain signature data");
 	}
+}
+
+FString FGoogleTransactionData::ToDebugString() const
+{
+	return FString::Printf(TEXT("OfferId: %s PurchaseState: %s TransactionId: %s ReceiptData: %s%s"),
+		*FString::Join(OfferIds, TEXT(",")),
+		LexToString(PurchaseState),
+		*TransactionIdentifier,
+		*CombinedTransactionData.ToJson(),
+		ErrorStr.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(" Error: %s"), *ErrorStr));
+}
+
+FGoogleTransactionData::FJsonReceiptData::FJsonReceiptData(const TArray<FString>& InOfferIds, const FString& InReceiptData, const FString& InSignature)
+	: ReceiptData(InReceiptData)
+	, Signature(InSignature)
+{
+	if (!InOfferIds.IsEmpty() && FOnlinePurchaseGooglePlay::IsSubscriptionProductId(InOfferIds[0]))
+	{
+		IsSubscription = true;
+	}
+}
+
+bool FGoogleTransactionData::IsMatchingRequest(const FPurchaseCheckoutRequest& Request) const
+{
+	return Algo::AllOf(GetOfferIds(), [&Request](const FString& OfferId) {
+		return Request.PurchaseOffers.ContainsByPredicate([&OfferId](const FPurchaseCheckoutRequest::FPurchaseOfferEntry& Entry)
+			{
+				FStringView CheckedOutProductId(Entry.OfferId);
+				int32 ColonPos = INDEX_NONE;
+				if (CheckedOutProductId.FindChar(TEXT(':'), ColonPos))
+				{
+					CheckedOutProductId = CheckedOutProductId.Left(ColonPos);
+				}
+				return (OfferId == CheckedOutProductId);
+			});
+		});
 }
 
 FOnlinePurchaseGooglePlay::FOnlinePurchaseGooglePlay(FOnlineSubsystemGooglePlay* InSubsystem)
@@ -63,6 +102,11 @@ void FOnlinePurchaseGooglePlay::Init()
 	QueryExistingPurchasesCompleteDelegateHandle = Subsystem->AddOnGooglePlayQueryExistingPurchasesCompleteDelegate_Handle(QueryExistingPurchasesCompleteDelegate);
 }
 
+bool FOnlinePurchaseGooglePlay::IsSubscriptionProductId(const FString& ProductId)
+{
+	return ProductId.StartsWith(TEXT("s-"));
+}
+
 bool FOnlinePurchaseGooglePlay::IsAllowedToPurchase(const FUniqueNetId& UserId)
 {
 	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseGooglePlay::IsAllowedToPurchase"));
@@ -91,15 +135,17 @@ void FOnlinePurchaseGooglePlay::Checkout(const FUniqueNetId& UserId, const FPurc
 				int32 NumOffers = CheckoutRequest.PurchaseOffers.Num();
 				if (NumOffers > 0)
 				{
-					const FPurchaseCheckoutRequest::FPurchaseOfferEntry& Offer = CheckoutRequest.PurchaseOffers[0];
+					//const FPurchaseCheckoutRequest::FPurchaseOfferEntry& Offer = CheckoutRequest.PurchaseOffers[0];
 
-					extern bool AndroidThunkCpp_Iap_BeginPurchase(const FString&, const FString&);
+					extern bool AndroidThunkCpp_Iap_BeginPurchase(const TArray<FStringView>&, const FString&);
 					FString AccountId;
 					if (CheckoutRequest.AccountId.IsSet())
 					{
 						AccountId = CheckoutRequest.AccountId.GetValue();
 					}
-					bStarted = AndroidThunkCpp_Iap_BeginPurchase(Offer.OfferId, AccountId);
+					TArray<FStringView> ProductIds;
+					Algo::Transform(CheckoutRequest.PurchaseOffers, ProductIds, [](const FPurchaseCheckoutRequest::FPurchaseOfferEntry& Offer) { return FStringView(Offer.OfferId);});
+					bStarted = AndroidThunkCpp_Iap_BeginPurchase(ProductIds, AccountId);
 					UE_LOG_ONLINE_PURCHASE(Display, TEXT("Created Transaction? - %s"),
 						bStarted ? TEXT("Created a transaction.") : TEXT("Failed to create a transaction."));
 
@@ -143,8 +189,39 @@ void FOnlinePurchaseGooglePlay::Checkout(const FUniqueNetId& UserId, const FPurc
 void FOnlinePurchaseGooglePlay::FinalizePurchase(const FUniqueNetId& UserId, const FString& ReceiptId)
 {
 	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseGooglePlay::FinalizePurchase %s %s"), *UserId.ToString(), *ReceiptId);
-	extern void AndroidThunkCpp_Iap_ConsumePurchase(const FString&);
-	AndroidThunkCpp_Iap_ConsumePurchase(ReceiptId);
+	if (!bDisableLocalAcknowledgeAndConsume)
+	{
+		// Look for known receipt with given transaction id. Call overload with 3rd argument if found
+		TSharedRef<FPurchaseReceipt>* MatchingReceipt = KnownTransactions.FindByPredicate([&ReceiptId](const TSharedRef<FPurchaseReceipt>& Receipt)
+			{
+				return ReceiptId == Receipt->TransactionId;
+			});
+		if (MatchingReceipt != nullptr)
+		{
+			const FString& ReceiptInfo = (*MatchingReceipt)->ReceiptOffers[0].LineItems[0].ValidationInfo;
+			if (ReceiptInfo.Contains(FGoogleTransactionData::SubscriptionReceiptMarker))
+			{
+				extern void AndroidThunkCpp_Iap_AcknowledgePurchase(const FString&);
+				AndroidThunkCpp_Iap_AcknowledgePurchase(ReceiptId);
+			}
+			else
+			{
+				extern void AndroidThunkCpp_Iap_ConsumePurchase(const FString&);
+				AndroidThunkCpp_Iap_ConsumePurchase(ReceiptId);
+			}
+		}
+		else
+		{
+			// Always acknowledge to avoid failing on subscriptions
+			extern void AndroidThunkCpp_Iap_AcknowledgePurchase(const FString&);
+			AndroidThunkCpp_Iap_AcknowledgePurchase(ReceiptId);
+
+			UE_LOG_ONLINE_PURCHASE(Warning, TEXT("FOnlinePurchaseGooglePlay::Receipt not found matching transaction id %s. Will consume product to keep backwards compatibility"), *ReceiptId);
+			// Keep previous behaviour: All products are considered consumable. Subscriptions cannot be consumed. An error will be logged when trying to consume them
+			extern void AndroidThunkCpp_Iap_ConsumePurchase(const FString&);
+			AndroidThunkCpp_Iap_ConsumePurchase(ReceiptId);
+		}
+	}
 }
 
 void FOnlinePurchaseGooglePlay::RedeemCode(const FUniqueNetId& UserId, const FRedeemCodeRequest& RedeemCodeRequest, const FOnPurchaseRedeemCodeComplete& Delegate)
@@ -227,7 +304,7 @@ void FOnlinePurchaseGooglePlay::OnTransactionCompleteResponse(EGooglePlayBilling
 {
 	UE_LOG_ONLINE_PURCHASE(Log, TEXT("FOnlinePurchaseGooglePlay::OnTransactionCompleteResponse %s"), ToString(InResponseCode));
 	UE_LOG_ONLINE_PURCHASE(Log, TEXT("3... Transaction: %s"), *InTransactionData.ToDebugString());
-	EPurchaseTransactionState Result = ConvertGPResponseCodeToPurchaseTransactionState(InResponseCode);
+	EPurchaseTransactionState Result = ConvertGPResponseCodeToPurchaseTransactionState(InResponseCode, InTransactionData.GetPurchaseState());
 
 	FString UserIdStr = GOOGLEPLAYUSER;
 	const TSharedRef<FOnlinePurchasePendingTransactionGooglePlay>* UserPendingTransactionPtr = PendingTransactions.Find(UserIdStr);
@@ -342,7 +419,8 @@ void FOnlinePurchaseGooglePlay::OnQueryExistingPurchasesComplete(EGooglePlayBill
 		bool bSuccess = (InResponseCode == EGooglePlayBillingResponseCode::Ok);
 		if (bSuccess)
 		{
-			EPurchaseTransactionState Result = ConvertGPResponseCodeToPurchaseTransactionState(InResponseCode);
+			//EPurchaseTransactionState Result = ConvertGPResponseCodeToPurchaseTransactionState(InResponseCode);
+			OfflineTransactions.Empty();
 			for (const FGoogleTransactionData& Purchase : InExistingPurchases)
 			{
 				UE_LOG_ONLINE_PURCHASE(Log, TEXT("Adding existing receipt %s"), *Purchase.ToDebugString());
@@ -405,53 +483,50 @@ TSharedRef<FPurchaseReceipt> FOnlinePurchasePendingTransactionGooglePlay::Genera
 	
 	Receipt->TransactionState = Transaction.GetErrorStr().IsEmpty() ? EPurchaseTransactionState::Purchased : EPurchaseTransactionState::Failed;
 	Receipt->TransactionId = Transaction.GetTransactionIdentifier();
-	
-	if (Receipt->TransactionState == EPurchaseTransactionState::Purchased ||
-		Receipt->TransactionState == EPurchaseTransactionState::Restored)
+
+	if (Receipt->TransactionState == EPurchaseTransactionState::Purchased)
 	{
-		FPurchaseReceipt::FReceiptOfferEntry ReceiptEntry(TEXT(""), Transaction.GetOfferId(), 1);
-
-		int32 Idx = ReceiptEntry.LineItems.AddZeroed();
-
-		FPurchaseReceipt::FLineItemInfo& LineItem = ReceiptEntry.LineItems[Idx];
-
-		LineItem.ItemName = Transaction.GetOfferId();
-		LineItem.UniqueId = Transaction.GetTransactionIdentifier();
-		LineItem.ValidationInfo = Transaction.GetCombinedReceiptData();
-
-		Receipt->AddReceiptOffer(ReceiptEntry);
+		FillReceiptContent(*Receipt, Transaction);
 	}
-	
+
 	return Receipt;
 }
 
 bool FOnlinePurchasePendingTransactionGooglePlay::AddCompletedOffer(EPurchaseTransactionState Result, const FGoogleTransactionData& Transaction)
 {
-	for (int32 OfferIdx = 0; OfferIdx < CheckoutRequest.PurchaseOffers.Num(); ++OfferIdx)
-	{
-		const FPurchaseCheckoutRequest::FPurchaseOfferEntry& Offer = CheckoutRequest.PurchaseOffers[OfferIdx];
-		if (Transaction.GetOfferId() == Offer.OfferId)
-		{
-			FPurchaseReceipt::FReceiptOfferEntry Receipt(TEXT(""), Transaction.GetOfferId(), 1);
+	bool bIsFromThisRequest = Transaction.IsMatchingRequest(CheckoutRequest);
 
-			int32 Idx = Receipt.LineItems.AddZeroed();
-			
-			FPurchaseReceipt::FLineItemInfo& LineItem = Receipt.LineItems[Idx];
-			
-			LineItem.ItemName = Transaction.GetOfferId();
-			LineItem.UniqueId = Transaction.GetTransactionIdentifier();
-			LineItem.ValidationInfo = Transaction.GetCombinedReceiptData();
-			
-			PendingPurchaseInfo.AddReceiptOffer(Receipt);
-			return true;
-		}
+	if (!bIsFromThisRequest)
+	{
+		return false;
 	}
-	
-	return false;
+
+	FillReceiptContent(PendingPurchaseInfo, Transaction);
+	return true;
+}
+
+void FOnlinePurchasePendingTransactionGooglePlay::FillReceiptContent(FPurchaseReceipt& Receipt, const FGoogleTransactionData& Transaction)
+{
+	// Pending purchases should not be redeemable although they already have a transaction identifier
+	const bool ShouldAddValidationInfo = (Transaction.GetPurchaseState() == EGooglePlayPurchaseState::Purchased);
+	for (const FString& OfferId : Transaction.GetOfferIds())
+	{
+		FPurchaseReceipt::FReceiptOfferEntry ReceiptEntry(TEXT(""), OfferId, 1);
+		FPurchaseReceipt::FLineItemInfo& LineItem = ReceiptEntry.LineItems.Emplace_GetRef();
+
+		LineItem.ItemName = OfferId;
+		LineItem.UniqueId = Transaction.GetTransactionIdentifier();
+		if (ShouldAddValidationInfo)
+		{
+			LineItem.ValidationInfo = Transaction.GetCombinedReceiptData();
+		}
+		Receipt.AddReceiptOffer(MoveTemp(ReceiptEntry));
+	}
 }
 
 #if !OSSGOOGLEPLAY_WITH_AIDL
-JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeQueryExistingPurchasesComplete(JNIEnv* jenv, jobject thiz, jsize responseCode, jobjectArray ProductIDs, jobjectArray ProductTokens, jobjectArray ReceiptsData, jobjectArray Signatures)
+                                                                                                 
+JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeQueryExistingPurchasesComplete(JNIEnv* jenv, jobject /*Thiz*/, jsize responseCode, jobjectArray ProductIDs, jintArray PurchaseStatesArray, jobjectArray ProductTokens, jobjectArray ReceiptsData, jobjectArray Signatures)
 {
 	TArray<FGoogleTransactionData> ExistingPurchaseInfo;
 
@@ -461,25 +536,30 @@ JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeQueryExisting
 	if (jenv && bWasSuccessful)
 	{
 		jsize NumProducts = jenv->GetArrayLength(ProductIDs);
+		jsize NumTransactionStates = jenv->GetArrayLength(PurchaseStatesArray);
 		jsize NumProductTokens = jenv->GetArrayLength(ProductTokens);
 		jsize NumReceipts = jenv->GetArrayLength(ReceiptsData);
 		jsize NumSignatures = jenv->GetArrayLength(Signatures);
 
-		ensure((NumProducts == NumProductTokens) && (NumProducts == NumReceipts) && (NumProducts == NumSignatures));
+		ensure((NumProducts == NumProductTokens) && (NumProducts == NumTransactionStates) && (NumProducts == NumReceipts) && (NumProducts == NumSignatures));
+
+		jint* PurchaseStates = jenv->GetIntArrayElements(PurchaseStatesArray, NULL);
 
 		for (jsize Idx = 0; Idx < NumProducts; Idx++)
 		{
 			// Build the product information strings.
-			const auto OfferId = FJavaHelper::FStringFromLocalRef(jenv, (jstring)jenv->GetObjectArrayElement(ProductIDs, Idx));
+			const auto OfferIds = FJavaHelper::ObjectArrayToFStringTArray(jenv, (jobjectArray)jenv->GetObjectArrayElement(ProductIDs, Idx));
 			const auto ProductToken = FJavaHelper::FStringFromLocalRef(jenv, (jstring)jenv->GetObjectArrayElement(ProductTokens, Idx));
 			const auto ReceiptData = FJavaHelper::FStringFromLocalRef(jenv, (jstring)jenv->GetObjectArrayElement(ReceiptsData, Idx));
 			const auto SignatureData = FJavaHelper::FStringFromLocalRef(jenv, (jstring)jenv->GetObjectArrayElement(Signatures, Idx));
+			const auto PurchaseState = (EGooglePlayPurchaseState)PurchaseStates[Idx];
 
-			FGoogleTransactionData ExistingPurchase(OfferId, ProductToken, ReceiptData, SignatureData);
+			FGoogleTransactionData ExistingPurchase(OfferIds, ProductToken, ReceiptData, SignatureData, PurchaseState);
 			ExistingPurchaseInfo.Add(ExistingPurchase);
 
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("\Existing Product Identifier: %s"), *ExistingPurchase.ToDebugString());
 		}
+		jenv->ReleaseIntArrayElements(PurchaseStatesArray, PurchaseStates, JNI_ABORT);
 	}
 
 	DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.QueryExistingPurchases"), STAT_FSimpleDelegateGraphTask_QueryExistingPurchases, STATGROUP_TaskGraphTasks);
@@ -503,7 +583,7 @@ JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeQueryExisting
 		);
 }
 
-JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeRestorePurchasesComplete(JNIEnv* jenv, jobject thiz, jsize responseCode, jobjectArray ProductIDs, jobjectArray ProductTokens, jobjectArray ReceiptsData, jobjectArray Signatures)
+JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeRestorePurchasesComplete(JNIEnv* jenv, jobject  /*Thiz*/, jsize responseCode, jobjectArray ProductIDs, jintArray PurchaseStatesArray, jobjectArray ProductTokens, jobjectArray ReceiptsData, jobjectArray Signatures)
 {
 	TArray<FGoogleTransactionData> RestoredPurchaseInfo;
 
@@ -513,24 +593,29 @@ JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeRestorePurcha
 	if (jenv && bWasSuccessful)
 	{
 		jsize NumProducts = jenv->GetArrayLength(ProductIDs);
+		jsize NumTransactionStates = jenv->GetArrayLength(PurchaseStatesArray);
 		jsize NumProductTokens = jenv->GetArrayLength(ProductTokens);
 		jsize NumReceipts = jenv->GetArrayLength(ReceiptsData);
 		jsize NumSignatures = jenv->GetArrayLength(Signatures);
 
-		ensure((NumProducts == NumProductTokens) && (NumProducts == NumReceipts) && (NumProducts == NumSignatures));
+		ensure((NumProducts == NumProductTokens) && (NumProducts == NumTransactionStates) && (NumProducts == NumReceipts) && (NumProducts == NumSignatures));
+
+		jint* PurchaseStates = jenv->GetIntArrayElements(PurchaseStatesArray, NULL);
 
 		for (jsize Idx = 0; Idx < NumProducts; Idx++)
 		{
-			const auto OfferId = FJavaHelper::FStringFromLocalRef(jenv, (jstring)jenv->GetObjectArrayElement(ProductIDs, Idx));
+			const auto OfferIds = FJavaHelper::ObjectArrayToFStringTArray(jenv, (jobjectArray)jenv->GetObjectArrayElement(ProductIDs, Idx));
 			const auto ProductToken = FJavaHelper::FStringFromLocalRef(jenv, (jstring)jenv->GetObjectArrayElement(ProductTokens, Idx));
 			const auto ReceiptData = FJavaHelper::FStringFromLocalRef(jenv, (jstring)jenv->GetObjectArrayElement(ReceiptsData, Idx));
 			const auto SignatureData = FJavaHelper::FStringFromLocalRef(jenv, (jstring)jenv->GetObjectArrayElement(Signatures, Idx));
+			const auto PurchaseState = (EGooglePlayPurchaseState)PurchaseStates[Idx];
 
-			FGoogleTransactionData RestoredPurchase(OfferId, ProductToken, ReceiptData, SignatureData);
+			FGoogleTransactionData RestoredPurchase(OfferIds, ProductToken, ReceiptData, SignatureData, PurchaseState);
 			RestoredPurchaseInfo.Add(RestoredPurchase);
 
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Restored Transaction: %s"), *RestoredPurchase.ToDebugString());
 		}
+		jenv->ReleaseIntArrayElements(PurchaseStatesArray, PurchaseStates, JNI_ABORT);
 	}
 
 	DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.RestorePurchases"), STAT_FSimpleDelegateGraphTask_RestorePurchases, STATGROUP_TaskGraphTasks);
@@ -555,21 +640,22 @@ JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeRestorePurcha
 		);
 }
 
-JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativePurchaseComplete(JNIEnv* jenv, jobject thiz, jsize responseCode, jstring productId, jstring productToken, jstring receiptData, jstring signature)
+JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativePurchaseComplete(JNIEnv* jenv, jobject /*thiz*/, jint responseCode, jobjectArray JavaProductIds, jint JavaPurchaseState, jstring productToken, jstring receiptData, jstring signature)
 {
 	FString ProductId, ProductToken, ReceiptData, Signature;
 	EGooglePlayBillingResponseCode EGPResponse = (EGooglePlayBillingResponseCode)responseCode;
+	EGooglePlayPurchaseState PurchaseState = (EGooglePlayPurchaseState)JavaPurchaseState;
 
 	bool bWasSuccessful = (EGPResponse == EGooglePlayBillingResponseCode::Ok);
 
 	//Store off results, because we will use them to determine if this is a deferred transaction.
-	ProductId = FJavaHelper::FStringFromParam(jenv, productId);
+	TArray<FString> ProductIds = FJavaHelper::ObjectArrayToFStringTArray(jenv, JavaProductIds);
 	ProductToken = FJavaHelper::FStringFromParam(jenv, productToken);
 	ReceiptData = FJavaHelper::FStringFromParam(jenv, receiptData);
 	Signature = FJavaHelper::FStringFromParam(jenv, signature);
 
 
-	FGoogleTransactionData TransactionData(ProductId, ProductToken, ReceiptData, Signature);
+	FGoogleTransactionData TransactionData(ProductIds, ProductToken, ReceiptData, Signature, PurchaseState);
 
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("1... Response: %s, Transaction %s"), ToString(EGPResponse), *TransactionData.ToDebugString());
 

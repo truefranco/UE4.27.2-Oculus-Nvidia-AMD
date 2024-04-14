@@ -3,30 +3,26 @@
 #pragma once
 
 #include "Interfaces/OnlinePurchaseInterface.h"
+#include "Misc/Optional.h"
 #include "Serialization/JsonSerializerMacros.h"
 #include "OnlineIdentityInterfaceGooglePlay.h"
 
-enum class EGooglePlayBillingResponseCode : uint8;
+enum class EGooglePlayBillingResponseCode : int8;
+enum class EGooglePlayPurchaseState : uint8;
 
 /**
  * Holds in a common format the data that comes out of a Google purchase transaction
  */
 struct FGoogleTransactionData
 {
-	FGoogleTransactionData(const FString& InOfferId, const FString& InProductToken, const FString& InReceiptData, const FString& InSignature);
+	FGoogleTransactionData(const TArray<FString>& InOfferIds, const FString& InProductToken, const FString& InReceiptData, const FString& InSignature, EGooglePlayPurchaseState InPurchaseState);
 
 	/** @return a string that prints useful debug information about this transaction */
-	FString ToDebugString() const
-	{
-		return FString::Printf(TEXT("OfferId: %s TransactionId: %s ReceiptData: %s%s"),
-			*OfferId,
-			*TransactionIdentifier,
-			*CombinedTransactionData.ToJson(),
-			ErrorStr.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(" Error: %s"), *ErrorStr));
-	}
-
+	FString ToDebugString() const;
 	/** @return offer id for this transaction */
-	const FString& GetOfferId() const { return OfferId; }
+	const FString& GetOfferId() const { return OfferIds[0]; }
+	/** @return all offer ids for this transaction */
+	const TArray<FString>& GetOfferIds() const { return OfferIds; }
 	/** @return receipt data for this transaction */
 	const FString GetCombinedReceiptData() const { return CombinedTransactionData.ToJson(); }
 	/** @return receipt data for this transaction */
@@ -37,6 +33,12 @@ struct FGoogleTransactionData
 	const FString& GetErrorStr() const { return ErrorStr; }
 	/** @return the transaction id */
 	const FString& GetTransactionIdentifier() const	{ return TransactionIdentifier; }
+	/** @return the purchase state */
+	EGooglePlayPurchaseState GetPurchaseState() const { return PurchaseState; }
+	/** Checks if all items reported in the transaction are present in the request */
+	bool IsMatchingRequest(const FPurchaseCheckoutRequest& Request) const;
+	/** marker found in the receipt data to indicate it refers to a subscription */
+	inline static const TCHAR* SubscriptionReceiptMarker = TEXT("isSubscription");
 
 private:
 
@@ -47,11 +49,10 @@ private:
 	public:
 
 		FJsonReceiptData() {}
-		FJsonReceiptData(const FString& InReceiptData, const FString& InSignature)
-			: ReceiptData(InReceiptData)
-			, Signature(InSignature)
-		{ }
+		FJsonReceiptData(const TArray<FString>& InOfferIds, const FString& InReceiptData, const FString& InSignature);
 
+		/** Opaque store receipt data */
+		TOptional<bool> IsSubscription;
 		/** Opaque store receipt data */
 		FString ReceiptData;
 		/** Signature associated with the transaction */
@@ -59,19 +60,22 @@ private:
 
 		// FJsonSerializable
 		BEGIN_JSON_SERIALIZER
+			JSON_SERIALIZE_OPTIONAL("isSubscription", IsSubscription);
 			JSON_SERIALIZE("receiptData", ReceiptData);
 			JSON_SERIALIZE("signature", Signature);
 		END_JSON_SERIALIZER
 	};
 
 	/** GooglePlay offer id */
-	FString OfferId;
+	TArray<FString> OfferIds;
 	/** Unique transaction id (purchaseToken) */
 	FString TransactionIdentifier;
 	/** Error on the transaction, if applicable */
 	FString ErrorStr;
 	/** Combined receipt with signature in JSON */
 	FJsonReceiptData CombinedTransactionData;
+	/** Reported GooglePlay transaction state */
+	EGooglePlayPurchaseState PurchaseState;
 };
 
 /**
@@ -103,6 +107,8 @@ public:
 	
 	/** Add the single completed transaction to this transaction */
 	bool AddCompletedOffer(EPurchaseTransactionState Result, const FGoogleTransactionData& Transaction);
+
+	static void FillReceiptContent(FPurchaseReceipt& Receipt, const FGoogleTransactionData& Transaction);
 
 public:
 	
@@ -158,6 +164,8 @@ public:
 	/** Initialize the interface */
 	void Init();
 
+	static bool IsSubscriptionProductId(const FString& ProductId);
+
 private:
 	
 	/** Mapping from user id to pending transaction */
@@ -168,6 +176,14 @@ private:
 	
 	/** Array of transactions completion indirectly (previous run, etc) */
 	typedef TArray< TSharedRef<FPurchaseReceipt> > FOnlineCompletedTransactions;
+
+	/**
+	 * Info used to cache and track orders in progress.
+	 */
+	class FOnlinePurchaseInProgressTransaction;
+
+	/** Complete transactions */
+	using FOnlinePurchasePurchasedTransactions = TArray< TSharedRef<FPurchaseReceipt> >;
 	
 private:
 	
@@ -175,6 +191,8 @@ private:
 	bool bQueryingReceipts;
 	/** Transient delegate to fire when query receipts has completed */
 	FOnQueryReceiptsComplete QueryReceiptsComplete;
+
+	bool bDisableLocalAcknowledgeAndConsume = false;
 
 	/** Keeps track of pending user transactions */
 	FOnlinePurchasePendingTransactionMap PendingTransactions;
@@ -185,6 +203,9 @@ private:
 	/** Cache of purchases completed outside the running instance */
 	FOnlineCompletedTransactions OfflineTransactions;
 	
+	/** Cache of known transactions */
+	FOnlinePurchasePurchasedTransactions KnownTransactions;
+
 	/** Reference to the parent subsystem */
 	FOnlineSubsystemGooglePlay* Subsystem;
 

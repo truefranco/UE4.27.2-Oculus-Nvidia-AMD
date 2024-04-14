@@ -197,6 +197,27 @@ BEGIN_SHADER_PARAMETER_STRUCT(FMobileDecalPassParameters, )
 	RENDER_TARGET_BINDING_SLOTS()
 END_SHADER_PARAMETER_STRUCT()
 
+static bool DoesPlatformSupportDecals(EShaderPlatform ShaderPlatform)
+{
+	if (!IsMobileHDR())
+	{
+		// Vulkan uses sub-pass to fetch SceneDepth
+		if (IsVulkanPlatform(ShaderPlatform) ||
+			IsSimulatedPlatform(ShaderPlatform) ||
+			// Some Androids support SceneDepth fetch
+			(IsAndroidOpenGLESPlatform(ShaderPlatform) && GSupportsShaderDepthStencilFetch))
+		{
+			return true;
+		}
+
+		// Metal needs DepthAux to fetch depth, and its not availle in LDR mode
+		return false;
+	}
+
+	// HDR always supports decals
+	return true;
+}
+
 TUniformBufferRef<FMobileDecalPassUniformParameters> CreateMobileDecalPassUniformBuffer(FRHICommandList& RHICmdList, const FViewInfo& View)
 {
 	FMobileDecalPassUniformParameters Parameters;
@@ -208,62 +229,78 @@ TUniformBufferRef<FMobileDecalPassUniformParameters> CreateMobileDecalPassUnifor
 
 void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 {
-	if (!IsMobileHDR())
+	if (!DoesPlatformSupportDecals(Views[0].GetShaderPlatform()) || !ViewFamily.EngineShowFlags.Decals || Views[0].bIsPlanarReflection)
 	{
 		return;
 	}
 
+	//CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderDecals);
 	SCOPE_CYCLE_COUNTER(STAT_DecalsDrawTime);
 
 	// Deferred decals
-	if (Scene->Decals.Num() > 0)
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
-		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		if (Scene->Decals.Num() > 0)
 		{
-			const FViewInfo& View = Views[ViewIndex];
-
-			FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, View);
+			FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, Views[ViewIndex]);
 			FUniformBufferStaticBindings GlobalUniformBuffers(PassUniformBuffer);
 			SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
-
-			RenderDeferredDecalsMobile(RHICmdList, *Scene, View);
+			SCOPED_DRAW_EVENT(RHICmdList, Decals);
+			RenderDeferredDecalsMobile(RHICmdList, *Scene, Views[ViewIndex]);
 		}
 	}
+	
 
 	// Mesh decals
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
-		const FViewInfo& View = Views[ViewIndex];
-		if (View.MeshDecalBatches.Num() > 0)
+		if (Views[ViewIndex].MeshDecalBatches.Num() > 0)
 		{
-			FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, View);
+			FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, Views[ViewIndex]);
 			FUniformBufferStaticBindings GlobalUniformBuffers(PassUniformBuffer);
 			SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
-
-			RenderMeshDecalsMobile(RHICmdList, View);
+			SCOPED_DRAW_EVENT(RHICmdList, MeshDecals);
+			RenderMeshDecalsMobile(RHICmdList, Views[ViewIndex]);
 		}
-	}
+    }
+	
 }
 
 void RenderDeferredDecalsMobile(FRHICommandList& RHICmdList, const FScene& Scene, const FViewInfo& View)
 {
+	const uint32 DecalCount = Scene.Decals.Num();
+	int32 SortedDecalCount = 0;
 	const bool bDeferredShading = IsMobileDeferredShadingEnabled(View.GetShaderPlatform());
+	FTransientDecalRenderDataList SortedDecals;
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+	
 
 	// Build a list of decals that need to be rendered for this view
-	FTransientDecalRenderDataList SortedDecals;
-	FDecalRendering::BuildVisibleDecalList(Scene, View, DRS_Mobile, &SortedDecals);
-	if (SortedDecals.Num())
+	
+	if (DecalCount > 0)
 	{
+		// Build a list of decals that need to be rendered for this view
+		FDecalRendering::BuildVisibleDecalList(Scene, View, DRS_Mobile, &SortedDecals);
+		SortedDecalCount = SortedDecals.Num();
+		INC_DWORD_STAT_BY(STAT_Decals, SortedDecalCount);
+	}
+	
+	if (SortedDecalCount > 0)
+	{
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
 		SCOPED_DRAW_EVENT(RHICmdList, DeferredDecals);
 		INC_DWORD_STAT_BY(STAT_Decals, SortedDecals.Num());
-
+		if (!View.IsLastInFamily())
+		{
+			return;
+		}
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
+		
 		RHICmdList.SetStreamSource(0, GetUnitCubeVertexBuffer(), 0);
 
-		for (int32 DecalIndex = 0, DecalCount = SortedDecals.Num(); DecalIndex < DecalCount; DecalIndex++)
+		for (int32 DecalIndex = 0; DecalIndex < SortedDecalCount; DecalIndex++)
 		{
 			const FTransientDecalRenderData& DecalData = SortedDecals[DecalIndex];
 			const FDeferredDecalProxy& DecalProxy = *DecalData.DecalProxy;

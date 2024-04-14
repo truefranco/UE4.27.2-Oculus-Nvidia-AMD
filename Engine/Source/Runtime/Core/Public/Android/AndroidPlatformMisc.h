@@ -60,7 +60,12 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static void PlatformHandleSplashScreen(bool ShowSplashScreen);
     static EDeviceScreenOrientation GetDeviceOrientation() { return DeviceOrientation; }
 	static void SetDeviceOrientation(EDeviceScreenOrientation NewDeviceOrentation);
-    
+	static void SetAllowedDeviceOrientation(EDeviceScreenOrientation NewAllowedDeviceOrientation);
+
+	// Change this to an Enum with Always allow, allow and deny
+	static void SetCellularPreference(int32 Value);
+	static int32 GetCellularPreference();
+
 	FORCEINLINE static int32 GetMaxPathLength()
 	{
 		return ANDROID_MAX_PATH;
@@ -336,6 +341,10 @@ public:
 	static void NonReentrantRequestExit();
 
 	static void ShowConsoleWindow();
+
+	// Register/Get thread names for Android specific threads
+	static void RegisterThreadName(const char* Name, uint32 ThreadId);
+	static const char* GetThreadName(uint32 ThreadId);
 
 	static FDelegateHandle AddNetworkListener(FOnNetworkConnectionChangedDelegate&& InNewDelegate);
 	static bool RemoveNetworkListener(FDelegateHandle Handle);

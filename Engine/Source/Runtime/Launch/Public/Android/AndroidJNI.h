@@ -76,12 +76,13 @@ public:
 	static jmethodID AndroidThunkJava_SetCellularPreference;
 	static jmethodID AndroidThunkJava_GetCellularPreference;
 
+
 	// Screen capture/recording permission
 	static jmethodID AndroidThunkJava_IsScreenCaptureDisabled;
 	static jmethodID AndroidThunkJava_DisableScreenCapture;
 
 	static jmethodID AndroidThunkCpp_VirtualInputIgnoreClick;
-	static jmethodID AndroidThunkCpp_IsVirtuaKeyboardShown;
+	static jmethodID AndroidThunkCpp_IsVirtualKeyboardShown;
 	static jmethodID AndroidThunkCpp_IsWebViewShown;
 
 	// InputDeviceInfo member field ids
@@ -121,6 +122,7 @@ public:
 	static jmethodID AndroidThunkJava_IapIsAllowedToMakePurchases;
 	static jmethodID AndroidThunkJava_IapRestorePurchases;
 	static jmethodID AndroidThunkJava_IapQueryExistingPurchases;
+	static jmethodID AndroidThunkJava_IapAcknowledgePurchase;
 	static jmethodID AndroidThunkJava_IapConsumePurchase;
 
 	// SurfaceView functionality for view scaling on some devices

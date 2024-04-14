@@ -241,7 +241,6 @@ uint64 FAndroidPlatformMemory::GetMemoryUsedFast()
 	return 0;
 }
 
-
 const FPlatformMemoryConstants& FAndroidPlatformMemory::GetConstants()
 {
 	static FPlatformMemoryConstants MemoryConstants;

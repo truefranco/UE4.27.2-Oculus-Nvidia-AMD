@@ -365,7 +365,7 @@ static FORCEINLINE int32 ConvertToByte(float Value)
 	return Setting < 0 ? 0 : (Setting < 255 ? Setting : 255);
 }
 
-extern void AndroidThunkCpp_Vibrate(int32 Duration);
+extern void AndroidThunkCpp_Vibrate(int32 Intensity, int32 Duration);
 extern bool AndroidThunkCpp_SetInputDeviceVibrators(int32 deviceId, int32 leftIntensity, int32 leftDuration, int32 rightIntensity, int32 rightDuration);
 
 void FAndroidInputInterface::UpdateVibeMotors()
@@ -380,7 +380,7 @@ void FAndroidInputInterface::UpdateVibeMotors()
 		// Turn it off if below threshold
 		if (Value < 0.3f)
 		{
-			AndroidThunkCpp_Vibrate(0);
+			AndroidThunkCpp_Vibrate(0, 0);
 			VibeIsOn = false;
 		}
 	}
@@ -388,7 +388,7 @@ void FAndroidInputInterface::UpdateVibeMotors()
 		if (Value >= 0.3f)
 		{
 			// Turn it on for 10 seconds (or until below threshold)
-			AndroidThunkCpp_Vibrate(MaxVibeTime);
+			AndroidThunkCpp_Vibrate(255, MaxVibeTime);
 			LastVibeUpdateTime = FPlatformTime::Seconds();
 			VibeIsOn = true;
 		}

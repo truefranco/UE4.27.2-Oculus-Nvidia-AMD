@@ -30,6 +30,7 @@
 #include "HAL/PlatformFile.h"
 #include "HAL/PlatformAffinity.h"
 #include "HAL/PlatformInput.h"
+#include "HAL/ThreadHeartBeat.h"
 #include "Modules/ModuleManager.h"
 #include "IMessagingModule.h"
 #include "Android/AndroidStats.h"
@@ -130,13 +131,13 @@ extern "C"
 }
 #endif
 
-int32 GAndroidEnableNativeResizeEvent = 0;
+int32 GAndroidEnableNativeResizeEvent = 1;
 static FAutoConsoleVariableRef CVarEnableResizeNativeEvent(
 	TEXT("Android.EnableNativeResizeEvent"),
 	GAndroidEnableNativeResizeEvent,
 	TEXT("Whether native resize event is enabled on Android.\n")
-	TEXT(" 0: disabled (default)\n")
-	TEXT(" 1: enabled"),
+	TEXT(" 0: disabled\n")
+	TEXT(" 1: enabled (default)"),
 	ECVF_ReadOnly);
 
 int32 GAndroidEnableMouse = 0;
@@ -160,9 +161,10 @@ static FAutoConsoleVariableRef CVarEnableHWKeyboard(
 extern void AndroidThunkCpp_InitHMDs();
 extern void AndroidThunkCpp_ShowConsoleWindow();
 extern bool AndroidThunkCpp_VirtualInputIgnoreClick(int, int);
-extern bool AndroidThunkCpp_IsVirtuaKeyboardShown();
+extern bool AndroidThunkCpp_IsVirtualKeyboardShown();
 extern bool AndroidThunkCpp_IsWebViewShown();
 extern void AndroidThunkCpp_RestartApplication(const FString& IntentString);
+extern FString AndroidThunkCpp_GetIntentExtrasString(const FString& Key);
 
 // Base path for file accesses
 extern FString GFilePathBase;
@@ -279,58 +281,73 @@ static void InitCommandLine()
 	// initialize the command line to an empty string
 	FCommandLine::Set(TEXT(""));
 
-	AAssetManager* AssetMgr = AndroidThunkCpp_GetAssetManager();
+#if !UE_BUILD_SHIPPING
+	FString CmdLine = AndroidThunkCpp_GetIntentExtrasString(TEXT("cmdline"));
+	if (!CmdLine.IsEmpty())
+	{
+		CmdLine.TrimEndInline();
+		FCommandLine::Append(*CmdLine);
+
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("adb am start command line override: %s"), FCommandLine::Get());
+	}
+	else
+#endif
+	{
+		AAssetManager* AssetMgr = AndroidThunkCpp_GetAssetManager();
 	AAsset* asset = AAssetManager_open(AssetMgr, TCHAR_TO_UTF8(TEXT("UE4CommandLine.txt")), AASSET_MODE_BUFFER);
-	if (nullptr != asset)
-	{
-		const void* FileContents = AAsset_getBuffer(asset);
-		int32 FileLength = AAsset_getLength(asset);
-
-		char CommandLine[CMD_LINE_MAX];
-		FileLength = (FileLength < CMD_LINE_MAX - 1) ? FileLength : CMD_LINE_MAX - 1;
-		memcpy(CommandLine, FileContents, FileLength);
-		CommandLine[FileLength] = '\0';
-
-		AAsset_close(asset);
-
-		// chop off trailing spaces
-		while (*CommandLine && isspace(CommandLine[strlen(CommandLine) - 1]))
+		if (nullptr != asset)
 		{
-			CommandLine[strlen(CommandLine) - 1] = 0;
+			const void* FileContents = AAsset_getBuffer(asset);
+			int32 FileLength = AAsset_getLength(asset);
+
+			char CommandLine[CMD_LINE_MAX];
+			FileLength = (FileLength < CMD_LINE_MAX - 1) ? FileLength : CMD_LINE_MAX - 1;
+			memcpy(CommandLine, FileContents, FileLength);
+			CommandLine[FileLength] = '\0';
+
+			AAsset_close(asset);
+
+			// chop off trailing spaces
+			while (*CommandLine && isspace(CommandLine[strlen(CommandLine) - 1]))
+			{
+				CommandLine[strlen(CommandLine) - 1] = 0;
+			}
+
+			FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("APK Commandline: %s"), FCommandLine::Get());
 		}
 
-		FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("APK Commandline: %s"), FCommandLine::Get());
-	}
-
-	// read in the command line text file from the sdcard if it exists
+		// read in the command line text file from the sdcard if it exists
 	FString CommandLineFilePath = GFilePathBase + FString("/UE4Game/") + (!FApp::IsProjectNameEmpty() ? FApp::GetProjectName() : FPlatformProcess::ExecutableName()) + FString("/UE4CommandLine.txt");
-	FILE* CommandLineFile = fopen(TCHAR_TO_UTF8(*CommandLineFilePath), "r");
-	if(CommandLineFile == NULL)
-	{
-		// if that failed, try the lowercase version
-		CommandLineFilePath = CommandLineFilePath.Replace(TEXT("UE4CommandLine.txt"), TEXT("ue4commandline.txt"));
-		CommandLineFile = fopen(TCHAR_TO_UTF8(*CommandLineFilePath), "r");
-	}
-
-	if(CommandLineFile)
-	{
-		char CommandLine[CMD_LINE_MAX];
-		fgets(CommandLine, UE_ARRAY_COUNT(CommandLine) - 1, CommandLineFile);
-
-		fclose(CommandLineFile);
-
-		// chop off trailing spaces
-		while (*CommandLine && isspace(CommandLine[strlen(CommandLine) - 1]))
+		FILE* CommandLineFile = fopen(TCHAR_TO_UTF8(*CommandLineFilePath), "r");
+		if (CommandLineFile == NULL)
 		{
-			CommandLine[strlen(CommandLine) - 1] = 0;
+			// if that failed, try the lowercase version
+			CommandLineFilePath = CommandLineFilePath.Replace(TEXT("UE4CommandLine.txt"), TEXT("ue4commandline.txt"));
+			CommandLineFile = fopen(TCHAR_TO_UTF8(*CommandLineFilePath), "r");
 		}
 
-		// initialize the command line to an empty string
-		FCommandLine::Set(TEXT(""));
+		if (CommandLineFile)
+		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Using override commandline file: %s"), *CommandLineFilePath);
 
-		FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Override Commandline: %s"), FCommandLine::Get());
+			char CommandLine[CMD_LINE_MAX];
+			fgets(CommandLine, UE_ARRAY_COUNT(CommandLine) - 1, CommandLineFile);
+
+			fclose(CommandLineFile);
+
+			// chop off trailing spaces
+			while (*CommandLine && isspace(CommandLine[strlen(CommandLine) - 1]))
+			{
+				CommandLine[strlen(CommandLine) - 1] = 0;
+			}
+
+			// initialize the command line to an empty string
+			FCommandLine::Set(TEXT(""));
+
+			FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Override Commandline: %s"), FCommandLine::Get());
+		}
 	}
 
 #if !UE_BUILD_SHIPPING
@@ -348,6 +365,17 @@ static void InitCommandLine()
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("UE4 setprop appended: %s"), UTF8_TO_TCHAR(CommandLineSetpropAppend));
 	}
 #endif
+
+#ifdef UE_ANDROID_COMMAND_LINE_OVERRIDE
+	FCommandLine::Set(TEXT(UE_ANDROID_COMMAND_LINE_OVERRIDE));
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("UE_ANDROID_COMMAND_LINE_OVERRIDE: %s"), TEXT(UE_ANDROID_COMMAND_LINE_OVERRIDE));
+#endif
+
+#ifdef UE_ANDROID_COMMAND_LINE_APPEND
+	FCommandLine::Append(TEXT(UE_ANDROID_COMMAND_LINE_APPEND));
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("UE_ANDROID_COMMAND_LINE_APPEND: %s"), TEXT(UE_ANDROID_COMMAND_LINE_APPEND));
+#endif
+
 }
 
 extern void AndroidThunkCpp_DismissSplashScreen();
@@ -358,6 +386,36 @@ static void OnNativeWindowResized(ANativeActivity* activity, ANativeWindow* wind
 	static int8_t cmd = APP_CMD_WINDOW_RESIZED;
 	struct android_app* app = (struct android_app *)activity->instance;
 	write(app->msgwrite, &cmd, sizeof(cmd));
+}
+
+static void ApplyAndroidCompatConfigRules()
+{
+	TArray<FString> AndroidCompatCVars;
+	if (GConfig->GetArray(TEXT("AndroidCompatCVars"), TEXT("CVars"), AndroidCompatCVars, GEngineIni))
+	{
+		TSet<FString> AllowedCompatCVars(AndroidCompatCVars);
+		for (const TTuple<FString, FString>& Pair : FAndroidMisc::GetConfigRulesTMap())
+		{
+			const FString& Key = Pair.Key;
+			const FString& Value = Pair.Value;
+			static const TCHAR AndroidCompat[] = TEXT("AndroidCompat.");
+			if (Key.StartsWith(AndroidCompat))
+			{
+				FString CVarName = Key.Mid(UE_ARRAY_COUNT(AndroidCompat)-1);
+				if (AllowedCompatCVars.Contains(CVarName))
+				{
+					auto* CVar = IConsoleManager::Get().FindConsoleVariable(*CVarName);
+					if (CVar)
+					{
+						// set with current priority means that DPs etc can still override anything set here.
+						// e.g. -dpcvars= is expected to work.
+						CVar->SetWithCurrentPriority(*Value); 
+						UE_LOG(LogAndroid, Log, TEXT("Compat Setting %s = %s"), *CVarName, *Value);
+					}
+				}
+			}
+		}
+	}
 }
 
 //Main function called from the android entry point
@@ -434,6 +492,8 @@ int32 AndroidMain(struct android_app* state)
 		ValidGamepadKeyCodes.Add(ValidGamepadKeyCodesList[i]);
 	}
 
+	FAndroidPlatformStackWalk::InitStackWalking();
+
 	// wait for java activity onCreate to finish
 	{
 		SCOPED_BOOT_TIMING("Wait for GResumeMainInit");
@@ -446,7 +506,17 @@ int32 AndroidMain(struct android_app* state)
 
 	// read the command line file
 	InitCommandLine();
-	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Final commandline: %s\n"), FCommandLine::Get());
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Final commandline: %s (len %i)\n"), FCommandLine::Get(), FCString::Strlen(FCommandLine::Get()));
+
+#if !(UE_BUILD_SHIPPING)
+	// If "-waitforattach" or "-WaitForDebugger" was specified, halt startup and wait for a debugger to attach before continuing
+	if (FParse::Param(FCommandLine::Get(), TEXT("waitforattach")) || FParse::Param(FCommandLine::Get(), TEXT("WaitForDebugger")))
+	{
+		FPlatformMisc::LowLevelOutputDebugString(TEXT("Waiting for debugger to attach...\n"));
+		while (!FPlatformMisc::IsDebuggerPresent());
+		UE_DEBUG_BREAK();
+	}
+#endif
 
 	EventHandlerEvent = FPlatformProcess::GetSynchEventFromPool(false);
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("Created sync event\n"));
@@ -458,6 +528,7 @@ int32 AndroidMain(struct android_app* state)
 	// Initialize file system access (i.e. mount OBBs, etc.).
 	// We need to do this really early for Android so that files in the
 	// OBBs and APK are found.
+	// Have to use a special initialize if using the PersistentStorageManager
 	IPlatformFile::GetPlatformPhysical().Initialize(nullptr, FCommandLine::Get());
 
 	{
@@ -471,8 +542,12 @@ int32 AndroidMain(struct android_app* state)
 		GAndroidWindowLock.Lock();
 	}
 
+	FDelegateHandle ConfigReadyHandle = FCoreDelegates::TSConfigReadyForUse().AddStatic(&ApplyAndroidCompatConfigRules);
+
 	// initialize the engine
 	int32 PreInitResult = GEngineLoop.PreInit(0, NULL, FCommandLine::Get());
+
+	FCoreDelegates::TSConfigReadyForUse().Remove(ConfigReadyHandle);
 
 	if (PreInitResult != 0)
 	{
@@ -494,7 +569,7 @@ int32 AndroidMain(struct android_app* state)
 
 	UE_LOG(LogAndroid, Display, TEXT("Passed PreInit()"));
 
-	GLog->SetCurrentThreadAsMasterThread();
+	//GLog->SetCurrentThreadAsPrimaryThread();
 
 	FAppEventManager::GetInstance()->SetEmptyQueueHandlerEvent(FPlatformProcess::GetSynchEventFromPool(false));
 
@@ -683,14 +758,15 @@ bool IsInAndroidEventThread()
 
 static void* AndroidEventThreadWorker( void* param )
 {
-	FAndroidMisc::SetThreadName("EventWorker");
+	pthread_setname_np(pthread_self(), "EventWorker");
+	EventThreadID = FPlatformTLS::GetCurrentThreadId();
+	FAndroidMisc::RegisterThreadName("EventWorker", EventThreadID);
 
 	struct android_app* state = (struct android_app*)param;
 
 	FPlatformProcess::SetThreadAffinityMask(FPlatformAffinity::GetMainGameMask());
 
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("Entering event processing thread engine entry point"));
-	EventThreadID = FPlatformTLS::GetCurrentThreadId();
 
 	ALooper* looper = ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
 	ALooper_addFd(looper, state->msgread, LOOPER_ID_MAIN, ALOOPER_EVENT_INPUT, NULL,
@@ -1001,7 +1077,7 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 			}
 			FPlatformRect ScreenRect = FAndroidWindow::GetScreenRect(true);
 
-			if (AndroidThunkCpp_IsVirtuaKeyboardShown() && (type == TouchBegan || type == TouchMoved))
+			if (AndroidThunkCpp_IsVirtualKeyboardShown() && (type == TouchBegan || type == TouchMoved))
 			{
 				//ignore key down events when the native input was clicked or when the keyboard animation is playing
 				if (TryIgnoreClick(event, actionPointer))
@@ -1104,7 +1180,6 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 		//Trap codes handled as possible gamepad events
 		if (device >= 0 && ValidGamepadKeyCodes.Contains(keyCode))
 		{
-			
 			bool down = AKeyEvent_getAction(event) != AKEY_EVENT_ACTION_UP;
 			FAndroidInputInterface::JoystickButtonEvent(device, keyCode, down);
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received gamepad button: %d"), keyCode);
@@ -1119,7 +1194,15 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 				return 0;
 			}
 
-			if (bSoftKey || GAndroidEnableHardwareKeyboard || AlwaysAllowedKeyCodes.Contains(keyCode))
+			// forward key presses to UI if needed 
+			if (AndroidThunkCpp_IsVirtualKeyboardShown())
+			{
+				return 0;
+			}
+
+			if (bSoftKey ||
+				(GAndroidEnableHardwareKeyboard && !AndroidThunkCpp_IsVirtualKeyboardShown()) ||
+				AlwaysAllowedKeyCodes.Contains(keyCode))
 			{
 				FDeferredAndroidMessage Message;
 
@@ -1177,7 +1260,7 @@ FAppEventData::FAppEventData(ANativeWindow* WindowIn)
 static bool bAppIsActive_EventThread = false;
 
 
-// called when the app has focus + window + resume.
+// called when the app has window + resume.
 static void ActivateApp_EventThread()
 {
 	if (bAppIsActive_EventThread)
@@ -1207,6 +1290,8 @@ static void ActivateApp_EventThread()
 		EventHandlerEvent->Trigger();
 	}
 
+	FThreadHeartBeat::Get().ResumeHeartBeat(true);
+
 	FPreLoadScreenManager::EnableRendering(true);
 
 	extern void AndroidThunkCpp_ShowHiddenAlertDialog();
@@ -1214,7 +1299,7 @@ static void ActivateApp_EventThread()
 }
 
 extern void BlockRendering();
-// called whenever the app loses focus, loses window or pause.
+// called whenever the app loses loses window or pause.
 static void SuspendApp_EventThread()
 {
 	if (!bAppIsActive_EventThread)
@@ -1257,6 +1342,8 @@ static void SuspendApp_EventThread()
 	FEmbeddedCommunication::WakeGameThread();
 
 	FPreLoadScreenManager::EnableRendering(false);
+
+	FThreadHeartBeat::Get().SuspendHeartBeat(true);
 
 	// wait for a period of time before blocking rendering
 	UE_LOG(LogAndroid, Log, TEXT("AndroidEGL::  SuspendApp_EventThread, waiting for event manager to process. tid: %d"), FPlatformTLS::GetCurrentThreadId());
@@ -1341,10 +1428,8 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		 * input focus.
 		 */
 		// if the app lost focus, avoid unnecessary processing (like monitoring the accelerometer)
-		
 		// log it, but the actual event will be simulated later in APP_CMD_PAUSE
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_LOST_FOCUS"));
-		
 
 		break;
 	case APP_CMD_GAINED_FOCUS:
@@ -1354,8 +1439,10 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		 */
 
 		// bring back a certain functionality, like monitoring the accelerometer
+		// log it, but the actual event will be simulated later in APP_CMD_RESUME
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_GAINED_FOCUS"));
 
+		// still check for a rare case needing activation
 		if (bHasWindow && bHasFocus && bIsResumed)
 		{
 			ActivateApp_EventThread();
@@ -1524,7 +1611,11 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		{
 			FGraphEventRef WillTerminateTask = FFunctionGraphTask::CreateAndDispatchWhenReady([]()
 			{
+				PRAGMA_DISABLE_DEPRECATION_WARNINGS
 				FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
+				PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+				FCoreDelegates::GetApplicationWillTerminateDelegate().Broadcast();
 			}, TStatId(), NULL, ENamedThreads::GameThread);
 			FTaskGraphInterface::Get().WaitUntilTaskCompletes(WillTerminateTask);
 			FAndroidMisc::NonReentrantRequestExit();
@@ -1571,13 +1662,11 @@ JNI_METHOD jboolean Java_com_epicgames_ue4_GameActivity_nativeSupportsNEON(JNIEn
 }
 
 //This function is declared in the Java-defined class, GameActivity.java: "public native void nativeOnConfigurationChanged(boolean bPortrait);
-JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnConfigurationChanged(JNIEnv* jenv, jobject thiz, jboolean bPortrait)
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnConfigurationChanged(JNIEnv* jenv, jobject thiz, jint orientation)
 {
-	bool bChangedToPortrait = bPortrait == JNI_TRUE;
-
 	// enqueue a window changed event if orientation changed, 
 	// note that the HW window handle does not necessarily change.
-	if (FAndroidWindow::OnWindowOrientationChanged(bChangedToPortrait))
+	if (FAndroidWindow::OnWindowOrientationChanged(orientation))
 	{	
 		// Enqueue an event to trigger gamethread to update the orientation:
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_WINDOW_CHANGED);
@@ -1627,7 +1716,6 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetAndroidVersionInfor
 	auto UEOSLanguage = FJavaHelper::FStringFromParam(jenv, osLanguage);
 
 	FAndroidMisc::SetVersionInfo(UEAndroidVersion, targetSDKversion, UEPhoneMake, UEPhoneModel, UEPhoneBuildNumber, UEOSLanguage);
-	FAndroidPlatformStackWalk::NotifyPlatformVersionInit();
 }
 
 //This function is declared in the Java-defined class, GameActivity.java: "public native void nativeOnInitialDownloadStarted();

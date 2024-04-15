@@ -227,40 +227,56 @@ TUniformBufferRef<FMobileDecalPassUniformParameters> CreateMobileDecalPassUnifor
 	return TUniformBufferRef<FMobileDecalPassUniformParameters>::CreateUniformBufferImmediate(Parameters, UniformBuffer_SingleFrame);
 }
 
-void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
+void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
 {
-	if (!DoesPlatformSupportDecals(Views[0].GetShaderPlatform()) || !ViewFamily.EngineShowFlags.Decals || Views[0].bIsPlanarReflection)
+	if (!DoesPlatformSupportDecals(View.GetShaderPlatform()) || !ViewFamily.EngineShowFlags.Decals || View.bIsPlanarReflection)
 	{
 		return;
 	}
 
-	//CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderDecals);
 	SCOPE_CYCLE_COUNTER(STAT_DecalsDrawTime);
 
-	// Deferred decals
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	// Deferred decals (StereoPass == eSSP_LEFT_EYE) ? 0 : 1;
+	if (Scene->Decals.Num() > 0)
 	{
-		if (Scene->Decals.Num() > 0)
-		{
-			FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, Views[ViewIndex]);
-			FUniformBufferStaticBindings GlobalUniformBuffers(PassUniformBuffer);
-			SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
-			SCOPED_DRAW_EVENT(RHICmdList, Decals);
-			RenderDeferredDecalsMobile(RHICmdList, *Scene, Views[ViewIndex]);
-		}
+		//for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		//{
+		//const FViewInfo& view = Views[0];
+		
+		
+		FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, View);
+		FUniformBufferStaticBindings GlobalUniformBuffers(PassUniformBuffer);
+		SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
+		RenderDeferredDecalsMobile(RHICmdList, *Scene, View);
+		
+		
+
+		
+
+		//if (View.SecondViewportView != nullptr)
+		//{
+			//FUniformBufferRHIRef PassUniformBuffer2 = CreateMobileDecalPassUniformBuffer(RHICmdList, *View.SecondViewportView);
+			//FUniformBufferStaticBindings GlobalUniformBuffers2(PassUniformBuffer2);
+			//SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
+			//RenderDeferredDecalsMobile(RHICmdList, *Scene, View);
+		//}
+		
+		
+			
+		
 	}
 	
-
-	// Mesh decals
+	
+    // Mesh decals
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
+		const FViewInfo& view = Views[ViewIndex];
 		if (Views[ViewIndex].MeshDecalBatches.Num() > 0)
 		{
-			FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, Views[ViewIndex]);
+			FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, view);
 			FUniformBufferStaticBindings GlobalUniformBuffers(PassUniformBuffer);
 			SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
-			SCOPED_DRAW_EVENT(RHICmdList, MeshDecals);
-			RenderMeshDecalsMobile(RHICmdList, Views[ViewIndex]);
+			RenderMeshDecalsMobile(RHICmdList, view);
 		}
     }
 	
@@ -292,12 +308,12 @@ void RenderDeferredDecalsMobile(FRHICommandList& RHICmdList, const FScene& Scene
 
 		SCOPED_DRAW_EVENT(RHICmdList, DeferredDecals);
 		INC_DWORD_STAT_BY(STAT_Decals, SortedDecals.Num());
-		if (!View.IsLastInFamily())
-		{
-			return;
-		}
-		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
 		
+		//RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
+		// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
+		FMobileSceneRenderer::SetViewport(RHICmdList, View);
+		// END META SECTION - Multi-View Per View Viewports / Render Areas
+
 		RHICmdList.SetStreamSource(0, GetUnitCubeVertexBuffer(), 0);
 
 		for (int32 DecalIndex = 0; DecalIndex < SortedDecalCount; DecalIndex++)

@@ -77,6 +77,10 @@ void MainPS
 		, out float4 OutTarget2 : SV_Target2
 #endif
 
+#if (MOBILE_MULTI_VIEW && (COMPILER_VULKAN && !INSTANCED_STEREO))
+		,in uint MultiViewId : SV_ViewID
+#endif
+
 #if PIXELSHADEROUTPUT_MRT3
 		, out float4 OutTarget3 : SV_Target3
 #endif
@@ -132,9 +136,13 @@ void MainPS
 #elif PIXELSHADEROUTPUT_INTERPOLANTS
 	FPixelShaderInOut_MainPS(Interpolants, PixelShaderIn, PixelShaderOut);
 #else
-	FPixelShaderInOut_MainPS(PixelShaderIn, PixelShaderOut);
-#endif
+    #if (MOBILE_MULTI_VIEW && (COMPILER_VULKAN && !INSTANCED_STEREO))
+        FPixelShaderInOut_MainPS(PixelShaderIn, PixelShaderOut, MultiViewId);
+    #else
+	    FPixelShaderInOut_MainPS(PixelShaderIn, PixelShaderOut);
+    #endif
 
+#endif
 #if PIXELSHADEROUTPUT_MRT0
 	OutTarget0 = PixelShaderOut.MRT[0];
 #endif

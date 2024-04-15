@@ -1350,6 +1350,10 @@ public:
 
 	FShaderDrawDebugData ShaderDrawData;
 
+	// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
+	FViewInfo* SecondViewportView = nullptr;
+	// END META SECTION - Multi-View Per View Viewports / Render Areas
+
 #if RHI_RAYTRACING
 	TArray<FRayTracingGeometryInstance, SceneRenderingAllocator> RayTracingGeometryInstances;
 
@@ -2120,6 +2124,10 @@ public:
 
 	bool RenderInverseOpacity(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 
+	// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
+	static void SetViewport(FRHICommandList& RHICmdList, const FViewInfo& View);
+	// END META SECTION - Multi-View Per View Viewports / Render Areas
+
 protected:
 	/** Finds the visible dynamic shadows for each view. */
 	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
@@ -2170,7 +2178,7 @@ protected:
 	bool RequiresMultiPass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View) const;
 
 	/** Renders decals. */
-	void RenderDecals(FRHICommandListImmediate& RHICmdList);
+	void RenderDecals(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 
 	/** Renders the base pass for translucency. */
 	void RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews);

@@ -1223,7 +1223,12 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 	//if the scenecolor isn't multiview but the app is, need to render as a single-view multiview due to shaders
 	SceneColorRenderPassInfo.MultiViewCount = View.bIsMobileMultiViewEnabled ? 2 : (bIsMultiViewApplication ? 1 : 0);
 	SceneColorRenderPassInfo.ResolveParameters.Rect = FResolveRect(View.ViewRect);
-	
+
+	if (ViewList.Num() > 1)
+	{
+		Views[0].SecondViewportView = &Views[1];
+	}
+
 	RHICmdList.BeginRenderPass(SceneColorRenderPassInfo, TEXT("SceneColorRendering"));
 	
 	if (GIsEditor && !View.bIsSceneCapture)
@@ -1348,12 +1353,14 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 		RHICmdList.NextSubpass();
 	}
 
+	FViewInfo& view = Views[0];
+
 	if (!View.bIsPlanarReflection)
 	{
 		if (ViewFamily.EngineShowFlags.Decals)
 		{
 			CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderDecals);
-			RenderDecals(RHICmdList);
+			RenderDecals(RHICmdList, view);
 		}
 
 		if (ViewFamily.EngineShowFlags.DynamicShadows)
@@ -1510,7 +1517,7 @@ FRHITexture* FMobileSceneRenderer::RenderDeferred(FRHICommandListImmediate& RHIC
 		if (ViewFamily.EngineShowFlags.Decals)
 		{
 			CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderDecals);
-			RenderDecals(RHICmdList);
+			RenderDecals(RHICmdList, *ViewList[0]);
 		}
 
 		// SceneColor write, SceneDepth is read only
@@ -1552,7 +1559,7 @@ FRHITexture* FMobileSceneRenderer::RenderDeferred(FRHICommandListImmediate& RHIC
 			if (ViewFamily.EngineShowFlags.Decals)
 			{
 				CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderDecals);
-				RenderDecals(RHICmdList);
+				RenderDecals(RHICmdList, *ViewList[0]);
 			}
 			
 			RHICmdList.EndRenderPass();
@@ -2043,3 +2050,19 @@ void FMobileSceneRenderer::RenderHZB(FRDGBuilder& GraphBuilder, FRDGTextureRef S
 		}
 	}
 }
+
+// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
+void FMobileSceneRenderer::SetViewport(FRHICommandList& RHICmdList, const FViewInfo& View)
+{
+	if (View.SecondViewportView != nullptr)
+	{
+		//FIntRect ScissorRects[2] = { View.ViewRect, View.SecondViewportView->ViewRect };
+		RHICmdList.SetStereoViewport(View.ViewRect.Min.X, View.SecondViewportView->ViewRect.Min.X + 100, View.ViewRect.Min.Y, View.SecondViewportView->ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.SecondViewportView->ViewRect.Max.X, View.ViewRect.Max.Y, View.SecondViewportView->ViewRect.Max.Y, 1.0f);
+		//RHICmdList.SetViewport(View.SecondViewportView->ViewRect.Min.X, View.SecondViewportView->ViewRect.Min.Y, 0.0f, View.SecondViewportView->ViewRect.Max.X, View.SecondViewportView->ViewRect.Max.Y, 1.0f);
+	}
+	else
+	{
+		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+	}
+}
+// END META SECTION - Multi-View Per View Viewports / Render Areas

@@ -96,6 +96,7 @@ public:
 		FMaterialShader(Initializer)
 	{
 		SvPositionToDecal.Bind(Initializer.ParameterMap,TEXT("SvPositionToDecal"));
+		InstancedSvPositionToDecal.Bind(Initializer.ParameterMap, TEXT("InstancedSvPositionToDecal"));
 		DecalToWorld.Bind(Initializer.ParameterMap,TEXT("DecalToWorld"));
 		WorldToDecal.Bind(Initializer.ParameterMap,TEXT("WorldToDecal"));
 		DecalOrientation.Bind(Initializer.ParameterMap,TEXT("DecalOrientation"));
@@ -142,7 +143,30 @@ public:
 
 			SetShaderValue(RHICmdList, ShaderRHI, SvPositionToDecal, SvPositionToDecalValue);
 		}
+		if (InstancedSvPositionToDecal.IsBound())
+		{
+			if (View.SecondViewportView != nullptr)
+			{
+				const FViewInfo & SView= *View.SecondViewportView;
+				FVector2D InvInstancedViewSize = FVector2D(1.0f / SView.ViewRect.Width(), 1.0f / SView.ViewRect.Height());
 
+				float InstancedMx = 2.0f * InvInstancedViewSize.X;
+				float InstancedMy = -2.0f * InvInstancedViewSize.Y;
+				float InstancedAx = -1.0f - 2.0f * SView.ViewRect.Min.X * InvInstancedViewSize.X;
+				float InstancedAy = 1.0f + 2.0f * SView.ViewRect.Min.Y * InvInstancedViewSize.Y;
+
+				const FMatrix InstancedSvPositionToDecalValue = 										
+					FMatrix(
+						FPlane(InstancedMx, 0, 0, 0),
+						FPlane(0, InstancedMy, 0, 0),
+						FPlane(0, 0, 1, 0),
+						FPlane(InstancedAx, InstancedAy, 0, 1)
+					) * SView.ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent;
+
+				SetShaderValue(RHICmdList, ShaderRHI, InstancedSvPositionToDecal, InstancedSvPositionToDecalValue);
+ 
+			}
+		}
 		// Set the transform from light space to world space
 		if(DecalToWorld.IsBound())
 		{
@@ -172,6 +196,7 @@ public:
 
 private:
 	LAYOUT_FIELD(FShaderParameter, SvPositionToDecal);
+	LAYOUT_FIELD(FShaderParameter, InstancedSvPositionToDecal);
 	LAYOUT_FIELD(FShaderParameter, DecalToWorld);
 	LAYOUT_FIELD(FShaderParameter, WorldToDecal);
 	LAYOUT_FIELD(FShaderParameter, DecalOrientation);

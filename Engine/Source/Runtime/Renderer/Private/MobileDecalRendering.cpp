@@ -236,34 +236,13 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList, co
 
 	SCOPE_CYCLE_COUNTER(STAT_DecalsDrawTime);
 
-	// Deferred decals (StereoPass == eSSP_LEFT_EYE) ? 0 : 1;
+	
 	if (Scene->Decals.Num() > 0)
 	{
-		//for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-		//{
-		//const FViewInfo& view = Views[0];
-		
-		
 		FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, View);
 		FUniformBufferStaticBindings GlobalUniformBuffers(PassUniformBuffer);
 		SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
 		RenderDeferredDecalsMobile(RHICmdList, *Scene, View);
-		
-		
-
-		
-
-		//if (View.SecondViewportView != nullptr)
-		//{
-			//FUniformBufferRHIRef PassUniformBuffer2 = CreateMobileDecalPassUniformBuffer(RHICmdList, *View.SecondViewportView);
-			//FUniformBufferStaticBindings GlobalUniformBuffers2(PassUniformBuffer2);
-			//SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
-			//RenderDeferredDecalsMobile(RHICmdList, *Scene, View);
-		//}
-		
-		
-			
-		
 	}
 	
 	

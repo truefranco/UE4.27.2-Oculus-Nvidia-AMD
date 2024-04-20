@@ -619,7 +619,7 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 		UpdateTranslucentBasePassUniformBuffer(RHICmdList, View);
 		UpdateDirectionalLightUniformBuffers(RHICmdList, View);
 	}
-	if (bDeferredShading)
+    if (bDeferredShading)
 	{
 		SetupSceneReflectionCaptureBuffer(RHICmdList);
 	}
@@ -1224,11 +1224,6 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 	SceneColorRenderPassInfo.MultiViewCount = View.bIsMobileMultiViewEnabled ? 2 : (bIsMultiViewApplication ? 1 : 0);
 	SceneColorRenderPassInfo.ResolveParameters.Rect = FResolveRect(View.ViewRect);
 
-	if (ViewList.Num() > 1)
-	{
-		Views[0].SecondViewportView = &Views[1];
-	}
-
 	RHICmdList.BeginRenderPass(SceneColorRenderPassInfo, TEXT("SceneColorRendering"));
 	
 	if (GIsEditor && !View.bIsSceneCapture)
@@ -1353,14 +1348,17 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 		RHICmdList.NextSubpass();
 	}
 
-	FViewInfo& view = Views[0];
+	if (Views.Num() > 1)
+	{
+		Views[0].SecondViewportView = &Views[1];
+	}
 
 	if (!View.bIsPlanarReflection)
 	{
 		if (ViewFamily.EngineShowFlags.Decals)
 		{
 			CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderDecals);
-			RenderDecals(RHICmdList, view);
+			RenderDecals(RHICmdList, Views[0]);
 		}
 
 		if (ViewFamily.EngineShowFlags.DynamicShadows)
@@ -2057,7 +2055,7 @@ void FMobileSceneRenderer::SetViewport(FRHICommandList& RHICmdList, const FViewI
 	if (View.SecondViewportView != nullptr)
 	{
 		//FIntRect ScissorRects[2] = { View.ViewRect, View.SecondViewportView->ViewRect };
-		RHICmdList.SetStereoViewport(View.ViewRect.Min.X, View.SecondViewportView->ViewRect.Min.X + 100, View.ViewRect.Min.Y, View.SecondViewportView->ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.SecondViewportView->ViewRect.Max.X, View.ViewRect.Max.Y, View.SecondViewportView->ViewRect.Max.Y, 1.0f);
+		RHICmdList.SetStereoViewport(View.ViewRect.Min.X, View.SecondViewportView->ViewRect.Min.X, View.ViewRect.Min.Y, View.SecondViewportView->ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.SecondViewportView->ViewRect.Max.X, View.ViewRect.Max.Y, View.SecondViewportView->ViewRect.Max.Y, 1.0f);
 		//RHICmdList.SetViewport(View.SecondViewportView->ViewRect.Min.X, View.SecondViewportView->ViewRect.Min.Y, 0.0f, View.SecondViewportView->ViewRect.Max.X, View.SecondViewportView->ViewRect.Max.Y, 1.0f);
 	}
 	else

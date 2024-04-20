@@ -164,6 +164,15 @@ bool MobileBasePass::GetShaders(
 			VertexShader,
 			PixelShader
 			);
+	case 8:
+		return GetMobileBasePassShaders<8>(
+			LightMapPolicyType,
+			MaterialResource,
+			VertexFactoryType,
+			bEnableSkyLight,
+			VertexShader,
+			PixelShader
+		);
 	case 0:
 	default:
 		return GetMobileBasePassShaders<0>(
@@ -788,6 +797,11 @@ bool FMobileBasePassMeshProcessor::Process(
 		else if((MeshBatch.bUseForDepthPass && Scene->EarlyZPassMode == DDM_AllOpaque) || bMaskedInEarlyPass)
 		{
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Equal>::GetRHI());
+		}
+		else if(!IsMobileHDR())
+		{
+			const bool bEnableReceiveDecalOutput = ((Flags & EFlags::CanUseDepthStencil) == EFlags::CanUseDepthStencil);
+			MobileBasePass::SetOpaqueRenderState(DrawRenderState, PrimitiveSceneProxy, MaterialResource, bEnableReceiveDecalOutput, bUsesDeferredShading);
 		}
 		else
 		{

@@ -157,7 +157,7 @@ void FPixelShaderInOut_MainPS
 	(
 		inout FPixelShaderIn In,
 	inout FPixelShaderOut Out
-#if (MOBILE_MULTI_VIEW && (COMPILER_VULKAN && !INSTANCED_STEREO))
+#if (MOBILE_MULTI_VIEW && COMPILER_VULKAN)
 	,uint MultiViewId
 #endif
 	)
@@ -169,7 +169,7 @@ void FPixelShaderInOut_MainPS
 	// make SvPosition appear to be rasterized with the depth from the depth buffer
 	In.SvPosition.z = LookupDeviceZ(ScreenUV);
 
-#if (MOBILE_MULTI_VIEW && (COMPILER_VULKAN && !INSTANCED_STEREO))
+#if (MOBILE_MULTI_VIEW && COMPILER_VULKAN)
 	float4 DecalVectorHom = MultiViewId ? mul(float4(In.SvPosition.xyz,1), InstancedSvPositionToDecal):mul(float4(In.SvPosition.xyz,1), SvPositionToDecal);
 #else
 	float4 DecalVectorHom = mul(float4(In.SvPosition.xyz,1), SvPositionToDecal);
@@ -217,7 +217,7 @@ void FPixelShaderInOut_MainPS
 	}
 	else
 	{
-    #if (MOBILE_MULTI_VIEW && (COMPILER_VULKAN && !INSTANCED_STEREO))
+    #if (MOBILE_MULTI_VIEW && COMPILER_VULKAN)
 	    float4 DecalVectorHom = MultiViewId ? mul(float4(In.SvPosition.xyz,1), InstancedSvPositionToDecal):mul(float4(In.SvPosition.xyz,1), SvPositionToDecal);
     #else
 		float4 DecalVectorHom = mul(float4(In.SvPosition.xyz,1), SvPositionToDecal);

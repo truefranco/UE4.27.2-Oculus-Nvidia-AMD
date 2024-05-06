@@ -160,6 +160,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Pawn)
 	virtual void SetInitialLocationAndRotation(const FVector& NewLocation, const FRotator& NewRotation);
 
+	UFUNCTION(BlueprintCallable, Category = "Controller|Transform")
+	virtual AActor* GetControllerStartSpot();
 
 	/**
 	 * Checks line to center and top of other actor

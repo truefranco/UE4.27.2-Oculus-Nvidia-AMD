@@ -108,6 +108,16 @@ void AController::SetInitialLocationAndRotation(const FVector& NewLocation, cons
 	SetControlRotation(NewRotation);
 }
 
+AActor* AController::GetControllerStartSpot()
+{
+	if (StartSpot.IsValid())
+	{
+		return StartSpot.Get();
+	}
+
+	return nullptr;
+}
+
 FRotator AController::GetControlRotation() const
 {
 	ControlRotation.DiagnosticCheckNaN();

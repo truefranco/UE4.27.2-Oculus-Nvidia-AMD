@@ -878,6 +878,11 @@ public:
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
 	uint8 bIsSky : 1;
 
+	// BEGIN META SECTION - XR Soft Occlusions
+	/** When true and scene soft occlusions are enabled this material can be occluded by the environment depth. Defaults to true. */
+	UPROPERTY(EditAnywhere, Category = Material, AdvancedDisplay, meta = (DisplayName = "XR Soft Occlusions"))
+	uint8 bXRSoftOcclusions : 1;
+
 	/** When true, translucent materials have fog computed for every pixel, which costs more but fixes artifacts due to low tessellation. */
 	UPROPERTY(EditAnywhere, Category=Translucency)
 	uint8 bComputeFogPerPixel : 1;

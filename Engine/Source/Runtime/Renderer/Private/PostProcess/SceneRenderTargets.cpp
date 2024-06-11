@@ -223,7 +223,35 @@ void FSceneRenderTargets::DestroyAllSnapshots()
 	}
 }
 
+static IStereoRenderTargetManager* FindStereoRenderTargetManager()
+{
+	if (!GEngine->StereoRenderingDevice.IsValid() || !GEngine->StereoRenderingDevice->IsStereoEnabled())
+	{
+		return nullptr;
+	}
 
+	return GEngine->StereoRenderingDevice->GetRenderTargetManager();
+}
+
+// BEGIN META SECTION - XR Soft Occlusions
+static bool FindEnvironmentDepthTexture_RenderThread(FTextureRHIRef& OutTexture, FVector2D& OutDepthFactors, FMatrix OutScreenToDepthMatrices[2], FMatrix OutDepthViewProjMatrices[2])
+{
+	if (IStereoRenderTargetManager* StereoRenderTargetManager = FindStereoRenderTargetManager())
+	{
+		if (StereoRenderTargetManager->FindEnvironmentDepthTexture_RenderThread(OutTexture, OutDepthFactors, OutScreenToDepthMatrices, OutDepthViewProjMatrices))
+		{
+			return true;
+		}
+	}
+	OutTexture = nullptr;
+	OutDepthFactors = FVector2D(-1.0f, 1.0f);
+	OutScreenToDepthMatrices[0] = FMatrix::Identity;
+	OutScreenToDepthMatrices[1] = FMatrix::Identity;
+	OutDepthViewProjMatrices[0] = FMatrix::Identity;
+	OutDepthViewProjMatrices[1] = FMatrix::Identity;
+	return false;
+}
+// END META SECTION - XR Soft Occlusions
 
 template <size_t N>
 static void SnapshotArray(TRefCountPtr<IPooledRenderTarget> (&Dest)[N], const TRefCountPtr<IPooledRenderTarget> (&Src)[N])

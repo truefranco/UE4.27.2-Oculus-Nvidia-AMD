@@ -1353,6 +1353,10 @@ public:
 	// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
 	FViewInfo* SecondViewportView = nullptr;
 	// END META SECTION - Multi-View Per View Viewports / Render Areas
+	FRDGTextureRef EnvironmentDepthTexture = nullptr;
+	FVector2D DepthFactors{ -1.0f, 1.0f };
+	FMatrix ScreenToDepthMatrices[2]{ {},{} };
+	FMatrix DepthViewProjMatrices[2]{ {},{} };
 
 #if RHI_RAYTRACING
 	TArray<FRayTracingGeometryInstance, SceneRenderingAllocator> RayTracingGeometryInstances;
@@ -2148,7 +2152,7 @@ protected:
 
 	// AppSpaceWarp
 	bool ShouldRenderHmdMotionVectors(FSceneRenderTargets& context, FRHITexture*& VelocityTexture, FRHITexture*& VelocityDepthTexture);
-	/** Renders the opaque base pass for mobile. */
+    /** Renders the opaque base pass for mobile. */
 	void RenderHmdMotionVectors(FRHICommandListImmediate& RHICmdList, const FRHITexture* VelocityTexture, const TArrayView<const FViewInfo*> PassViews, EVelocityPass VelocityPass);
 
 	void RenderMobileEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState);

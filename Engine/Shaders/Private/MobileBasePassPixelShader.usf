@@ -110,6 +110,12 @@ int NumDynamicPointLights;
 	#include "SingleLayerWaterShading.ush"
 #endif
 
+// BEGIN META SECTION - XR Soft Occlusions
+#if ENABLE_SOFT_OCCLUSIONS
+	#include "EnvironmentDepthOcclusion.ush"
+#endif
+// END META SECTION - XR Soft Occlusions
+
 /** Prenormalized capture of the scene that's closest to the object being rendered. */
 #if !FULLY_ROUGH
 	#if HQ_REFLECTIONS
@@ -554,8 +560,8 @@ void Main(
 	FVertexFactoryInterpolantsVSToPS Interpolants
 	, FMobileBasePassInterpolantsVSToPS BasePassInterpolants
 	, in float4 SvPosition : SV_Position
-#if MOBILE_MULTI_VIEW && !MOBILE_EMULATION
-	, in uint ViewId : SV_ViewID
+#if USE_MULTI_VIEW_ID_SV && !MOBILE_EMULATION
+	, in uint MultiViewId : SV_ViewID
 #endif
 	OPTIONAL_IsFrontFace
 	, out half4 OutColor	: SV_Target0
@@ -575,11 +581,11 @@ void Main(
 	)
 {
 #if MOBILE_MULTI_VIEW
-#if MOBILE_EMULATION
-	ResolvedView = ResolveView(BasePassInterpolants.MultiViewId);
-#else
-	ResolvedView = ResolveView(ViewId);
-#endif
+    #if MOBILE_EMULATION
+	    ResolvedView = ResolveView(BasePassInterpolants.MultiViewId);
+    #else
+	    ResolvedView = ResolveView(MultiViewId);
+    #endif
 #else
 	ResolvedView = ResolveView();
 #endif
@@ -601,6 +607,14 @@ void Main(
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
 	FPixelMaterialInputs PixelMaterialInputs;
 	{
+// BEGIN META SECTION - XR Soft Occlusions
+#if USE_MULTI_VIEW_ID_SV
+		MaterialParameters.ViewId = MultiViewId;
+#elif USE_MULTI_VIEW_ID_INTERPOLANT
+		MaterialParameters.ViewId = BasePassInterpolants.MultiViewId;
+#else
+		MaterialParameters.ViewId = 0;
+#endif
 		float4 ScreenPosition = SvPositionToResolvedScreenPosition(SvPosition);
 		float3 WorldPosition = BasePassInterpolants.PixelPosition.xyz;
 		float3 WorldPositionExcludingWPO = BasePassInterpolants.PixelPosition.xyz;
@@ -1003,7 +1017,17 @@ void Main(
 		// We also half that range to also make sure we have room for other additive elements such as bloom, clouds or particle visual effects.
 		OutColor.rgb = min(OutColor.rgb, Max10BitsFloat.xxx * 0.5f);
 	#endif
-
+// BEGIN META SECTION - XR Soft Occlusions
+#if ENABLE_SOFT_OCCLUSIONS
+	uint ViewId = 0;
+#if USE_MULTI_VIEW_ID_SV
+	ViewId = MultiViewId;
+#elif USE_MULTI_VIEW_ID_INTERPOLANT
+	ViewId = BasePassInterpolants.MultiViewId;
+#endif
+	OutColor = EnvironmentDepthOcclusion(OutColor, float4(MaterialParameters.WorldPosition_CamRelative, 1.0f), ViewId);
+#endif
+// END META SECTION - XR Soft Occlusions
 #if USE_SCENE_DEPTH_AUX
 	OutSceneDepthAux = SvPosition.z;
 #endif

@@ -1613,6 +1613,12 @@ bool FMaterialResource::CastsRayTracedShadows() const
 	return Material->bCastRayTracedShadows;
 }
 
+// BEGIN META SECTION - XR Soft Occlusions
+bool FMaterialResource::IsXRSoftOcclusionsEnabled() const
+{
+	return Material->bXRSoftOcclusions;
+}
+
 UMaterialInterface* FMaterialResource::GetMaterialInterface() const 
 { 
 	return MaterialInstance ? (UMaterialInterface*)MaterialInstance : (UMaterialInterface*)Material;

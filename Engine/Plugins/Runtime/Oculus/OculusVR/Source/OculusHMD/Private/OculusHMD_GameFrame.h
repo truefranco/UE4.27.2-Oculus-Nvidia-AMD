@@ -22,6 +22,7 @@ public:
 	FVector2D WindowSize;			// actual window size (StartGameFrame_GameThread)
 	FEngineShowFlags ShowFlags;		// (PreRenderViewFamily_RenderThread)
 
+	FQuat HeadOrientation;	 // (CalculateStereoViewOffset)
 	FQuat PlayerOrientation;		// (CalculateStereoViewOffset)
 	FVector PlayerLocation;			// (CalculateStereoViewOffset)
 	float NearClippingPlane;		// (GetStereoProjectionMatrix)

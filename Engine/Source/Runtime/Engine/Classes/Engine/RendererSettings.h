@@ -654,6 +654,14 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired = true))
 		uint32 bMobileSupportSpaceWarp : 1;
 
+	// BEGIN META SECTION - XR Soft Occlusions
+	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
+		ConsoleVariable = "r.XRSoftOcclusionsPermutation", DisplayName = "Support XR Soft Occlusions",
+		ToolTip = "Enable this to compile the shader variations needed to enable mixed reality passthrough soft occlusions at runtime.",
+		ConfigRestartRequired = true))
+		uint32 bSupportsXRSoftOcclusions : 1;
+	// END META SECTION - XR Soft Occlusions
+
 	UPROPERTY(config, EditAnywhere, Category = Experimental, meta = (
 		ConsoleVariable = "vr.ODSCapture", DisplayName = "Omni-directional Stereo Capture",
 		ToolTip = "Enable Omni-directional Stereo Capture.",

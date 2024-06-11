@@ -104,6 +104,7 @@ void FSkyPassMeshProcessor::Process(
 		MobileBasePass::GetShaders(
 			LMP_NO_LIGHTMAP,
 			0,
+			false,
 			MaterialResource,
 			VertexFactory->GetType(),
 			false,

@@ -1,0 +1,98 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#define EnvironmentDepthParameters		MobileBasePass.EnvironmentDepthParameters
+#define EnvironmentDepthTexture			EnvironmentDepthParameters.EnvironmentDepthTexture
+#define EnvironmentDepthSampler			EnvironmentDepthParameters.EnvironmentDepthSampler
+#define DepthViewProjMatrices			EnvironmentDepthParameters.DepthViewProjMatrices
+
+/*
+Compare the environment depth against the screen depth. If the screen depth is closer then return 1.0.
+If the environment depth is closer then return 0.0. There is a gradient between 0 and 1 for when the
+depth values are close to each other. The size of the gradient is controlled by the DepthGradientSize
+constant, larger values result in a smoother gradient. The size of the gradient also depends on the
+distance, there is a larger gradient at further distances where the depth is less accurate.
+*/
+float SampleDepth(float3 TexCoord, float ScreenDepth)
+{
+	float EnvironmentDepth = Texture2DArraySample(EnvironmentDepthTexture, EnvironmentDepthSampler, TexCoord).r;
+	const float DepthGradientSize = 0.04f;
+	return clamp(0.5f + ((EnvironmentDepth - ScreenDepth) / (DepthGradientSize * (1.0f - ScreenDepth))), 0.0f, 1.0f);
+}
+
+/*
+The environment depth texture from the headset is low resolution and not 100% accurate.
+In order to hide some of the inaccuracies and make it more visually appealing we want
+a soft edge between the VR rendered content and passthrough. This is achieved by taking
+multiple samples of the environment depth texture and taking a percentage closer. This
+is very similar to PCF used for soft shadows.
+*/
+float SampleDepthPoissonBlur(float3 TexCoord, float ScreenDepth)
+{
+	#define TEST_SAMPLES 4
+	#define POISSON_SAMPLES 12
+
+	// The first 4 samples are chosen to be as far apart as each other as possible
+	// one in each quadrant.
+	float2 PoissonDisk[POISSON_SAMPLES] = {
+		float2( -0.91588581,  0.45771432 ),
+		float2(  0.94558609, -0.76890725 ),
+		float2( -0.81544232, -0.87912464 ),
+		float2(  0.97484398,  0.75648379 ),
+		float2( -0.94201624, -0.39906216 ),
+		float2( -0.094184101, -0.92938870 ),
+		float2(  0.34495938,  0.29387760 ),
+		float2( -0.38277543,  0.27676845 ),
+		float2(  0.44323325, -0.97511554 ),
+		float2(  0.53742981, -0.47373420 ),
+		float2( -0.26496911, -0.41893023 ),
+		float2(  0.79197514,  0.19090188 )};
+
+	float2 InvDepthResolution = float2(0.005, 0.005);
+	float Blurred = 0.0;
+	int i;
+
+	UNROLL
+	for (i = 0; i < TEST_SAMPLES; ++i)
+	{
+		float2 Offset = PoissonDisk[i] * InvDepthResolution;
+		Blurred += SampleDepth(float3(TexCoord.xy + Offset, TexCoord.z), ScreenDepth);
+	}
+
+	// Return early if all the samples are either 1 or 0 indicating this pixel is not
+	// near the edge. This is a performance optimisation.
+	BRANCH
+	if ((TEST_SAMPLES - Blurred) * Blurred < 0.001)
+	{
+		return Blurred / TEST_SAMPLES;
+	}
+
+	UNROLL
+	for (i = TEST_SAMPLES; i < POISSON_SAMPLES; ++i)
+	{
+		float2 Offset = PoissonDisk[i] * InvDepthResolution;
+		Blurred += SampleDepth(float3(TexCoord.xy + Offset, TexCoord.z), ScreenDepth);
+	}
+
+	return Blurred / POISSON_SAMPLES;
+}
+
+
+float4 EnvironmentDepthOcclusion(float4 InputColor, float4 WorldPosition_CamRelative, uint ViewId)
+{
+	float4 DepthClipSpace = mul(WorldPosition_CamRelative, DepthViewProjMatrices[ViewId]);
+	float2 Normalized = (DepthClipSpace.xy / DepthClipSpace.w + 1.0f) * 0.5f;
+	float3 TexCoord = float3(Normalized, ViewId);
+	
+	// ScreenDepth = 0 when the depth coincides with the near Z plane.
+	// ScreenDepth = 1 when the depth coincides with the far Z plane.
+	float ScreenDepth = DepthClipSpace.z / DepthClipSpace.w;
+
+	float PassthroughFraction = SampleDepthPoissonBlur(TexCoord, ScreenDepth);
+
+#if MATERIALBLENDING_SOLID || MATERIALBLENDING_MASKED
+	float4 TransparentColor = float4(0.0, 0.0, 0.0, 1.0);
+#else
+	float4 TransparentColor = float4(0.0, 0.0, 0.0, 0.0);
+#endif
+	return lerp(TransparentColor, InputColor, PassthroughFraction);
+}

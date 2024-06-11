@@ -1120,7 +1120,7 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 			{
 				ColorTargetsAction[0] = ERenderTargetActions::Clear_Resolve;
 			    RHICmdList.Transition(FRHITransitionInfo(SceneColorResolve, ERHIAccess::Unknown, ERHIAccess::RTV | ERHIAccess::ResolveDst));
-		        }
+		    }
 		}
 		else
 		{

@@ -1480,6 +1480,7 @@ namespace OculusHMD
 
 			GetCurrentPose(HMDDeviceId, HeadOrientation, HeadPosition);
 
+			NextFrameToRender->HeadOrientation = HeadOrientation;
 			NextFrameToRender->PlayerOrientation = LastPlayerOrientation = ViewRotation.Quaternion() * HeadOrientation.Inverse();
 			NextFrameToRender->PlayerLocation = LastPlayerLocation = ViewLocation;
 		}
@@ -1835,6 +1836,35 @@ namespace OculusHMD
 		return false;
 	}
 
+	bool FOculusHMD::FindEnvironmentDepthTexture_RenderThread(FTextureRHIRef& OutTexture, FVector2D& OutDepthFactors, FMatrix OutScreenToDepthMatrices[2], FMatrix OutDepthViewProjMatrices[2])
+	{
+		CheckInRenderThread();
+
+		if (Frame_RenderThread.IsValid())
+		{
+			int SwapchainIndex;
+			if (ComputeEnvironmentDepthParameters_RenderThread(OutDepthFactors, OutScreenToDepthMatrices, OutDepthViewProjMatrices, SwapchainIndex))
+			{
+				if (SwapchainIndex >= EnvironmentDepthSwapchain.Num())
+				{
+					return false;
+				}
+				OutTexture = EnvironmentDepthSwapchain[SwapchainIndex];
+				return true;
+			}
+		}
+		return false;
+	}
+
+	EPixelFormat FOculusHMD::GetActualColorSwapchainFormat() const
+	{
+		if (!CustomPresent.IsValid())
+		{
+			UE_LOG(LogHMD, Log, TEXT("Invalid CustomPresent! PF_R8G8B8A8 will be used as the default swapchain format!"));
+			return PF_R8G8B8A8;
+		}
+		return CustomPresent->GetDefaultPixelFormat();
+	}
 
 	void FOculusHMD::UpdateFoveationOffsets_RenderThread()
 	{
@@ -2427,6 +2457,10 @@ namespace OculusHMD
 		SplashLayerHandle = -1;
 
 		SplashRotation = FRotator();
+
+		bIsStandaloneStereoOnlyDevice = IHeadMountedDisplayModule::IsAvailable() && IHeadMountedDisplayModule::Get().IsStandaloneStereoOnlyDevice();
+
+		bMultiPlayer = false;
 	}
 
 
@@ -3687,6 +3721,121 @@ namespace OculusHMD
 		Settings->ColorOffset = LinearColorToOvrpVector4f(ColorOffset);
 	}
 
+	void FOculusHMD::SetEnvironmentDepthHandRemoval(bool RemoveHands)
+	{
+		FOculusHMDModule::GetPluginWrapper().SetEnvironmentDepthHandRemoval(RemoveHands);
+		bEnvironmentDepthHandRemovalEnabled = RemoveHands;
+	}
+
+	void FOculusHMD::StartEnvironmentDepth(int CreateFlags)
+	{
+#if PLATFORM_ANDROID
+		// Check and request scene permissions (this is needed for environment depth to work)
+		// bind delegate for handling permission request result
+		if (!UAndroidPermissionFunctionLibrary::CheckPermission(USE_SCENE_PERMISSION_NAME))
+		{
+			TArray<FString> Permissions;
+			Permissions.Add(USE_SCENE_PERMISSION_NAME);
+			UAndroidPermissionCallbackProxy* Proxy = UAndroidPermissionFunctionLibrary::AcquirePermissions(Permissions);
+			Proxy->OnPermissionsGrantedDelegate.BindLambda([this, CreateFlags](const TArray<FString>& Permissions, const TArray<bool>& GrantResults)
+				{
+					int PermIndex = Permissions.Find(USE_SCENE_PERMISSION_NAME);
+				    if (PermIndex != INDEX_NONE && GrantResults[PermIndex])
+				    {
+						UE_LOG(LogHMD, Verbose, TEXT("%s permission granted"), *USE_SCENE_PERMISSION_NAME);
+					    StartEnvironmentDepth(CreateFlags);
+				    }
+				    else
+				    {
+					    UE_LOG(LogHMD, Log, TEXT("%s permission denied"), *USE_SCENE_PERMISSION_NAME);
+				    }
+				});
+			return;
+		}
+#endif // PLATFORM_ANDROID
+
+		ExecuteOnRenderThread_DoNotWait([this, CreateFlags]() {
+			ovrpEnvironmentDepthTextureDesc DepthTextureDesc;
+			if (OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().InitializeEnvironmentDepth(CreateFlags)) && OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().GetEnvironmentDepthTextureDesc(&DepthTextureDesc)))
+			{
+				TArray<ovrpTextureHandle> DepthTextures;
+				int32 TextureCount;
+				if (OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().GetEnvironmentDepthTextureStageCount(&TextureCount)))
+				{
+					// We don't really do different depth texture formats right now and it's always a
+					// single multiview texture, so no need for a separate right eye texture for now.
+					// We may need a separate Left/RightDepthTextures in the future.
+					DepthTextures.SetNum(TextureCount);
+
+					for (int32 TextureIndex = 0; TextureIndex < TextureCount; TextureIndex++)
+					{
+						if (OVRP_FAILURE(FOculusHMDModule::GetPluginWrapper().GetEnvironmentDepthTexture(TextureIndex, ovrpEye_Left, &DepthTextures[TextureIndex])))
+						{
+							UE_LOG(LogHMD, Error, TEXT("Failed to create insight depth texture. NOTE: This causes a leak of %d other texture(s), which will go unused."), TextureIndex);
+							return;
+						}
+					}
+
+					uint32 SizeX = DepthTextureDesc.TextureSize.w;
+					uint32 SizeY = DepthTextureDesc.TextureSize.h;
+					EPixelFormat DepthFormat = CustomPresent->GetPixelFormat(DepthTextureDesc.Format);
+					uint32 NumMips = DepthTextureDesc.MipLevels;
+					uint32 NumSamples = DepthTextureDesc.SampleCount;
+					uint32 NumSamplesTileMem = 1;
+					ETextureCreateFlags DepthTexCreateFlags = TexCreate_ShaderResource | TexCreate_InputAttachmentRead;
+					FClearValueBinding DepthTextureBinding = FClearValueBinding::DepthFar;
+					ERHIResourceType ResourceType;
+					if (DepthTextureDesc.Layout == ovrpLayout_Array)
+					{
+						ResourceType = RRT_Texture2DArray;
+					}
+					else
+					{
+						ResourceType = RRT_Texture2D;
+					}
+
+					if (CustomPresent)
+					{
+						if (!EnvironmentDepthSwapchain.IsEmpty())
+						{
+							EnvironmentDepthSwapchain.Empty();
+						}
+						EnvironmentDepthSwapchain = CustomPresent->CreateSwapChainTextures_RenderThread(SizeX, SizeY, DepthFormat, DepthTextureBinding, NumMips, NumSamples, NumSamplesTileMem, ResourceType, DepthTextures, DepthTexCreateFlags, *FString::Printf(TEXT("Oculus Environment Depth Swapchain")));
+					}
+
+					FOculusHMDModule::GetPluginWrapper().SetEnvironmentDepthHandRemoval(bEnvironmentDepthHandRemovalEnabled);
+					FOculusHMDModule::GetPluginWrapper().StartEnvironmentDepth();
+				}
+			}
+			});
+	}
+
+	void FOculusHMD::StopEnvironmentDepth()
+	{
+		ExecuteOnRenderThread_DoNotWait([this]() {
+			ExecuteOnRHIThread_DoNotWait([this]() {
+				if (!EnvironmentDepthSwapchain.IsEmpty())
+				{
+					EnvironmentDepthSwapchain.Empty();
+				}
+				if (OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().StopEnvironmentDepth()))
+				{
+					FOculusHMDModule::GetPluginWrapper().DestroyEnvironmentDepth();
+				}
+				});
+			});
+	}
+
+	bool FOculusHMD::IsEnvironmentDepthStarted()
+	{
+		return !EnvironmentDepthSwapchain.IsEmpty();
+	}
+
+	void FOculusHMD::EnableHardOcclusions(bool bEnable)
+	{
+		bHardOcclusionsEnabled = bEnable;
+	}
+
 	bool FOculusHMD::DoEnableStereo(bool bStereo)
 	{
 		CheckInGameThread();
@@ -3796,6 +3945,317 @@ namespace OculusHMD
 			r.Roll = 0;
 			r.Pitch = 0;
 			pc->SetControlRotation(r);
+		}
+	}
+
+	class FHardOcclusionsPS : public FGlobalShader
+	{
+		DECLARE_SHADER_TYPE(FHardOcclusionsPS, Global);
+
+		static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
+		{
+			FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
+		}
+
+		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+		{
+			// This file is already guarded with OCULUS_HMD_SUPPORTED_PLATFORMS
+			return true;
+		}
+
+		/** Default constructor. */
+		FHardOcclusionsPS() {}
+
+		/** Initialization constructor. */
+		FHardOcclusionsPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+			: FGlobalShader(Initializer)
+		{
+			EnvironmentDepthTexture.Bind(Initializer.ParameterMap, TEXT("EnvironmentDepthTexture"));
+			EnvironmentDepthSampler.Bind(Initializer.ParameterMap, TEXT("EnvironmentDepthSampler"));
+			DepthFactors.Bind(Initializer.ParameterMap, TEXT("DepthFactors"));
+			ScreenToDepthMatrices.Bind(Initializer.ParameterMap, TEXT("ScreenToDepthMatrices"));
+			DepthViewId.Bind(Initializer.ParameterMap, TEXT("DepthViewId"));
+		}
+
+		template <typename TShaderRHIParamRef>
+		void SetParameters(
+			FRHICommandListImmediate& RHICmdList,
+			const TShaderRHIParamRef ShaderRHI,
+			FRHISamplerState* Sampler,
+			FRHITexture* Texture,
+			const FVector2D& Factors,
+			const FMatrix ScreenToDepth[ovrpEye_Count],
+			const int ViewId)
+		{
+			SetTextureParameter(RHICmdList, ShaderRHI, EnvironmentDepthTexture, EnvironmentDepthSampler, Sampler, Texture);
+
+			SetShaderValue(RHICmdList, ShaderRHI, DepthFactors, Factors);
+			SetShaderValueArray(RHICmdList, ShaderRHI, ScreenToDepthMatrices, ScreenToDepth, ovrpEye_Count);
+			SetShaderValue(RHICmdList, ShaderRHI, DepthViewId, ViewId);
+		}
+
+
+	private:
+		LAYOUT_FIELD(FShaderResourceParameter, EnvironmentDepthTexture);
+		LAYOUT_FIELD(FShaderResourceParameter, EnvironmentDepthSampler);
+		LAYOUT_FIELD(FShaderParameter, DepthFactors);
+		LAYOUT_FIELD(FShaderParameter, ScreenToDepthMatrices);
+		LAYOUT_FIELD(FShaderParameter, DepthViewId);
+	};
+
+	IMPLEMENT_SHADER_TYPE(, FHardOcclusionsPS, TEXT("/Plugin/OculusVR/Private/HardOcclusions.usf"), TEXT("HardOcclusionsPS"), SF_Pixel);
+
+	FMatrix MakeProjectionMatrix(ovrpFovf cameraFovAngles)
+	{
+		const float tanAngleWidth = cameraFovAngles.RightTan + cameraFovAngles.LeftTan;
+		const float tanAngleHeight = cameraFovAngles.UpTan + cameraFovAngles.DownTan;
+
+		FMatrix Matrix = FMatrix::Identity;
+
+		// Scale
+		Matrix.M[0][0] = 1.0f / tanAngleWidth;
+		Matrix.M[1][1] = 1.0f / tanAngleHeight;
+
+		// Offset
+		Matrix.M[0][3] = cameraFovAngles.LeftTan / tanAngleWidth;
+		Matrix.M[1][3] = cameraFovAngles.DownTan / tanAngleHeight;
+		Matrix.M[2][3] = -1.0f;
+
+		return Matrix;
+	}
+
+	FMatrix MakeUnprojectionMatrix(ovrpFovf cameraFovAngles)
+	{
+		FMatrix Matrix = FMatrix::Identity;
+
+		// Scale
+		Matrix.M[0][0] = cameraFovAngles.RightTan + cameraFovAngles.LeftTan;
+		Matrix.M[1][1] = cameraFovAngles.UpTan + cameraFovAngles.DownTan;
+
+		// Offset
+		Matrix.M[0][3] = -cameraFovAngles.LeftTan;
+		Matrix.M[1][3] = -cameraFovAngles.DownTan;
+		Matrix.M[2][3] = 1.0;
+
+		return Matrix;
+	}
+
+	bool FOculusHMD::ComputeEnvironmentDepthParameters_RenderThread(FVector2D& DepthFactors, FMatrix ScreenToDepth[ovrpEye_Count], FMatrix DepthViewProj[ovrpEye_Count], int& SwapchainIndex)
+	{
+		float ScreenNearZ = GNearClippingPlane / Frame_RenderThread->WorldToMetersScale;
+		ovrpFovf* ScreenFov = Frame_RenderThread->SymmetricFov;
+
+		ovrpEnvironmentDepthFrameDesc DepthFrameDesc[ovrpEye_Count];
+		if (FOculusHMDModule::GetPluginWrapper().GetEnvironmentDepthFrameDesc(ovrpEye_Left, &DepthFrameDesc[0]) != ovrpSuccess || !DepthFrameDesc[0].IsValid)
+		{
+			return false;
+		}
+		if (FOculusHMDModule::GetPluginWrapper().GetEnvironmentDepthFrameDesc(ovrpEye_Right, &DepthFrameDesc[1]) != ovrpSuccess || !DepthFrameDesc[1].IsValid)
+		{
+			return false;
+		}
+
+		SwapchainIndex = DepthFrameDesc[0].SwapchainIndex;
+		const float WorldToMetersScale = Frame_RenderThread->WorldToMetersScale;
+
+		if (DepthViewProj != nullptr)
+		{
+			for (int i = 0; i < ovrpEye_Count; ++i)
+			{
+				ovrpFrustum2f DepthFrustum;
+				DepthFrustum.Fov = DepthFrameDesc[i].Fov;
+				DepthFrustum.zNear = DepthFrameDesc[i].NearZ * WorldToMetersScale;
+				DepthFrustum.zFar = DepthFrameDesc[i].FarZ * WorldToMetersScale;
+				FMatrix DepthProjectionMatrix = ToFMatrix(ovrpMatrix4f_Projection(DepthFrustum, true));
+
+				auto DepthOrientation = ToFQuat(DepthFrameDesc[i].CreatePose.Orientation);
+
+				// NOTE: This matrix is the same as applied in SetupViewFrustum in SceneView.cpp
+				auto ViewMatrix = DepthOrientation.Inverse().ToMatrix() * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
+
+				ovrpPoseStatef EyePoseState;
+				if (OVRP_SUCCESS(FOculusHMDModule::GetPluginWrapper().GetNodePoseState3(ovrpStep_Render, Frame_RenderThread->FrameNumber, (ovrpNode)i, &EyePoseState)))
+				{
+					auto DepthTranslation = ToFVector(DepthFrameDesc[i].CreatePose.Position) * WorldToMetersScale;
+					auto EyePos = ToFVector(EyePoseState.Pose.Position) * WorldToMetersScale;
+					auto Delta = EyePos - DepthTranslation;
+
+					// NOTE: The view matrix here is relative to the VR camera, this is necessary to support
+					// Large Worlds and avoid rounding errors when getting very far away from the origin
+					ViewMatrix = ViewMatrix.ConcatTranslation(ViewMatrix.TransformPosition(Delta));
+				}
+
+				DepthViewProj[i] = (FMatrix)(ViewMatrix * DepthProjectionMatrix);
+			}
+		}
+
+		// Assume NearZ and FarZ are the same for left and right eyes
+		float DepthNearZ = DepthFrameDesc[ovrpEye_Left].NearZ;
+		float DepthFarZ = DepthFrameDesc[ovrpEye_Left].FarZ;
+
+		float Scale;
+		float Offset;
+
+		if (DepthFarZ < DepthNearZ || (!FGenericPlatformMath::IsFinite(DepthFarZ)))
+		{
+			// Inf far plane:
+			Scale = DepthNearZ;
+			Offset = 0.0f;
+		}
+		else
+		{
+			// Finite far plane:
+			Scale = (DepthFarZ * DepthNearZ) / (DepthFarZ - DepthNearZ);
+			Offset = DepthNearZ / (DepthFarZ - DepthNearZ);
+		}
+
+		DepthFactors.X = -ScreenNearZ / Scale;
+		DepthFactors.Y = Offset * ScreenNearZ / Scale + 1.0f;
+
+		// The pose extrapolated to the predicted display time of the current frame
+		FQuat ScreenOrientation = Frame_RenderThread->HeadOrientation;
+
+		for (int i = 0; i < ovrpEye_Count; ++i)
+		{
+			// Screen To Depth represents the transformation matrix used to map normalised screen UV coordinates to
+			// normalised environment depth texture UV coordinates. This needs to account for 2 things:
+			// 1. The field of view of the two textures may be different, Unreal typically renders using a symmetric fov.
+			//    That is to say the FOV of the left and right eyes is the same. The environment depth on the other hand
+			//    has a different FOV for the left and right eyes. So we need to scale and offset accordingly to account
+			//    for this difference.
+			auto T_ScreenCamera_ScreenNormCoord = MakeUnprojectionMatrix(ScreenFov[i]);
+			auto T_DepthNormCoord_DepthCamera = MakeProjectionMatrix(DepthFrameDesc[i].Fov);
+
+			// 2. The headset may have moved in between capturing the environment depth and rendering the frame. We
+			//    can only account for rotation of the headset, not translation.
+			auto DepthOrientation = ToFQuat(DepthFrameDesc[i].CreatePose.Orientation);
+			if (!DepthOrientation.IsNormalized())
+			{
+				UE_LOG(LogHMD, Error, TEXT("DepthOrientation is not normalized %f %f %f %f"), DepthOrientation.X, DepthOrientation.Y, DepthOrientation.Z, DepthOrientation.W);
+				DepthOrientation.Normalize();
+			}
+			auto ScreenToDepthQuat = ScreenOrientation.Inverse() * DepthOrientation;
+
+			FMatrix R_DepthCamera_ScreenCamera = FQuat(ScreenToDepthQuat.Y, ScreenToDepthQuat.Z, ScreenToDepthQuat.X, ScreenToDepthQuat.W).GetNormalized().ToMatrix();
+
+			ScreenToDepth[i] = T_DepthNormCoord_DepthCamera * R_DepthCamera_ScreenCamera * T_ScreenCamera_ScreenNormCoord;
+		}
+		return true;
+	}
+
+		void FOculusHMD::DrawHmdViewMesh(
+			FRHICommandList& RHICmdList,
+			float X,
+			float Y,
+			float SizeX,
+			float SizeY,
+			float U,
+			float V,
+			float SizeU,
+			float SizeV,
+			FIntPoint TargetSize,
+			FIntPoint TextureSize,
+			int32 StereoView,
+			const TShaderRef<FShader>& VertexShader)
+	{
+		FDrawRectangleParameters Parameters;
+		Parameters.PosScaleBias = FVector4(SizeX, SizeY, X, Y);
+		Parameters.UVScaleBias = FVector4(SizeU, SizeV, U, V);
+
+		Parameters.InvTargetSizeAndTextureSize = FVector4(
+			1.0f / TargetSize.X, 1.0f / TargetSize.Y,
+			1.0f / TextureSize.X, 1.0f / TextureSize.Y);
+
+		SetUniformBufferParameterImmediate(RHICmdList, VertexShader.GetVertexShader(), VertexShader->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
+
+		RendererModule->DrawRectangle(
+			RHICmdList,
+			X, Y,
+			SizeX, SizeY,
+			0, 0,
+			TextureSize.X, TextureSize.Y,
+			TargetSize,
+			TextureSize,
+			VertexShader);
+	}
+
+	void FOculusHMD::RenderHardOcclusions_RenderThread(FRHICommandListImmediate& RHICmdList, const FSceneView& InView)
+	{
+		checkSlow(RHICmdList.IsInsideRenderPass());
+
+		FVector2D DepthFactors;
+		FMatrix ScreenToDepthMatrices[ovrpEye_Count];
+		int SwapchainIndex;
+
+		if (!Frame_RenderThread.IsValid() || InView.bIsSceneCapture || InView.bIsReflectionCapture || InView.bIsPlanarReflection || !ComputeEnvironmentDepthParameters_RenderThread(DepthFactors, ScreenToDepthMatrices, nullptr, SwapchainIndex))
+		{
+			return;
+		}
+		if (SwapchainIndex >= EnvironmentDepthSwapchain.Num())
+		{
+			return;
+		}
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<>::GetRHI();
+
+		FGlobalShaderMap* GlobalShaderMap = GetGlobalShaderMap(InView.FeatureLevel);
+		TShaderMapRef<FScreenPassVS> VertexShader(GlobalShaderMap);
+		TShaderMapRef<FHardOcclusionsPS> PixelShader(GlobalShaderMap);
+
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = VertexShader.GetVertexShader();
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = PixelShader.GetPixelShader();
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+		FRHITexture* DepthTexture = EnvironmentDepthSwapchain[SwapchainIndex];
+		FRHISamplerState* DepthSampler = TStaticSamplerState<>::GetRHI();
+
+		FIntPoint TextureSize = FIntPoint(DepthTexture->GetSizeXYZ().X, DepthTexture->GetSizeXYZ().Y);
+		FIntRect ScreenRect = InView.UnscaledViewRect;
+
+		PixelShader->SetParameters(RHICmdList, PixelShader.GetPixelShader(), DepthSampler, DepthTexture, DepthFactors, ScreenToDepthMatrices, InView.StereoPass);
+
+		check(Settings->CurrentShaderPlatform == InView.Family->Scene->GetShaderPlatform());
+		if (!IsMobilePlatform(Settings->CurrentShaderPlatform) && InView.StereoPass != INDEX_NONE)
+		{
+			SCOPED_DRAW_EVENTF(RHICmdList, RenderHardOcclusions_RenderThread, TEXT("View %d"), InView.StereoPass);
+
+			int32 width = ScreenRect.Width() / 2;
+			int32 height = ScreenRect.Height();
+			int32 x = InView.StereoPass == EStereoscopicPass::eSSP_LEFT_EYE ? 0 : width;
+			int32 y = 0;
+
+			DrawHmdViewMesh(
+				RHICmdList,
+				x, y,
+				width, height,
+				0, 0,
+				TextureSize.X, TextureSize.Y,
+				FIntPoint(ScreenRect.Width(), ScreenRect.Height()),
+				TextureSize,
+				InView.StereoPass,
+				VertexShader);
+		}
+		else
+		{
+			SCOPED_DRAW_EVENT(RHICmdList, RenderHardOcclusions_RenderThread);
+
+			RendererModule->DrawRectangle(
+				RHICmdList,
+				0, 0,
+				ScreenRect.Width(), ScreenRect.Height(),
+				0, 0,
+				TextureSize.X, TextureSize.Y,
+				FIntPoint(ScreenRect.Width(), ScreenRect.Height()),
+				TextureSize,
+				VertexShader);
 		}
 	}
 

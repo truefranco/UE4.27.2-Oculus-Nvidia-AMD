@@ -142,6 +142,7 @@ bool FEditorPrimitivesBasePassMeshProcessor::ProcessMobileShadingPath(const FMes
 	if (!MobileBasePass::GetShaders(
 		NoLightmapPolicy.GetIndirectPolicy(),
 		NumMovablePointLights,
+		false,
 		Material,
 		VertexFactory->GetType(),
 		bEnableSkyLight,

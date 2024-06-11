@@ -189,6 +189,12 @@ EPixelFormat FCustomPresent::GetPixelFormat(EPixelFormat Format) const
 	case PF_FloatRGBA:
 	case PF_FloatR11G11B10:
 		//	case PF_R8G8B8A8:
+	case PF_G16:
+	case PF_R16F:
+	case PF_R32_FLOAT:
+	case PF_ShadowDepth:
+	case PF_D24:
+		return Format;
 		return Format;
 	}
 
@@ -210,6 +216,16 @@ EPixelFormat FCustomPresent::GetPixelFormat(ovrpTextureFormat Format) const
 		//		case ovrpTextureFormat_B8G8R8A8_sRGB:
 		//		case ovrpTextureFormat_B8G8R8A8:
 		//			return PF_B8G8R8A8;
+	case ovrpTextureFormat_R16:
+		return PF_G16; // G stands for grey here, not green, and is actually R16 in RHI
+	case ovrpTextureFormat_R16_FP:
+		return PF_R16F;
+	case ovrpTextureFormat_R32_FP:
+		return PF_R32_FLOAT;
+	case ovrpTextureFormat_D16:
+		return PF_ShadowDepth; // ShadowDepth maps to D16 in Vulkan
+	case ovrpTextureFormat_D24_S8:
+		return PF_D24;
 	}
 
 	return GetDefaultPixelFormat();
@@ -228,6 +244,16 @@ ovrpTextureFormat FCustomPresent::GetOvrpTextureFormat(EPixelFormat Format, bool
 		return ovrpTextureFormat_R11G11B10_FP;
 	case PF_R8G8B8A8:
 		return bSupportsSRGB && usesRGB ? ovrpTextureFormat_R8G8B8A8_sRGB : ovrpTextureFormat_R8G8B8A8;
+	case PF_G16:
+		return ovrpTextureFormat_R16;
+	case PF_R16F:
+		return ovrpTextureFormat_R16_FP;
+	case PF_R32_FLOAT:
+		return ovrpTextureFormat_R32_FP;
+	case PF_ShadowDepth:
+		return ovrpTextureFormat_D16;
+	case PF_D24:
+		return ovrpTextureFormat_D24_S8;
 	}
 
 	return ovrpTextureFormat_None;
@@ -254,12 +280,19 @@ int FCustomPresent::GetSystemRecommendedMSAALevel() const
 	return SystemRecommendedMSAALevel;
 }
 
-
 FXRSwapChainPtr FCustomPresent::CreateSwapChain_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, const TArray<ovrpTextureHandle>& InTextures, ETextureCreateFlags InTexCreateFlags, const TCHAR* DebugName)
+{
+	TArray<FTextureRHIRef> RHITextureSwapChain = CreateSwapChainTextures_RenderThread(InSizeX, InSizeY, InFormat, InBinding, InNumMips, InNumSamples, InNumSamplesTileMem, InResourceType, InTextures, InTexCreateFlags, DebugName);
+
+	FTextureRHIRef RHITexture = GDynamicRHI->RHICreateAliasedTexture(RHITextureSwapChain[0]);
+
+	return CreateXRSwapChain(MoveTemp(RHITextureSwapChain), RHITexture);
+}
+
+TArray<FTextureRHIRef> FCustomPresent::CreateSwapChainTextures_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, const TArray<ovrpTextureHandle>& InTextures, ETextureCreateFlags InTexCreateFlags, const TCHAR* DebugName)
 {
 	CheckInRenderThread();
 
-	FTextureRHIRef RHITexture;
 	TArray<FTextureRHIRef> RHITextureSwapChain;
 	{
 		for (int32 TextureIndex = 0; TextureIndex < InTextures.Num(); ++TextureIndex)
@@ -274,9 +307,7 @@ FXRSwapChainPtr FCustomPresent::CreateSwapChain_RenderThread(uint32 InSizeX, uin
 		}
 	}
 
-	RHITexture = GDynamicRHI->RHICreateAliasedTexture(RHITextureSwapChain[0]);
-
-	return CreateXRSwapChain(MoveTemp(RHITextureSwapChain), RHITexture);
+	return RHITextureSwapChain;
 }
 
 

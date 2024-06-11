@@ -540,7 +540,15 @@ public:
 	/** Texture to store motion vector, using the name MotionVector instead of Velocity to seperate them with regular velocity buffers */
 	TRefCountPtr<IPooledRenderTarget> HmdMotionVectorTexture;
 	TRefCountPtr<IPooledRenderTarget> HmdMotionVectorDepthTexture;
-
+	
+	// BEGIN META SECTION - XR Soft Occlusions
+	// Environment Depth
+	FRDGTextureRef EnvironmentDepthTexture{};
+	FVector2D DepthFactors{ -1.0f, 1.0f };
+	FMatrix ScreenToDepthMatrices[2]{};
+	FMatrix DepthViewProjMatrices[2]{};
+	// END META SECTION - XR Soft Occlusions
+	// 
 	// todo: free ScreenSpaceAO so pool can reuse
 	bool bScreenSpaceAOIsValid;
 

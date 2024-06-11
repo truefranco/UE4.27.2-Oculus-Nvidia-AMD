@@ -2716,6 +2716,10 @@ public:
 
 	float DynamicIndirectShadowsSelfShadowingIntensity;
 
+	// BEGIN META SECTION - XR Soft Occlusions
+	bool bEnableXRPassthroughSoftOcclusions = false;
+	// END META SECTION - XR Soft Occlusions
+
 	const FReadOnlyCVARCache& ReadOnlyCVARCache;
 
 	TAllocatorFixedSizeFreeList<sizeof(FLightPrimitiveInteraction), 16384 / sizeof(FLightPrimitiveInteraction)> LightPrimitiveInteractionAllocator;
@@ -2817,6 +2821,10 @@ public:
 	virtual FRHIUniformBuffer* GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) const override;
 	virtual void DumpUnbuiltLightInteractions( FOutputDevice& Ar ) const override;
 	virtual void UpdateParameterCollections(const TArray<FMaterialParameterCollectionInstanceResource*>& InParameterCollections) override;
+	
+	// BEGIN META SECTION - XR Soft Occlusions
+	virtual void SetEnableXRPassthroughSoftOcclusions(bool bEnable) override;
+	// END META SECTION - XR Soft Occlusions
 
 	/** Determines whether the scene has atmospheric fog and sun light. */
 	PRAGMA_DISABLE_DEPRECATION_WARNINGS

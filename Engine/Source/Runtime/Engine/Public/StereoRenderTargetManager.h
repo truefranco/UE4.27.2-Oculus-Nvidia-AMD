@@ -74,6 +74,18 @@ public:
 	virtual bool AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, ETextureCreateFlags Flags, ETextureCreateFlags TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples = 1) { return false; }
 
 	/**
+	 * Returns pixel format that the device created its swapchain with (which can be different than what was requested in AllocateRenderTargetTexture)
+	 */
+	virtual EPixelFormat GetActualColorSwapchainFormat() const { return PF_Unknown; }
+
+	/**
+	 * Acquires the next available color texture.
+	 *
+	 * @return				the index of the texture in the array returned by AllocateRenderTargetTexture.
+	 */
+	virtual int32 AcquireColorTexture() { return -1; }
+
+	/**
 	 * Allocates a depth texture.
 	 *
 	 * @param Index			(in) index of the buffer, changing from 0 to GetNumberOfBufferedFrames()
@@ -99,4 +111,20 @@ public:
 	 * @return				true, if texture was allocated; false, if the default texture allocation should be used.
 	 */
 	virtual bool AllocateMotionVectorTexture(uint32 Index, uint8 Format, uint32 NumMips, uint32 InTexFlags, uint32 InTargetableTextureFlags, FTexture2DRHIRef& OutTexture, FIntPoint& OutTextureSize, FTexture2DRHIRef& OutDepthTexture, FIntPoint& OutDepthTextureSize) { return false; }
+
+	// BEGIN META SECTION - XR Soft Occlusions
+	/**
+	 * Find the environment depth texture.
+	 * The default implementation always returns false to indicate that the texture is not available.
+	 *
+	 * @param OutTexture				(out) The environment depth texture
+	 * @param OutDepthFactors			(out) The depth factors used to transform Z coordinates
+	 * @param OutScreenToDepthMatrices	(out) The screen to depth matrices used to transform UV coordinates
+	 * @return							true, if texture was found; false, if the texture was not available.
+	 */
+	virtual bool FindEnvironmentDepthTexture_RenderThread(FTextureRHIRef& OutTexture, FVector2D& OutDepthFactors, FMatrix OutScreenToDepthMatrices[2], FMatrix OutDepthViewProjMatrices[2]) { return false; }
+	// END META SECTION - XR Soft Occlusions
+
+	static EPixelFormat GetStereoLayerPixelFormat() { return PF_B8G8R8A8; }
+
 };

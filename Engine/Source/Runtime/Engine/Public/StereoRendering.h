@@ -188,6 +188,14 @@ public:
 	virtual uint32 DeviceGetLODViewIndex() const;
 
 	/**
+	 * True when a device has only stereo display (like a self contained mobile vr headset).
+	 */
+	virtual bool IsStandaloneStereoOnlyDevice() const
+	{
+		return false;
+	}
+
+	/**
 	 * Adjusts the viewport rectangle for stereo, based on which eye pass is being rendered.
 	 */
 	virtual void AdjustViewRect(enum EStereoscopicPass StereoPass, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const = 0;

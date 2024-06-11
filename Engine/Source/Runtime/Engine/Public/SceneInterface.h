@@ -380,6 +380,10 @@ public:
 	 */
 	virtual FRHIUniformBuffer* GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) const = 0;
 
+	// BEGIN META SECTION - XR Soft Occlusions
+	virtual void SetEnableXRPassthroughSoftOcclusions(bool bEnable) {};
+	// END META SECTION - XR Soft Occlusions
+
 	/**
 	 * Release this scene and remove it from the rendering thread
 	 */

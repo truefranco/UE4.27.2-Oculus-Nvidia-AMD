@@ -25,12 +25,29 @@
 #include "SkyAtmosphereRendering.h"
 #include "RenderUtils.h"
 
+// BEGIN META SECTION - XR Soft Occlusions
+#include "EnvironmentDepthRendering.h"
+// END META SECTION - XR Soft Occlusions
+
+struct FMobileBasePassTextures
+{
+	// BEGIN META SECTION - XR Soft Occlusions
+	FRDGTextureRef EnvironmentDepthTexture = nullptr;
+	FVector2D DepthFactors{ -1.0f, 1.0f };
+	FMatrix ScreenToDepthMatrices[2]{ {},{} };
+	FMatrix DepthViewProjMatrices[2]{ {},{} };
+	// END META SECTION - XR Soft Occlusions
+};
+
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FMobileBasePassUniformParameters, )
 	SHADER_PARAMETER(int32, UseCSM)
 	SHADER_PARAMETER(float, AmbientOcclusionStaticFraction)
 	SHADER_PARAMETER_STRUCT(FFogUniformParameters, Fog)
 	SHADER_PARAMETER_STRUCT(FPlanarReflectionUniformParameters, PlanarReflection) // Single global planar reflection for the forward pass.
 	SHADER_PARAMETER_STRUCT(FMobileSceneTextureUniformParameters, SceneTextures)
+	// BEGIN META SECTION - XR Soft Occlusions
+	SHADER_PARAMETER_STRUCT(FEnvironmentDepthUniformParameters, EnvironmentDepthParameters)
+	// END META SECTION - XR Soft Occlusions
 	SHADER_PARAMETER_TEXTURE(Texture2D, PreIntegratedGFTexture)
 	SHADER_PARAMETER_SAMPLER(SamplerState, PreIntegratedGFSampler)
 	SHADER_PARAMETER_SRV(Buffer<float4>, EyeAdaptationBuffer)
@@ -328,7 +345,10 @@ namespace MobileBasePass
 
 	bool GetShaders(
 		ELightMapPolicyType LightMapPolicyType,
-		int32 NumMovablePointLights, 
+		int32 NumMovablePointLights,
+		// BEGIN META SECTION - XR Soft Occlusions
+		bool bEnableXRSoftOcclusions,
+		// END META SECTION - XR Soft Occlusions
 		const FMaterial& MaterialResource,
 		FVertexFactoryType* VertexFactoryType,
 		bool bEnableSkyLight, 
@@ -362,7 +382,7 @@ inline bool UseSkylightPermutation(bool bEnableSkyLight, int32 MobileSkyLightPer
 	}
 }
 
-template< typename LightMapPolicyType, EOutputFormat OutputFormat, bool bEnableSkyLight, int32 NumMovablePointLights>
+template< typename LightMapPolicyType, EOutputFormat OutputFormat, bool bEnableSkyLight, int32 NumMovablePointLights, bool bEnableXRSoftOcclusions>
 class TMobileBasePassPS : public TMobileBasePassPSBaseType<LightMapPolicyType>
 {
 	DECLARE_SHADER_TYPE(TMobileBasePassPS,MeshMaterial);
@@ -391,6 +411,15 @@ public:
 			return false;
 		}
 
+		// BEGIN META SECTION - XR Soft Occlusions
+		static auto* XRSoftOcclusionsPermutationCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.XRSoftOcclusionsPermutation"));
+		const int32 XRSoftOcclusionsPermutation = XRSoftOcclusionsPermutationCVar->GetValueOnAnyThread();
+		if (bEnableXRSoftOcclusions && !XRSoftOcclusionsPermutation)
+		{
+			return false;
+		}
+		// END META SECTION - XR Soft Occlusions
+		// 
 		// Deferred shading does not need SkyLight and PointLight permutations
 		// TODO: skip skylight permutations for deferred
 		const bool bShouldCacheByShading = (!bDeferredShading || bMaterialUsesForwardShading) || (NumMovablePointLights == 0);
@@ -414,6 +443,9 @@ public:
 
 		TMobileBasePassPSBaseType<LightMapPolicyType>::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("ENABLE_SKY_LIGHT"), bEnableSkyLight);
+		// BEGIN META SECTION - XR Soft Occlusions
+		OutEnvironment.SetDefine(TEXT("ENABLE_SOFT_OCCLUSIONS"), bEnableXRSoftOcclusions ? 1u : 0u);
+		// END META SECTION - XR Soft Occlusions
 		OutEnvironment.SetDefine(TEXT("OUTPUT_GAMMA_SPACE"), OutputFormat == LDR_GAMMA_32 && !bMobileUseHWsRGBEncoding);
 		OutEnvironment.SetDefine(TEXT("OUTPUT_MOBILE_HDR"), OutputFormat == HDR_LINEAR_64 ? 1u : 0u);
 		if (NumMovablePointLights == INT32_MAX)

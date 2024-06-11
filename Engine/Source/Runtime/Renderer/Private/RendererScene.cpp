@@ -580,6 +580,33 @@ void FScene::UpdateParameterCollections(const TArray<FMaterialParameterCollectio
 	});
 }
 
+// BEGIN META SECTION - XR Soft Occlusions
+void FScene::SetEnableXRPassthroughSoftOcclusions(bool bEnable)
+{
+	if (bEnable)
+	{
+		static auto* XRSoftOcclusionsPermutationCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.XRSoftOcclusionsPermutation"));
+		const int32 SoftOcclusionsPermutation = XRSoftOcclusionsPermutationCVar->GetValueOnAnyThread();
+		if (SoftOcclusionsPermutation == 0)
+		{
+			ensureMsgf(false, TEXT("In order to enable soft occlusions 'Support Soft Occlusions' must be enabled in the project settings."));
+			return;
+		}
+	}
+
+	FScene* Scene = this;
+	ENQUEUE_RENDER_COMMAND(SetEnableXRPassthroughSoftOcclusions)(
+		[Scene, bEnable](FRHICommandListImmediate& RHICmdList)
+		{
+			if (bEnable != Scene->bEnableXRPassthroughSoftOcclusions)
+			{
+				Scene->bEnableXRPassthroughSoftOcclusions = bEnable;
+				Scene->UpdateStaticDrawLists_RenderThread(RHICmdList);
+			}
+		});
+}
+// END META SECTION - XR Soft Occlusions
+
 SIZE_T FScene::GetSizeBytes() const
 {
 	return sizeof(*this) 

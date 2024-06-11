@@ -634,6 +634,24 @@ FRotator FQuat::Rotator() const
 	return RotatorFromQuat;
 }
 
+void FQuat::ToMatrix(FMatrix& R) const
+{
+	// Note: copied and modified from TQuatRotationTranslationMatrix<> mainly to avoid circular dependency.
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) && WITH_EDITORONLY_DATA
+		// Make sure Quaternion is normalized
+	ensure(IsNormalized());
+#endif
+	const float x2 = X + X;    const float y2 = Y + Y;    const float z2 = Z + Z;
+	const float xx = X * x2;   const float xy = X * y2;   const float xz = X * z2;
+	const float yy = Y * y2;   const float yz = Y * z2;   const float zz = Z * z2;
+	const float wx = W * x2;   const float wy = W * y2;   const float wz = W * z2;
+
+	R.M[0][0] = 1.0f - (yy + zz);	R.M[1][0] = xy - wz;				R.M[2][0] = xz + wy;			R.M[3][0] = 0.0f;
+	R.M[0][1] = xy + wz;			R.M[1][1] = 1.0f - (xx + zz);		R.M[2][1] = yz - wx;			R.M[3][1] = 0.0f;
+	R.M[0][2] = xz - wy;			R.M[1][2] = yz + wx;				R.M[2][2] = 1.0f - (xx + yy);	R.M[3][2] = 0.0f;
+	R.M[0][3] = 0.0f;				R.M[1][3] = 0.0f;					R.M[2][3] = 0.0f;				R.M[3][3] = 1.0f;
+}
+
 FQuat FQuat::MakeFromEuler(const FVector& Euler)
 {
 	return FRotator::MakeFromEuler(Euler).Quaternion();

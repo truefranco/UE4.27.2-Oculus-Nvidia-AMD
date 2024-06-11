@@ -175,6 +175,7 @@ public:
 	virtual IStereoLayers* GetStereoLayers() override { return this; }
 	//virtual void UseImplicitHmdPosition(bool bInImplicitHmdPosition) override;
 	//virtual bool GetUseImplicitHmdPosition() override;
+	virtual bool IsStandaloneStereoOnlyDevice() const override { return bIsStandaloneStereoOnlyDevice; }
 	bool SupportsSpaceWarp() const;
 
 	// FHeadMountedDisplayBase interface
@@ -194,6 +195,8 @@ public:
 	virtual bool AllocateDepthTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, ETextureCreateFlags InTexFlags, ETextureCreateFlags TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples = 1) override;
 	virtual bool AllocateShadingRateTexture(uint32 Index, uint32 RenderSizeX, uint32 RenderSizeY, uint8 Format, uint32 NumMips, ETextureCreateFlags InTexFlags, ETextureCreateFlags InTargetableTextureFlags, FTexture2DRHIRef& OutTexture, FIntPoint& OutTextureSize) override;
 	virtual bool AllocateMotionVectorTexture(uint32 Index, uint8 Format, uint32 NumMips, uint32 InTexFlags, uint32 InTargetableTextureFlags, FTexture2DRHIRef& OutTexture, FIntPoint& OutTextureSize, FTexture2DRHIRef& OutDepthTexture, FIntPoint& OutDepthTextureSize) override;
+	virtual bool FindEnvironmentDepthTexture_RenderThread(FTextureRHIRef& OutTexture, FVector2D& OutDepthFactors, FMatrix OutScreenToDepthMatrices[2], FMatrix OutDepthViewProjMatrices[2]) override;
+	virtual EPixelFormat GetActualColorSwapchainFormat() const override;
 	virtual void UpdateViewportWidget(bool bUseSeparateRenderTarget, const class FViewport& Viewport, class SViewport* ViewportWidget) override;
 	virtual FXRRenderBridge* GetActiveRenderBridge_GameThread(bool bUseSeparateRenderTarget);
 	void AllocateEyeBuffer();
@@ -317,6 +320,8 @@ public:
 	bool DoEnableStereo(bool bStereo);
 	void ResetControlRotation() const;
 	void UpdateFoveationOffsets_RenderThread();
+	bool ComputeEnvironmentDepthParameters_RenderThread(FVector2D& DepthFactors, FMatrix ScreenToDepth[ovrpEye_Count], FMatrix DepthViewProj[ovrpEye_Count], int& SwapchainIndex);
+	void RenderHardOcclusions_RenderThread(FRHICommandListImmediate& RHICmdList, const FSceneView& InView);
 
 	FSettingsPtr CreateNewSettings() const;
 	FGameFramePtr CreateNewGameFrame() const;
@@ -354,6 +359,12 @@ public:
 	void SetFoveatedRenderingMethod(EFoveatedRenderingMethod InFoveationMethod);
 	void SetFoveatedRenderingLevel(EFoveatedRenderingLevel InFoveationLevel, bool isDynamic);
 	void SetColorScaleAndOffset(FLinearColor ColorScale, FLinearColor ColorOffset, bool bApplyToAllLayers);
+	void SetEnvironmentDepthHandRemoval(bool RemoveHands);
+	void StartEnvironmentDepth(int CreateFlags);
+	void StopEnvironmentDepth();
+	bool IsEnvironmentDepthStarted();
+
+	void EnableHardOcclusions(bool bEnable);
 
 	OCULUSHMD_API void UpdateRTPoses();
 
@@ -388,6 +399,20 @@ protected:
 	void UpdateInsightPassthrough();
 	void ShutdownInsightPassthrough();
 
+	void DrawHmdViewMesh(
+		FRHICommandList& RHICmdList,
+		float X,
+		float Y,
+		float SizeX,
+		float SizeY,
+		float U,
+		float V,
+		float SizeU,
+		float SizeV,
+		FIntPoint TargetSize,
+		FIntPoint TextureSize,
+		int32 StereoView,
+		const TShaderRef<class FShader>& VertexShader);
 
 	union
 	{
@@ -435,9 +460,12 @@ protected:
 	TWeakPtr<SWindow> CachedWindow;
 	FVector2D CachedWindowSize;
 	float CachedWorldToMetersScale;
+	bool bIsStandaloneStereoOnlyDevice;
 	// Stores TrackingToWorld from previous frame
 	FTransform LastTrackingToWorld;
-	
+	std::atomic<bool> bHardOcclusionsEnabled;
+	std::atomic<bool> bEnvironmentDepthHandRemovalEnabled;
+
 	// These three properties indicate the current state of foveated rendering, which may differ from what's in Settings
 	// due to cases such as falling back to FFR when eye tracked foveated rendering isn't enabled. Will allow us to resume
 	// ETFR from situations such as when ET gets paused.
@@ -478,6 +506,8 @@ protected:
 
 	FRotator SplashRotation; // rotation applied to all splash screens (dependent on HMD orientation as the splash is shown)
 
+	TArray<FTextureRHIRef> EnvironmentDepthSwapchain;
+
 #if !UE_BUILD_SHIPPING
 	FDelegateHandle DrawDebugDelegateHandle;
 #endif
@@ -495,6 +525,11 @@ protected:
 
 	TArray<FOculusHMDEventPollingDelegate> EventPollingDelegates;
 	bool bEyeTrackedFoveatedRenderingSupported;
+
+	// MultiPlayer
+	bool bMultiPlayer;
+	bool bShouldWait_GameThread;
+	bool bIsRendering_RenderThread;
 };
 
 typedef TSharedPtr< FOculusHMD, ESPMode::ThreadSafe > FOculusHMDPtr;

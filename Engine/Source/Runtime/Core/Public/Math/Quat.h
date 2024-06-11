@@ -410,6 +410,11 @@ public:
 	/** Get the FRotator representation of this Quaternion. */
 	CORE_API FRotator Rotator() const;
 
+	/** Get the FMatrix representation of this Quaternion. */
+	FORCEINLINE FMatrix ToMatrix() const;
+
+	/** Get the FMatrix representation of this Quaternion and store it in Mat */
+	CORE_API void ToMatrix(FMatrix& Mat) const;
 	/**
 	 * Get the axis of rotation of the Quaternion.
 	 * This is the axis around which rotation occurs to transform the canonical coordinate system to the target orientation.
@@ -1170,6 +1175,12 @@ FORCEINLINE FVector FQuat::Vector() const
 	return GetAxisX();
 }
 
+FORCEINLINE FMatrix FQuat::ToMatrix() const
+{
+	FMatrix R;
+	ToMatrix(R);
+	return R;
+}
 
 FORCEINLINE float FQuat::Error(const FQuat& Q1, const FQuat& Q2)
 {

@@ -1480,9 +1480,9 @@ void AddMobileTonemapperSubpass(FRDGBuilder& GraphBuilder, const FViewInfo& View
 	PSShaderParameters->ColorGradingLUT = Inputs.ColorGradingTexture;
 	PSShaderParameters->ColorGradingLUTSampler = BilinearClampSampler;
 
-#if UE_EDITOR
-	SetupMobileSceneTextureUniformParameters(GraphBuilder, EMobileSceneTextureSetupMode::SceneColor, PSShaderParameters->SceneTextures);
-#endif
+//#if UE_EDITOR
+	//SetupMobileSceneTextureUniformParameters(GraphBuilder, EMobileSceneTextureSetupMode::SceneColor, PSShaderParameters->SceneTextures);
+//#endif
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 	GraphBuilder.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);

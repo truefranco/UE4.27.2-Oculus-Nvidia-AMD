@@ -261,6 +261,9 @@ public:
 
 	virtual	int32 PixelDepth()=0;
 	virtual int32 SceneDepth(int32 Offset, int32 ViewportUV, bool bUseOffset) = 0;
+	// BEGIN META SECTION - XR Soft Occlusions
+	virtual int32 EnvironmentDepth(int32 Offset, int32 ViewportUV, bool bUseOffset) = 0;
+	// END META SECTION - XR Soft Occlusions
 	virtual int32 SceneColor(int32 Offset, int32 ViewportUV, bool bUseOffset) = 0;
 	// @param SceneTextureId of type ESceneTextureId e.g. PPI_SubsurfaceColor
 	virtual int32 SceneTextureLookup(int32 ViewportUV, uint32 SceneTextureId, bool bFiltered) = 0;
@@ -546,6 +549,9 @@ public:
 
 	virtual	int32 PixelDepth() override { return Compiler->PixelDepth();	}
 	virtual int32 SceneDepth(int32 Offset, int32 ViewportUV, bool bUseOffset) override { return Compiler->SceneDepth(Offset, ViewportUV, bUseOffset); }
+	// BEGIN META SECTION - XR Soft Occlusions
+	virtual int32 EnvironmentDepth(int32 Offset, int32 ViewportUV, bool bUseOffset) override { return Compiler->EnvironmentDepth(Offset, ViewportUV, bUseOffset); }
+	// END META SECTION - XR Soft Occlusions
 	virtual int32 SceneColor(int32 Offset, int32 ViewportUV, bool bUseOffset) override { return Compiler->SceneColor(Offset, ViewportUV, bUseOffset); }
 	virtual int32 SceneTextureLookup(int32 ViewportUV, uint32 InSceneTextureId, bool bFiltered) override { return Compiler->SceneTextureLookup(ViewportUV, InSceneTextureId, bFiltered); }
 	virtual int32 GetSceneTextureViewSize(int32 SceneTextureId, bool InvProperty) override { return Compiler->GetSceneTextureViewSize(SceneTextureId, InvProperty); }

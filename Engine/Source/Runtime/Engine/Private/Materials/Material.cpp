@@ -959,6 +959,9 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	bIsBlendable = true;
 	bEnableStencilTest = false;
 
+	// BEGIN META SECTION - XR Soft Occlusions
+	bXRSoftOcclusions = true;
+
 	bUseEmissiveForDynamicAreaLighting = false;
 	bBlockGI = false;
 	RefractionDepthBias = 0.0f;

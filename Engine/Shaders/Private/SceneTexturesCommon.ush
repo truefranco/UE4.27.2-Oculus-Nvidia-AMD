@@ -52,6 +52,14 @@ float4 CalcFullSceneColor(float2 ScreenUV)
 #endif
 }
 
+// BEGIN META SECTION - XR Soft Occlusions
+/** Returns the mixed reality environment depth */
+float CalcEnvironmentDepth(float2 ScreenUV, uint ViewId)
+{
+	return SCENE_TEXTURES_DISABLED_SCENE_DEPTH_VALUE;
+}
+// END META SECTION - XR Soft Occlusions
+
 /** Fetches device depth and converts to linear. */
 float CalcSceneDepth(float2 ScreenUV)
 {
@@ -163,5 +171,17 @@ float CalcSceneDepth(float2 ScreenUV)
 	return ConvertFromDeviceZ(LookupDeviceZ(ScreenUV));
 #endif
 }
+
+// BEGIN META SECTION - XR Soft Occlusions
+/** Returns the mixed reality environment depth */
+float CalcEnvironmentDepth(float2 ScreenUV, uint ViewId)
+{
+	float4 TexCoordH = mul(MobileBasePass.EnvironmentDepthParameters.ScreenToDepthMatrices[ViewId], float4(ScreenUV.x, 1.0f - ScreenUV.y, 0.0, 1.0));
+	float3 TexCoord = float3(TexCoordH.x / TexCoordH.w, TexCoordH.y / TexCoordH.w, ViewId);
+	float RawDepth = Texture2DArraySample(MobileBasePass.EnvironmentDepthParameters.EnvironmentDepthTexture, MobileBasePass.EnvironmentDepthParameters.EnvironmentDepthSampler, TexCoord).r;
+	float ConvertedDepth = RawDepth * MobileBasePass.EnvironmentDepthParameters.DepthFactors.x + MobileBasePass.EnvironmentDepthParameters.DepthFactors.y;
+	return ConvertFromDeviceZ(ConvertedDepth);
+}
+// END META SECTION - XR Soft Occlusions
 
 #endif // SHADING_PATH_MOBILE

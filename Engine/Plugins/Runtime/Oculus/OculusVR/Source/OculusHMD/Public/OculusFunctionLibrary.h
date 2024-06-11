@@ -606,6 +606,44 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	static bool IsColorPassthroughSupported();
 
 	/**
+	* Create the environment depth texture swap chain and start receiving
+	* depth texture every frame until stopped.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	static void StartEnvironmentDepth();
+
+	/**
+	* Destroy the environment depth texture swap chain and stop receiving
+	* new depth textures every frame. Call this when environment depth is
+	* no longer needed to free up resources.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	static void StopEnvironmentDepth();
+
+	/**
+	* Returns true if StartEnvironmentDepth() has been called and is currently running.
+	* If called right after calling StartEnvironmentDepth() it'll return false as it needs some time for EnvironmentDepth to start
+	*/
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
+	static bool IsEnvironmentDepthStarted();
+
+	/**
+	* When hands removal is enabled and hand tracking is active, the region
+	* of the depth texture which contains the hands will be replaced with
+	* the best estimate for depth behind the hands.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	static void SetEnvironmentDepthHandRemoval(bool RemoveHands);
+
+	/**
+	* Sets the occlusions mode using environment depth. When occlusions are enabled
+	* virtual objects that are behind physical objects will be occluded so that
+	* the sense of immersion is preserved.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (WorldContext = "WorldContextObject"))
+	static void SetXROcclusionsMode(UObject* WorldContextObject, EOculusXROcclusionsMode Mode);
+
+	/**
 	* Turns on or off local dimming
 	*/
 	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")

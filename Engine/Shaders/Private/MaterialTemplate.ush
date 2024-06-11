@@ -314,6 +314,10 @@ struct FMaterialPixelParameters
 	// Index into View.PrimitiveSceneData
 	uint PrimitiveId;
 
+	// BEGIN META SECTION - XR Soft Occlusions
+	uint ViewId;
+// END META SECTION - XR Soft Occlusions
+	
 	// Actual primitive Id
 #if IS_HAIR_FACTORY
 	uint	HairPrimitiveId;	// Control point ID
@@ -2156,6 +2160,12 @@ half GetMaterialAnisotropyRaw(FPixelMaterialInputs PixelMaterialInputs)
 half GetMaterialAnisotropy(FPixelMaterialInputs PixelMaterialInputs)
 {
 	return clamp(GetMaterialAnisotropyRaw(PixelMaterialInputs), -1.0f, 1.0f);
+}
+
+// BEGIN META SECTION - XR Soft Occlusions
+uint GetViewId(FMaterialPixelParameters Parameters)
+{
+	return Parameters.ViewId;
 }
 
 half GetMaterialTranslucencyDirectionalLightingIntensity()

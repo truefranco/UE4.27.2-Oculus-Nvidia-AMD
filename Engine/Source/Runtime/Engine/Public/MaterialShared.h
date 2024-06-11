@@ -1761,6 +1761,8 @@ public:
 	virtual bool HasRuntimeVirtualTextureOutput() const { return false; }
 	virtual bool HasMaterialLayers() const { return false; }
 	virtual bool CastsRayTracedShadows() const { return true; }
+	// BEGIN META SECTION - XR Soft Occlusions
+	virtual bool IsXRSoftOcclusionsEnabled() const { return false; }
 	virtual EMaterialShadingRate GetShadingRate() const { return MSR_1x1; }
 	virtual bool ShouldWriteDepthToTranslucentMaterial() const { return false; }
 	/**
@@ -2618,6 +2620,8 @@ public:
 	ENGINE_API virtual bool HasRuntimeVirtualTextureOutput() const override;
 	ENGINE_API virtual bool HasMaterialLayers() const override;
 	ENGINE_API virtual bool CastsRayTracedShadows() const override;
+	// BEGIN META SECTION - XR Soft Occlusions
+	ENGINE_API virtual bool IsXRSoftOcclusionsEnabled() const override;
 	ENGINE_API  virtual UMaterialInterface* GetMaterialInterface() const override;
 	ENGINE_API virtual bool ShouldWriteDepthToTranslucentMaterial() const override;
 	/**

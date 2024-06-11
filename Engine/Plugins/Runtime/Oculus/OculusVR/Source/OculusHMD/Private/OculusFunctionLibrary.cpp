@@ -857,6 +857,64 @@ bool UOculusFunctionLibrary::IsColorPassthroughSupported() {
 	return false;
 }
 
+void UOculusFunctionLibrary::StartEnvironmentDepth()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		int CreateFlags = 0;
+		OculusHMD->StartEnvironmentDepth(CreateFlags);
+	}
+#endif
+}
+
+void UOculusFunctionLibrary::StopEnvironmentDepth()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		OculusHMD->StopEnvironmentDepth();
+	}
+#endif
+}
+
+bool UOculusFunctionLibrary::IsEnvironmentDepthStarted()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		return OculusHMD->IsEnvironmentDepthStarted();
+	}
+#endif
+	return false;
+}
+
+void UOculusFunctionLibrary::SetEnvironmentDepthHandRemoval(bool RemoveHands)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		OculusHMD->SetEnvironmentDepthHandRemoval(RemoveHands);
+	}
+#endif
+}
+
+void UOculusFunctionLibrary::SetXROcclusionsMode(UObject* WorldContextObject, EOculusXROcclusionsMode Mode)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		OculusHMD->EnableHardOcclusions(Mode == EOculusXROcclusionsMode::HardOcclusions);
+	}
+	WorldContextObject->GetWorld()->Scene->SetEnableXRPassthroughSoftOcclusions(Mode == EOculusXROcclusionsMode::SoftOcclusions);
+#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+}
+
 void UOculusFunctionLibrary::SetLocalDimmingOn(bool LocalDimmingOn)
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS

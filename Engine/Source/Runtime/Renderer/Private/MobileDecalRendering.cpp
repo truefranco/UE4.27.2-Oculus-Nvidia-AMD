@@ -227,9 +227,9 @@ TUniformBufferRef<FMobileDecalPassUniformParameters> CreateMobileDecalPassUnifor
 	return TUniformBufferRef<FMobileDecalPassUniformParameters>::CreateUniformBufferImmediate(Parameters, UniformBuffer_SingleFrame);
 }
 
-void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
+void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 {
-	if (!DoesPlatformSupportDecals(View.GetShaderPlatform()) || !ViewFamily.EngineShowFlags.Decals || View.bIsPlanarReflection)
+	if (!DoesPlatformSupportDecals(Views[0].GetShaderPlatform()) || !ViewFamily.EngineShowFlags.Decals || Views[0].bIsPlanarReflection)
 	{
 		return;
 	}
@@ -239,14 +239,16 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList, co
 	
 	if (Scene->Decals.Num() > 0)
 	{
-		FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, View);
-		FUniformBufferStaticBindings GlobalUniformBuffers(PassUniformBuffer);
-		SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
-		RenderDeferredDecalsMobile(RHICmdList, *Scene, View);
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		{
+			FUniformBufferRHIRef PassUniformBuffer = CreateMobileDecalPassUniformBuffer(RHICmdList, Views[ViewIndex]);
+			FUniformBufferStaticBindings GlobalUniformBuffers(PassUniformBuffer);
+			SCOPED_UNIFORM_BUFFER_GLOBAL_BINDINGS(RHICmdList, GlobalUniformBuffers);
+			RenderDeferredDecalsMobile(RHICmdList, *Scene, Views[ViewIndex]);
+		}
 	}
 	
-	
-    // Mesh decals
+	// Mesh decals
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		const FViewInfo& view = Views[ViewIndex];
@@ -288,10 +290,7 @@ void RenderDeferredDecalsMobile(FRHICommandList& RHICmdList, const FScene& Scene
 		SCOPED_DRAW_EVENT(RHICmdList, DeferredDecals);
 		INC_DWORD_STAT_BY(STAT_Decals, SortedDecals.Num());
 		
-		//RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
-		// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
-		FMobileSceneRenderer::SetViewport(RHICmdList, View);
-		// END META SECTION - Multi-View Per View Viewports / Render Areas
+		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
 
 		RHICmdList.SetStreamSource(0, GetUnitCubeVertexBuffer(), 0);
 

@@ -2182,7 +2182,7 @@ protected:
 	bool RequiresMultiPass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View) const;
 
 	/** Renders decals. */
-	void RenderDecals(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+	void RenderDecals(FRHICommandListImmediate& RHICmdList);
 
 	/** Renders the base pass for translucency. */
 	void RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews);

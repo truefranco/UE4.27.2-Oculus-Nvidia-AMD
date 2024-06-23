@@ -580,6 +580,8 @@ namespace OculusHMD
 		CachedViewportWidget.Reset();
 		CachedWindow.Reset();
 
+		bHardOcclusionsEnabled = false;
+
 #if WITH_EDITOR
 		// @TODO: add more values here.
 		// This call make sense when 'Play' is used from the Editor;
@@ -1411,9 +1413,9 @@ namespace OculusHMD
 
 	void FOculusHMD::AdjustViewRect(EStereoscopicPass StereoPass, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const
 	{
+		const int32 ViewIndex = GetViewIndexForPass(StereoPass);
 		if (Settings.IsValid())
 		{
-			const int32 ViewIndex = GetViewIndexForPass(StereoPass);
 			X = Settings->EyeUnscaledRenderViewport[ViewIndex].Min.X;
 			Y = Settings->EyeUnscaledRenderViewport[ViewIndex].Min.Y;
 			SizeX = Settings->EyeUnscaledRenderViewport[ViewIndex].Size().X;
@@ -1422,10 +1424,7 @@ namespace OculusHMD
 		else
 		{
 			SizeX = SizeX / 2;
-			if (StereoPass == eSSP_RIGHT_EYE)
-			{
-				X += SizeX;
-			}
+			X += SizeX * ViewIndex;
 		}
 	}
 
@@ -2372,6 +2371,11 @@ namespace OculusHMD
 
 	void FOculusHMD::PostRenderBasePass_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
 	{
+		if (bHardOcclusionsEnabled)
+		{
+			RenderHardOcclusions_RenderThread(RHICmdList, InView);
+		}
+
 		UpdateFoveationOffsets_RenderThread();
 	}
 

@@ -106,81 +106,89 @@ public:
 	void SetParameters(FRHICommandList& RHICmdList, const FViewInfo& View, const FMaterialRenderProxy* MaterialProxy, const FDeferredDecalProxy& DecalProxy, const float FadeAlphaValue=1.0f)
 	{
 		FRHIPixelShader* ShaderRHI = RHICmdList.GetBoundPixelShader();
-
 		const FMaterialRenderProxy* MaterialProxyForRendering = MaterialProxy;
 		const FMaterial& Material = MaterialProxy->GetMaterialWithFallback(View.GetFeatureLevel(), MaterialProxyForRendering);
 		FMaterialShader::SetViewParameters(RHICmdList, ShaderRHI, View, View.ViewUniformBuffer);
 		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxyForRendering, Material, View);
-
-		FTransform ComponentTrans = DecalProxy.ComponentTrans;
-
-		FMatrix WorldToComponent = ComponentTrans.ToInverseMatrixWithScale();
-
+		
+		const FMatrix WorldToComponent = DecalProxy.ComponentTrans.ToInverseMatrixWithScale();
 		// Set the transform from screen space to light space.
-		if(SvPositionToDecal.IsBound())
+		if (View.Family->Views.Num() == 1)
+		{
+			if (SvPositionToDecal.IsBound())
+			{
+				
+				FVector2D InvViewSize = FVector2D(1.0f / View.ViewRect.Width(), 1.0f / View.ViewRect.Height());
+
+				float Mx = 2.0f * InvViewSize.X;
+				float My = -2.0f * InvViewSize.Y;
+				float Ax = -1.0f - 2.0f * View.ViewRect.Min.X * InvViewSize.X;
+				float Ay = 1.0f + 2.0f * View.ViewRect.Min.Y * InvViewSize.Y;
+
+				// todo: we could use InvTranslatedViewProjectionMatrix and TranslatedWorldToComponent for better quality
+				const FMatrix SvPositionToDecalValue =
+					FMatrix(
+						FPlane(Mx, 0, 0, 0),
+						FPlane(0, My, 0, 0),
+						FPlane(0, 0, 1, 0),
+						FPlane(Ax, Ay, 0, 1)
+					) * View.ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent;
+				SetShaderValue(RHICmdList, ShaderRHI, SvPositionToDecal, SvPositionToDecalValue);
+			}
+		}
+		
+		if (SvPositionToDecal.IsBound() && View.Family->Views.Num() > 1 && IStereoRendering::IsAPrimaryView(View))   //&& IStereoRendering::IsAPrimaryView(View)
 		{
 			FVector2D InvViewSize = FVector2D(1.0f / View.ViewRect.Width(), 1.0f / View.ViewRect.Height());
-
-			// setup a matrix to transform float4(SvPosition.xyz,1) directly to Decal (quality, performance as we don't need to convert or use interpolator)
-
-			//	new_xy = (xy - ViewRectMin.xy) * ViewSizeAndInvSize.zw * float2(2,-2) + float2(-1, 1);
-
-			//  transformed into one MAD:  new_xy = xy * ViewSizeAndInvSize.zw * float2(2,-2)      +       (-ViewRectMin.xy) * ViewSizeAndInvSize.zw * float2(2,-2) + float2(-1, 1);
-
 			float Mx = 2.0f * InvViewSize.X;
 			float My = -2.0f * InvViewSize.Y;
 			float Ax = -1.0f - 2.0f * View.ViewRect.Min.X * InvViewSize.X;
 			float Ay = 1.0f + 2.0f * View.ViewRect.Min.Y * InvViewSize.Y;
 
 			// todo: we could use InvTranslatedViewProjectionMatrix and TranslatedWorldToComponent for better quality
-			const FMatrix SvPositionToDecalValue = 
+			const FMatrix SvPositionToDecalValue =
 				FMatrix(
-					FPlane(Mx,  0,   0,  0),
-					FPlane( 0, My,   0,  0),
-					FPlane( 0,  0,   1,  0),
-					FPlane(Ax, Ay,   0,  1)
+					FPlane(Mx, 0, 0, 0),
+					FPlane(0, My, 0, 0),
+					FPlane(0, 0, 1, 0),
+					FPlane(Ax, Ay, 0, 1)
 				) * View.ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent;
-
+			
 			SetShaderValue(RHICmdList, ShaderRHI, SvPositionToDecal, SvPositionToDecalValue);
 		}
-		if (InstancedSvPositionToDecal.IsBound())
+		if (InstancedSvPositionToDecal.IsBound() && View.Family->Views.Num() > 1 && IStereoRendering::IsASecondaryView(View))
 		{
-			if (View.SecondViewportView != nullptr)
-			{
-				const FViewInfo & SView= *View.SecondViewportView;
-				FVector2D InvInstancedViewSize = FVector2D(1.0f / SView.ViewRect.Width(), 1.0f / SView.ViewRect.Height());
+			const FViewInfo* InstancedView = static_cast<const FViewInfo*>(View.Family->Views[1]);
+			
+			FVector2D InvInstancedViewSize = FVector2D(1.0f / InstancedView->ViewRect.Width(), 1.0f / InstancedView->ViewRect.Height());
 
-				float InstancedMx = 2.0f * InvInstancedViewSize.X;
-				float InstancedMy = -2.0f * InvInstancedViewSize.Y;
-				float InstancedAx = -1.0f - 2.0f * SView.ViewRect.Min.X * InvInstancedViewSize.X;
-				float InstancedAy = 1.0f + 2.0f * SView.ViewRect.Min.Y * InvInstancedViewSize.Y;
+			float InstancedMx = 2.0f * InvInstancedViewSize.X;
+			float InstancedMy = -2.0f * InvInstancedViewSize.Y;
+			float InstancedAx = -1.0f - 2.0f * InstancedView->ViewRect.Min.X * InvInstancedViewSize.X;
+			float InstancedAy = 1.0f + 2.0f * InstancedView->ViewRect.Min.Y * InvInstancedViewSize.Y;
 
-				const FMatrix InstancedSvPositionToDecalValue = 										
-					FMatrix(
-						FPlane(InstancedMx, 0, 0, 0),
-						FPlane(0, InstancedMy, 0, 0),
-						FPlane(0, 0, 1, 0),
-						FPlane(InstancedAx, InstancedAy, 0, 1)
-					) * SView.ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent;
-
-				SetShaderValue(RHICmdList, ShaderRHI, InstancedSvPositionToDecal, InstancedSvPositionToDecalValue);
- 
-			}
+			const FMatrix InstancedSvPositionToDecalValue = FMatrix(										// LWC_TODO: Precision loss
+				FMatrix(
+					FPlane(InstancedMx, 0, 0, 0),
+					FPlane(0, InstancedMy, 0, 0),
+					FPlane(0, 0, 1, 0),
+					FPlane(InstancedAx, InstancedAy, 0, 1)
+				) * InstancedView->ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent);
+			SetShaderValue(RHICmdList, ShaderRHI, InstancedSvPositionToDecal, InstancedSvPositionToDecalValue);
 		}
-		// Set the transform from light space to world space
 		if(DecalToWorld.IsBound())
 		{
-			const FMatrix DecalToWorldValue = ComponentTrans.ToMatrixWithScale();
+			const FMatrix DecalToWorldValue = DecalProxy.ComponentTrans.ToMatrixWithScale();
 			
 			SetShaderValue(RHICmdList, ShaderRHI, DecalToWorld, DecalToWorldValue);
 		}
-
+		
 		SetShaderValue(RHICmdList, ShaderRHI, WorldToDecal, WorldToComponent);
-
+		
 		if (DecalOrientation.IsBound())
 		{
 			// can get DecalOrientation form DecalToWorld matrix, but it will require binding whole matrix and normalizing axis in the shader
-			SetShaderValue(RHICmdList, ShaderRHI, DecalOrientation, ComponentTrans.GetUnitAxis(EAxis::X));
+			SetShaderValue(RHICmdList, ShaderRHI, DecalOrientation, DecalProxy.ComponentTrans.GetUnitAxis(EAxis::X));
 		}
 		
 		float LifetimeAlpha = 1.0f;
@@ -190,7 +198,7 @@ public:
 		{
 			LifetimeAlpha = FMath::Clamp(FMath::Min(View.Family->CurrentWorldTime * -DecalProxy.InvFadeDuration + DecalProxy.FadeStartDelayNormalized, View.Family->CurrentWorldTime * DecalProxy.InvFadeInDuration + DecalProxy.FadeInStartDelayNormalized), 0.0f, 1.0f);
 		}
- 
+		
 		SetShaderValue(RHICmdList, ShaderRHI, DecalParams, FVector2D(FadeAlphaValue, LifetimeAlpha));
 	}
 
@@ -389,9 +397,7 @@ void FDecalRendering::SetShader(FRHICommandList& RHICmdList, FGraphicsPipelineSt
 		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = VertexShader.GetVertexShader();
 		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = PixelShader.GetPixelShader();
 		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-		PixelShader->SetParameters(RHICmdList, View, DecalData.MaterialProxy, *DecalData.DecalProxy, DecalData.FadeAlpha);
+        SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 	}
 
 	// SetUniformBufferParameter() need to happen after the shader has been set otherwise a DebugBreak could occur.
@@ -415,7 +421,9 @@ void FDecalRendering::SetShader(FRHICommandList& RHICmdList, FGraphicsPipelineSt
 	}
 
 	VertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer, FrustumComponentToClip);
-
+	PixelShader->SetParameters(RHICmdList, View, DecalData.MaterialProxy, *DecalData.DecalProxy, DecalData.FadeAlpha);
+	
+	
 	// Set stream source after updating cached strides
 	RHICmdList.SetStreamSource(0, GetUnitCubeVertexBuffer(), 0);
 }

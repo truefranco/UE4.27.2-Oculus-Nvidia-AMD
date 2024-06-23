@@ -1348,17 +1348,12 @@ FRHITexture* FMobileSceneRenderer::RenderForward(FRHICommandListImmediate& RHICm
 		RHICmdList.NextSubpass();
 	}
 
-	if (Views.Num() > 1)
-	{
-		Views[0].SecondViewportView = &Views[1];
-	}
-
 	if (!View.bIsPlanarReflection)
 	{
 		if (ViewFamily.EngineShowFlags.Decals)
 		{
 			CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderDecals);
-			RenderDecals(RHICmdList, Views[0]);
+			RenderDecals(RHICmdList);
 		}
 
 		if (ViewFamily.EngineShowFlags.DynamicShadows)
@@ -1515,7 +1510,7 @@ FRHITexture* FMobileSceneRenderer::RenderDeferred(FRHICommandListImmediate& RHIC
 		if (ViewFamily.EngineShowFlags.Decals)
 		{
 			CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderDecals);
-			RenderDecals(RHICmdList, *ViewList[0]);
+			RenderDecals(RHICmdList);
 		}
 
 		// SceneColor write, SceneDepth is read only
@@ -1557,7 +1552,7 @@ FRHITexture* FMobileSceneRenderer::RenderDeferred(FRHICommandListImmediate& RHIC
 			if (ViewFamily.EngineShowFlags.Decals)
 			{
 				CSV_SCOPED_TIMING_STAT_EXCLUSIVE(RenderDecals);
-				RenderDecals(RHICmdList, *ViewList[0]);
+				RenderDecals(RHICmdList);
 			}
 			
 			RHICmdList.EndRenderPass();

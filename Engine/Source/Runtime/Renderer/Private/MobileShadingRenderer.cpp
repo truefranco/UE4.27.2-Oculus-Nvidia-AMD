@@ -1697,7 +1697,7 @@ bool FMobileSceneRenderer::RequiresMultiPass(FRHICommandListImmediate& RHICmdLis
 		return false;
 	}
 
-	return true;
+    return true;
 }
 
 
@@ -2043,19 +2043,3 @@ void FMobileSceneRenderer::RenderHZB(FRDGBuilder& GraphBuilder, FRDGTextureRef S
 		}
 	}
 }
-
-// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
-void FMobileSceneRenderer::SetViewport(FRHICommandList& RHICmdList, const FViewInfo& View)
-{
-	if (View.SecondViewportView != nullptr)
-	{
-		//FIntRect ScissorRects[2] = { View.ViewRect, View.SecondViewportView->ViewRect };
-		RHICmdList.SetStereoViewport(View.ViewRect.Min.X, View.SecondViewportView->ViewRect.Min.X, View.ViewRect.Min.Y, View.SecondViewportView->ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.SecondViewportView->ViewRect.Max.X, View.ViewRect.Max.Y, View.SecondViewportView->ViewRect.Max.Y, 1.0f);
-		//RHICmdList.SetViewport(View.SecondViewportView->ViewRect.Min.X, View.SecondViewportView->ViewRect.Min.Y, 0.0f, View.SecondViewportView->ViewRect.Max.X, View.SecondViewportView->ViewRect.Max.Y, 1.0f);
-	}
-	else
-	{
-		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
-	}
-}
-// END META SECTION - Multi-View Per View Viewports / Render Areas

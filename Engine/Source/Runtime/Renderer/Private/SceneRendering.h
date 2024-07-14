@@ -1350,9 +1350,6 @@ public:
 
 	FShaderDrawDebugData ShaderDrawData;
 
-	// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
-	FViewInfo* SecondViewportView = nullptr;
-	// END META SECTION - Multi-View Per View Viewports / Render Areas
 	FRDGTextureRef EnvironmentDepthTexture = nullptr;
 	FVector2D DepthFactors{ -1.0f, 1.0f };
 	FMatrix ScreenToDepthMatrices[2]{ {},{} };
@@ -2127,10 +2124,6 @@ public:
 	virtual bool SupportsMSAA() const override;
 
 	bool RenderInverseOpacity(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
-
-	// BEGIN META SECTION - Multi-View Per View Viewports / Render Areas
-	static void SetViewport(FRHICommandList& RHICmdList, const FViewInfo& View);
-	// END META SECTION - Multi-View Per View Viewports / Render Areas
 
 protected:
 	/** Finds the visible dynamic shadows for each view. */

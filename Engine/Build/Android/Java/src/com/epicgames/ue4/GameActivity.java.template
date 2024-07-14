@@ -2401,7 +2401,7 @@ public class GameActivity extends $${gameActivitySuperClass}$$ implements Surfac
 		if (PermissionHelper.checkPermission("android.permission.CHANGE_WIFI_MULTICAST_STATE"))
 		{
 			WifiManager wifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
-			MultiCastLock = wifiManager.createMulticastLock("UE");
+			MultiCastLock = wifiManager.createMulticastLock("UE4");
 			MultiCastLock.setReferenceCounted(true);
 		}
 

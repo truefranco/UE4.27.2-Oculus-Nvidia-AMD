@@ -2912,7 +2912,7 @@ bool FAndroidMisc::HasActiveWiFiConnection()
 }
 #endif
 
-JNI_METHOD void Java_com_epicgames_unreal_GameActivity_nativeNetworkChanged(JNIEnv* jenv, jobject thiz)
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeNetworkChanged(JNIEnv* jenv, jobject thiz)
 {
 	if (FTaskGraphInterface::IsRunning())
 	{

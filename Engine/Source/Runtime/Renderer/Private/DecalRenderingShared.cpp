@@ -95,17 +95,31 @@ public:
 	FDeferredDecalPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FMaterialShader(Initializer)
 	{
+		DecalPositionHigh.Bind(Initializer.ParameterMap, TEXT("DecalPositionHigh"));
 		SvPositionToDecal.Bind(Initializer.ParameterMap,TEXT("SvPositionToDecal"));
-		InstancedSvPositionToDecal.Bind(Initializer.ParameterMap, TEXT("InstancedSvPositionToDecal"));
+		RightEyeSvPositionToDecal.Bind(Initializer.ParameterMap, TEXT("RightEyeSvPositionToDecal"));
 		DecalToWorld.Bind(Initializer.ParameterMap,TEXT("DecalToWorld"));
 		WorldToDecal.Bind(Initializer.ParameterMap,TEXT("WorldToDecal"));
+		DecalToWorldInvScale.Bind(Initializer.ParameterMap, TEXT("DecalToWorldInvScale"));
 		DecalOrientation.Bind(Initializer.ParameterMap,TEXT("DecalOrientation"));
 		DecalParams.Bind(Initializer.ParameterMap, TEXT("DecalParams"));
+		DecalColorParam.Bind(Initializer.ParameterMap, TEXT("DecalColorParam"));
+		MobileBasePassUniformBuffer.Bind(Initializer.ParameterMap, FMobileBasePassUniformParameters::FTypeInfo::GetStructMetadata()->GetShaderVariableName());
+		MobileDirectionLightBufferParam.Bind(Initializer.ParameterMap, FMobileDirectionalLightShaderParameters::FTypeInfo::GetStructMetadata()->GetShaderVariableName());
+		MobileReflectionCaptureParam.Bind(Initializer.ParameterMap, FMobileReflectionCaptureShaderParameters::FTypeInfo::GetStructMetadata()->GetShaderVariableName());
 	}
 
 	void SetParameters(FRHICommandList& RHICmdList, const FViewInfo& View, const FMaterialRenderProxy* MaterialProxy, const FDeferredDecalProxy& DecalProxy, const float FadeAlphaValue=1.0f)
 	{
 		FRHIPixelShader* ShaderRHI = RHICmdList.GetBoundPixelShader();
+
+		auto& PrimitivePS = GetUniformBufferParameter<FPrimitiveUniformShaderParameters>();
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, PrimitivePS, GIdentityPrimitiveUniformBuffer);
+
+		
+		const FMatrix DecalToWorldMatrix = DecalProxy.ComponentTrans.ToMatrixWithScale();
+		const FVector AbsoluteOrigin(DecalToWorldMatrix.GetOrigin());
+		const FVector PositionHigh = AbsoluteOrigin; {};
 		const FMaterialRenderProxy* MaterialProxyForRendering = MaterialProxy;
 		const FMaterial& Material = MaterialProxy->GetMaterialWithFallback(View.GetFeatureLevel(), MaterialProxyForRendering);
 		FMaterialShader::SetViewParameters(RHICmdList, ShaderRHI, View, View.ViewUniformBuffer);
@@ -113,77 +127,81 @@ public:
 		
 		const FMatrix WorldToComponent = DecalProxy.ComponentTrans.ToInverseMatrixWithScale();
 		// Set the transform from screen space to light space.
-		
+		if (DecalPositionHigh.IsBound())
+		{
+			SetShaderValue(RHICmdList, ShaderRHI, DecalPositionHigh, PositionHigh);
+		}
+
 		if (SvPositionToDecal.IsBound() && View.GetFeatureLevel() >= ERHIFeatureLevel::Type::SM5 || IsSimulatedPlatform(View.Family->GetShaderPlatform()))
 		{
 			FVector2D InvViewSize = FVector2D(1.0f / View.ViewRect.Width(), 1.0f / View.ViewRect.Height());
 
-	        float Mx = 2.0f * InvViewSize.X;
+			float Mx = 2.0f * InvViewSize.X;
 			float My = -2.0f * InvViewSize.Y;
 			float Ax = -1.0f - 2.0f * View.ViewRect.Min.X * InvViewSize.X;
 			float Ay = 1.0f + 2.0f * View.ViewRect.Min.Y * InvViewSize.Y;
 
 			// todo: we could use InvTranslatedViewProjectionMatrix and TranslatedWorldToComponent for better quality
-			const FMatrix SvPositionToDecalValue =
-				FMatrix(
-					FPlane(Mx, 0, 0, 0),
-					FPlane(0, My, 0, 0),
-					FPlane(0, 0, 1, 0),
-					FPlane(Ax, Ay, 0, 1)
-				) * View.ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent;
+			const FMatrix SvPositionToDecalBase(
+				FPlane(Mx, 0, 0, 0),
+				FPlane(0, My, 0, 0),
+				FPlane(0, 0, 1, 0),
+				FPlane(Ax, Ay, 0, 1)
+			);
+
+			// todo: we could use InvTranslatedViewProjectionMatrix and TranslatedWorldToComponent for better quality
+			FMatrix SvPositionToDecalValue = FMatrix(										// LWC_TODO: Precision loss
+				SvPositionToDecalBase * View.ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent);
+
 			SetShaderValue(RHICmdList, ShaderRHI, SvPositionToDecal, SvPositionToDecalValue);
 		}
-		
-		if (SvPositionToDecal.IsBound() && View.Family->Views.Num() > 1 && !View.bIsInstancedStereoEnabled)
+		if (SvPositionToDecal.IsBound() && View.Family->Views.Num() > 1)
 		{
 			const FViewInfo* FirstView = static_cast<const FViewInfo*>(View.Family->Views[0]);
-			
 			FVector2D InvViewSize = FVector2D(1.0f / FirstView->ViewRect.Width(), 1.0f / FirstView->ViewRect.Height());
+
 			float Mx = 2.0f * InvViewSize.X;
 			float My = -2.0f * InvViewSize.Y;
 			float Ax = -1.0f - 2.0f * FirstView->ViewRect.Min.X * InvViewSize.X;
 			float Ay = 1.0f + 2.0f * FirstView->ViewRect.Min.Y * InvViewSize.Y;
 
 			// todo: we could use InvTranslatedViewProjectionMatrix and TranslatedWorldToComponent for better quality
-			const FMatrix SvPositionToDecalValue =
-				FMatrix(
-					FPlane(Mx, 0, 0, 0),
-					FPlane(0, My, 0, 0),
-					FPlane(0, 0, 1, 0),
-					FPlane(Ax, Ay, 0, 1)
-				) * FirstView->ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent;
-			
+			const FMatrix SvPositionToDecalBase(
+				FPlane(Mx, 0, 0, 0),
+				FPlane(0, My, 0, 0),
+				FPlane(0, 0, 1, 0),
+				FPlane(Ax, Ay, 0, 1)
+			);
+
+			// todo: we could use InvTranslatedViewProjectionMatrix and TranslatedWorldToComponent for better quality
+			FMatrix SvPositionToDecalValue = FMatrix(										// LWC_TODO: Precision loss
+				SvPositionToDecalBase * FirstView->ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent);
+
 			SetShaderValue(RHICmdList, ShaderRHI, SvPositionToDecal, SvPositionToDecalValue);
+			if (RightEyeSvPositionToDecal.IsBound())
+			{
+				const FViewInfo* InstancedView = View.GetInstancedView();
+				if (InstancedView)
+				{
+					FMatrix RightEyeSvPositionToDecalValue = FMatrix(										// LWC_TODO: Precision loss
+						SvPositionToDecalBase * InstancedView->ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent);
+					SetShaderValue(RHICmdList, ShaderRHI, RightEyeSvPositionToDecal, RightEyeSvPositionToDecalValue);
+				}
+			}
 		}
-		if (InstancedSvPositionToDecal.IsBound() && View.Family->Views.Num() > 1 && !View.bIsInstancedStereoEnabled)
-		{
-			const FViewInfo* InstancedView = static_cast<const FViewInfo*>(View.Family->Views[1]);
-			
-			FVector2D InvInstancedViewSize = FVector2D(1.0f / InstancedView->ViewRect.Width(), 1.0f / InstancedView->ViewRect.Height());
-
-			float InstancedMx = 2.0f * InvInstancedViewSize.X;
-			float InstancedMy = -2.0f * InvInstancedViewSize.Y;
-			float InstancedAx = -1.0f - 2.0f * InstancedView->ViewRect.Min.X * InvInstancedViewSize.X;
-			float InstancedAy = 1.0f + 2.0f * InstancedView->ViewRect.Min.Y * InvInstancedViewSize.Y;
-
-			const FMatrix InstancedSvPositionToDecalValue = 
-				FMatrix(
-					FPlane(InstancedMx, 0, 0, 0),
-					FPlane(0, InstancedMy, 0, 0),
-					FPlane(0, 0, 1, 0),
-					FPlane(InstancedAx, InstancedAy, 0, 1)
-				) * InstancedView->ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent;
-
-			SetShaderValue(RHICmdList, ShaderRHI, InstancedSvPositionToDecal, InstancedSvPositionToDecalValue);
-		}
+		
 		if(DecalToWorld.IsBound())
 		{
 			const FMatrix DecalToWorldValue = DecalProxy.ComponentTrans.ToMatrixWithScale();
 			
 			SetShaderValue(RHICmdList, ShaderRHI, DecalToWorld, DecalToWorldValue);
 		}
-		
-		SetShaderValue(RHICmdList, ShaderRHI, WorldToDecal, WorldToComponent);
+
+		if (DecalToWorldInvScale.IsBound())
+		{
+			SetShaderValue(RHICmdList, ShaderRHI, DecalToWorldInvScale, static_cast<FVector>(DecalToWorldMatrix.GetScaleVector().Reciprocal()));
+		}
+		//SetShaderValue(RHICmdList, ShaderRHI, WorldToDecal, WorldToComponent);
 		
 		if (DecalOrientation.IsBound())
 		{
@@ -204,11 +222,17 @@ public:
 
 private:
 	LAYOUT_FIELD(FShaderParameter, SvPositionToDecal);
-	LAYOUT_FIELD(FShaderParameter, InstancedSvPositionToDecal);
+	LAYOUT_FIELD(FShaderParameter, RightEyeSvPositionToDecal);
+	LAYOUT_FIELD(FShaderParameter, DecalPositionHigh);
 	LAYOUT_FIELD(FShaderParameter, DecalToWorld);
 	LAYOUT_FIELD(FShaderParameter, WorldToDecal);
+	LAYOUT_FIELD(FShaderParameter, DecalToWorldInvScale);
 	LAYOUT_FIELD(FShaderParameter, DecalOrientation);
 	LAYOUT_FIELD(FShaderParameter, DecalParams);
+	LAYOUT_FIELD(FShaderParameter, DecalColorParam);
+	LAYOUT_FIELD(FShaderUniformBufferParameter, MobileBasePassUniformBuffer);
+	LAYOUT_FIELD(FShaderUniformBufferParameter, MobileDirectionLightBufferParam);
+	LAYOUT_FIELD(FShaderUniformBufferParameter, MobileReflectionCaptureParam);
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDeferredDecalPS,TEXT("/Engine/Private/DeferredDecal.usf"),TEXT("MainPS"),SF_Pixel);

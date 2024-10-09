@@ -3871,8 +3871,9 @@ bool UMaterial::CanEditChange(const FProperty* InProperty) const
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, MaterialDecalResponse))
 		{
 			static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DBuffer"));
+			static auto* CVarMobile = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.DBuffer"));
 
-			return MaterialDomain == MD_Surface && CVar->GetValueOnGameThread() > 0;
+			return MaterialDomain == MD_Surface && (CVar->GetValueOnGameThread() > 0 || CVarMobile->GetValueOnGameThread() > 0);
 		}		
 
 		if(MaterialDomain == MD_PostProcess)

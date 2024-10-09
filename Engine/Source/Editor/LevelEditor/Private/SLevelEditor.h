@@ -123,6 +123,7 @@ public:
 	virtual TSharedRef<SWidget> CreateActorDetails( const FName TabIdentifier ) override;
 	virtual void SetActorDetailsRootCustomization(TSharedPtr<FDetailsViewObjectFilter> InActorDetailsObjectFilter, TSharedPtr<IDetailRootObjectCustomization> InActorDetailsRootCustomization) override;
 	virtual void SetActorDetailsSCSEditorUICustomization(TSharedPtr<ISCSEditorUICustomization> InActorDetailsSCSEditorUICustomization) override;
+	virtual FEditorModeTools& GetEditorModeManager() const override;
 	virtual TSharedRef<SWidget> CreateToolBox() override;
 
 	/** SWidget overrides */

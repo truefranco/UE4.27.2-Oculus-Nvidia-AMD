@@ -13,14 +13,19 @@
 // from SvPosition to decal space (for position), used like this: mul(float4(SvPosition.xyz, 1), SvPositionToDecal);
 float4x4 SvPositionToDecal;
 // to transform position from decal space to world space, for normals use transpose of inverse
-// from InstancedSvPosition to decal space (for position), used like this: mul(float4(SvPosition.xyz, 1), InstancedSvPositionToDecal);
-float4x4 InstancedSvPositionToDecal;
+// from InstancedSvPosition to decal space (for position), used like this: mul(float4(SvPosition.xyz, 1), RightEyeSvPositionToDecal);
+float4x4 RightEyeSvPositionToDecal;
 
 float4x4 DecalToWorld;
 // to transform position from world space to decal space, for normals use transpose of inverse
 float4x4 WorldToDecal;
+float3 DecalToWorldInvScale;
+// decal orientation in world space, X axis. Used for ObjectOrientation material expression
 // decal orientation in world space, X axis. Used for ObjectOrientation material expression
 float3 DecalOrientation;
+
+// Decal color can be accessed using the material node
+float4 DecalColorParam;
 
 // DECAL_PRIMITIVE informs material templates which functions to expose when rendering decals.
 #define DECAL_PRIMITIVE 1
@@ -39,10 +44,25 @@ float4x4 FrustumComponentToClip;
 
 // decal vertex shader
 void MainVS(
+#if INSTANCED_STEREO && MOBILE_MULTI_VIEW // Mobile multi view fallback path
+	in uint InstanceId : SV_InstanceID,
+	out nointerpolation uint EyeIndex : VIEW_ID,
+	out uint LayerIndex : SV_RenderTargetArrayIndex,
+#elif MOBILE_MULTI_VIEW
+	in nointerpolation uint ViewId : SV_ViewID,
+#endif
 	in float4 InPosition : ATTRIBUTE0,
 	out float4 OutPosition : SV_POSITION
-	)
+)
 {
+#if INSTANCED_STEREO && MOBILE_MULTI_VIEW
+	EyeIndex = GetEyeIndex(InstanceId);
+	LayerIndex = EyeIndex;
+	ResolvedView = ResolveView(EyeIndex);
+#elif MOBILE_MULTI_VIEW
+	ResolvedView = ResolveView(ViewId);
+#endif
+	
 	OutPosition = mul(InPosition, FrustumComponentToClip);
 }
 
@@ -153,30 +173,26 @@ float4 SvPositionToScreenPosition2(float4 SvPosition)
 
 // is called in MainPS() from PixelShaderOutputCommon.usf
 //void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out)
-void FPixelShaderInOut_MainPS
-	(
-		inout FPixelShaderIn In,
-	inout FPixelShaderOut Out
-#if (MOBILE_MULTI_VIEW && COMPILER_VULKAN)
-	,uint MultiViewId
-#endif
-	)
+void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out, uint ArrayIndex)
 {
+#if (MOBILE_MULTI_VIEW || (INSTANCED_STEREO && MOBILE_MULTI_VIEW))
+	ResolvedView = ResolveView(ArrayIndex);
+#else
 	ResolvedView = ResolveView();
+#endif
 
 	float2 ScreenUV = SvPositionToBufferUV(In.SvPosition);
 
 	// make SvPosition appear to be rasterized with the depth from the depth buffer
-	In.SvPosition.z = LookupDeviceZ(ScreenUV);
-
-#if (MOBILE_MULTI_VIEW && COMPILER_VULKAN)
-	float4 DecalVectorHom = MultiViewId ? mul(float4(In.SvPosition.xyz,1), InstancedSvPositionToDecal):mul(float4(In.SvPosition.xyz,1), SvPositionToDecal);
+#if (MOBILE_MULTI_VIEW || (INSTANCED_STEREO && MOBILE_MULTI_VIEW))
+	In.SvPosition.z = LookupDeviceZ(ArrayIndex);
+	float4x4 SvPositionToDecalForSlice = ArrayIndex ? RightEyeSvPositionToDecal : SvPositionToDecal;
 #else
-	float4 DecalVectorHom = mul(float4(In.SvPosition.xyz,1), SvPositionToDecal);
+	In.SvPosition.z = LookupDeviceZ(ScreenUV);
+	float4x4 SvPositionToDecalForSlice = SvPositionToDecal;
 #endif
 
 	const bool bVolumetric = DECAL_BLEND_MODE == DECALBLENDMODEID_VOLUMETRIC;
-
 	float3 OSPosition;
 	float3 WSPosition;
 	float HitT;
@@ -217,20 +233,17 @@ void FPixelShaderInOut_MainPS
 	}
 	else
 	{
-    #if (MOBILE_MULTI_VIEW && COMPILER_VULKAN)
-	    float4 DecalVectorHom = MultiViewId ? mul(float4(In.SvPosition.xyz,1), InstancedSvPositionToDecal):mul(float4(In.SvPosition.xyz,1), SvPositionToDecal);
-    #else
-		float4 DecalVectorHom = mul(float4(In.SvPosition.xyz,1), SvPositionToDecal);
-    #endif
-		OSPosition = DecalVectorHom.xyz / DecalVectorHom.w;
 
-		// clip content outside the decal
-		// not needed if we stencil out the decal but we do that only on large (screen space) ones
-		clip(OSPosition.xyz + 1.0f);
-		clip(1.0f - OSPosition.xyz);
+    float4 DecalVectorHom = mul(float4(In.SvPosition.xyz,1), SvPositionToDecalForSlice);
+	OSPosition = DecalVectorHom.xyz / DecalVectorHom.w;
 
-		// todo: TranslatedWorld would be better for quality
-		WSPosition = SvPositionToWorld(In.SvPosition);
+	// clip content outside the decal
+	// not needed if we stencil out the decal but we do that only on large (screen space) ones
+	clip(OSPosition.xyz + 1.0f);
+	clip(1.0f - OSPosition.xyz);
+
+	// todo: TranslatedWorld would be better for quality
+	WSPosition = SvPositionToWorld(In.SvPosition);
 	}
 
 	float3 CameraVector = normalize(View.WorldCameraOrigin - WSPosition);

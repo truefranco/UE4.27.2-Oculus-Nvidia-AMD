@@ -72,6 +72,8 @@ public:
 	  * the widget is constructed.*/
 	virtual void RestoreFromLayout( const TSharedRef<FTabManager::FLayout>& NewLayout );
 
+	virtual FEditorModeTools& GetEditorModeManager() const override;
+
 	/** Generates the ui for all menus and toolbars, potentially forcing the menu to be created even if it shouldn't */
 	void GenerateMenus(bool bForceCreateMenu);
 

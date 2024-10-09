@@ -265,7 +265,6 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 
 void RenderDeferredDecalsMobile(FRHICommandList& RHICmdList, const FScene& Scene, const FViewInfo& View)
 {
-	const uint32 DecalCount = Scene.Decals.Num();
 	int32 SortedDecalCount = 0;
 	const bool bDeferredShading = IsMobileDeferredShadingEnabled(View.GetShaderPlatform());
 	FTransientDecalRenderDataList SortedDecals;
@@ -274,7 +273,7 @@ void RenderDeferredDecalsMobile(FRHICommandList& RHICmdList, const FScene& Scene
 
 	// Build a list of decals that need to be rendered for this view
 	
-	if (DecalCount > 0)
+	if (!Scene.Decals.IsEmpty())
 	{
 		// Build a list of decals that need to be rendered for this view
 		FDecalRendering::BuildVisibleDecalList(Scene, View, DRS_Mobile, &SortedDecals);

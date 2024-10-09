@@ -328,6 +328,21 @@ public:
 	 */
 	void ToAxisAndAngle(FVector& Axis, float& Angle) const;
 
+	/**
+	 * Get the rotation vector corresponding to this quaternion.
+	 * The direction of the vector represents the rotation axis,
+	 * and the magnitude the angle in radians.
+	 * @warning : Requires this quaternion to be normalized.
+	 */
+	FVector ToRotationVector() const;
+
+	/**
+	 * Constructs a quaternion corresponding to the rotation vector.
+	 * The direction of the vector represents the rotation axis,
+	 * and the magnitude the angle in radians.
+	 */
+	static FQuat MakeFromRotationVector(const FVector& RotationVector);
+
 	/** 
 	 * Get the swing and twist decomposition for a specified axis
 	 *
@@ -1056,6 +1071,18 @@ FORCEINLINE float FQuat::GetAngle() const
 	return 2.f * FMath::Acos(W);
 }
 
+FORCEINLINE FVector FQuat::ToRotationVector() const
+{
+	checkSlow(IsNormalized());
+	FQuat RotQ = Log();
+	return FVector(RotQ.X * 2.0f, RotQ.Y * 2.0f, RotQ.Z * 2.0f);
+}
+
+FORCEINLINE FQuat FQuat::MakeFromRotationVector(const FVector& RotationVector)
+{
+	FQuat RotQ(RotationVector.X * 0.5f, RotationVector.Y * 0.5f, RotationVector.Z * 0.5f, 0.0f);
+	return RotQ.Exp();
+}
 
 FORCEINLINE void FQuat::ToAxisAndAngle(FVector& Axis, float& Angle) const
 {

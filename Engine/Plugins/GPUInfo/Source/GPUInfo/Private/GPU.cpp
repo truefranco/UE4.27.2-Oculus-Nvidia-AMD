@@ -11,10 +11,10 @@ UGPUInfoLib::UGPUInfoLib(const FObjectInitializer& ObjectInitializer)
 
 FString UGPUInfoLib::GetGPUBrandName()
 {
-	return FWindowsPlatformMisc::GetPrimaryGPUBrand();
+	return FGenericPlatformMisc::GetPrimaryGPUBrand();
 }
 
 FString UGPUInfoLib::GetCPUBrandName()
 {
-	return FWindowsPlatformMisc::GetCPUBrand();
+	return FGenericPlatformMisc::GetCPUBrand();
 }

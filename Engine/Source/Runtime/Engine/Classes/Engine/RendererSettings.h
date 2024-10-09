@@ -853,6 +853,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired = true))
 		uint32 bMobileAmbientOcclusion : 1;
 
+	UPROPERTY(config, EditAnywhere, Category = Mobile, meta = (
+			ConsoleVariable = "r.Mobile.DBuffer", DisplayName = "Mobile DBuffer Decals",
+			ToolTip = "Whether to accumulate decal properties to a buffer before the base pass with mobile rendering. DBuffer enabled forces a full prepass. Changing this setting requires restarting the editor.",
+			ConfigRestartRequired = true))
+		uint32 bMobileDBuffer : 1;
+
 	UPROPERTY(config, EditAnywhere, Category = Skinning, meta = (
 		ConsoleVariable = "r.GPUSkin.UnlimitedBoneInfluences", DisplayName = "Use Unlimited Bone Influences",
 		ToolTip = "If enabled, a new mesh imported will use unlimited bone buffer instead of fixed MaxBoneInfluences for rendering.",

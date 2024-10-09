@@ -419,6 +419,14 @@ public:
 	float Size() const;
 
 	/**
+	* Get the length (magnitude) of this vector.
+	*
+	* @return The length of this vector.
+	* @see Size - This function is a synonym for Size()
+	*/
+	FORCEINLINE float Length() const { return Size(); }
+
+	/**
 	 * Get the squared length of this vector.
 	 *
 	 * @return The squared length of this vector.

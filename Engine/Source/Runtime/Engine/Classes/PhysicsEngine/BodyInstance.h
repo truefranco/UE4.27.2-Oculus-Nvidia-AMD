@@ -716,7 +716,7 @@ public:
 
 
 	/** Set this body to be fixed (kinematic) or not. */
-	void SetInstanceSimulatePhysics(bool bSimulate, bool bMaintainPhysicsBlending=false);
+	void SetInstanceSimulatePhysics(bool bSimulate, bool bMaintainPhysicsBlending=false, bool bPreserveExistingAttachment = false);
 	/** Makes sure the current kinematic state matches the simulate flag */
 	void UpdateInstanceSimulatePhysics();
 	/** Returns true if this body is simulating, false if it is fixed (kinematic) */
@@ -771,6 +771,8 @@ public:
 	void SetInstanceNotifyRBCollision(bool bNewNotifyCollision);
 	/** Enables/disables whether this body is affected by gravity. */
 	void SetEnableGravity(bool bGravityEnabled);
+	/** Enables/disables whether this body, when kinematic, is updated from the simulation rather than when setting the kinematic target. */
+	//void SetUpdateKinematicFromSimulation(bool bUpdateKinematicFromSimulation);
 	/** Enables/disables contact modification */
 	void SetContactModification(bool bNewContactModification);
 

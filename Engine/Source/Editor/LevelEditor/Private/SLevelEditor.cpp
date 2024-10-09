@@ -1856,6 +1856,11 @@ void SLevelEditor::SetActorDetailsSCSEditorUICustomization(TSharedPtr<ISCSEditor
 	}
 }
 
+FEditorModeTools& SLevelEditor::GetEditorModeManager() const
+{
+	return GLevelEditorModeTools();
+}
+
 TSharedRef<SWidget> SLevelEditor::CreateToolBox()
 {
 	TSharedRef<SLevelEditorToolBox> NewToolBox =

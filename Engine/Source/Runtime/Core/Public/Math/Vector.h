@@ -71,6 +71,21 @@ public:
 	/** Unit Z axis vector (0,0,1) */
 	static CORE_API const FVector ZAxisVector;
 
+	/** @return Zero Vector (0,0,0) */
+	static inline FVector Zero() { return ZeroVector; }
+
+	/** @return One Vector (1,1,1) */
+	static inline FVector One() { return OneVector; }
+
+	/** @return Unit X Vector (1,0,0)  */
+	static inline FVector UnitX() { return XAxisVector; }
+
+	/** @return Unit Y Vector (0,1,0)  */
+	static inline FVector UnitY() { return YAxisVector; }
+
+	/** @return Unit Z Vector (0,0,1)  */
+	static inline FVector UnitZ() { return ZAxisVector; }
+
 public:
 
 #if ENABLE_NAN_DIAGNOSTIC
@@ -175,6 +190,14 @@ public:
 	 * @return The cross product.
 	 */
 	FORCEINLINE FVector operator^(const FVector& V) const;
+
+	/**
+	 * Calculate cross product between this and another vector.
+	 *
+	 * @param V The other vector.
+	 * @return The cross product.
+	 */
+	FORCEINLINE FVector Cross(const FVector& V2) const;
 
 	/**
 	 * Calculate the cross product of two vectors.
@@ -458,6 +481,13 @@ public:
 	 * @return The length of this vector.
 	 */
 	float Size() const;
+
+	/**
+	 * Get the length (magnitude) of this vector.
+	 *
+	 * @return The length of this vector.
+	 */
+	float Length() const;
 
 	/**
 	 * Get the squared length of this vector.
@@ -1302,6 +1332,11 @@ FORCEINLINE FVector FVector::operator^(const FVector& V) const
 		);
 }
 
+FORCEINLINE FVector FVector::Cross(const FVector& V) const
+{
+	return *this ^ V;
+}
+
 FORCEINLINE FVector FVector::CrossProduct(const FVector& A, const FVector& B)
 {
 	return A ^ B;
@@ -1486,6 +1521,11 @@ FORCEINLINE FVector FVector::GetAbs() const
 FORCEINLINE float FVector::Size() const
 {
 	return FMath::Sqrt(X*X + Y*Y + Z*Z);
+}
+
+FORCEINLINE float FVector::Length() const
+{
+	return Size();
 }
 
 FORCEINLINE float FVector::SizeSquared() const

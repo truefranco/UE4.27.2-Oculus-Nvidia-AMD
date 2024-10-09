@@ -1276,6 +1276,10 @@ RENDERCORE_API void RenderUtilsInit()
 				{
 					GDBufferPlatformMask |= Mask;
 				}
+				else if(IsMobilePlatform(ShaderPlatform) && TargetPlatform->UsesMobileDBuffer() && !IsMobileDeferredShadingEnabled(ShaderPlatform))
+				{
+					GDBufferPlatformMask |= Mask;
+				}
 				else
 				{
 					GDBufferPlatformMask &= ~Mask;

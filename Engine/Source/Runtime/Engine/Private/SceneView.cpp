@@ -2285,6 +2285,34 @@ bool FSceneView::IsInstancedStereoPass() const
 	return bIsInstancedStereoEnabled && IStereoRendering::IsStereoEyeView(*this) && IStereoRendering::IsAPrimaryView(*this);
 }
 
+const FSceneView* FSceneView::GetInstancedSceneView() const
+{
+	// if we don't have ISR or MMV enabled, or we're rendering a full pass, we don't have instanced views
+	if ((bIsMobileMultiViewEnabled) && StereoPass != EStereoscopicPass::eSSP_FULL)
+	{
+		// If called on the first secondary view it'll return itself.
+		if (Family && Family->Views.IsValidIndex(EStereoscopicPass::eSSP_LEFT_EYE))
+		{
+			const FSceneView* SecondaryView = Family->Views[EStereoscopicPass::eSSP_LEFT_EYE];
+			return IStereoRendering::IsASecondaryView(*SecondaryView) ? SecondaryView : nullptr;
+		}
+	}
+	return nullptr;
+}
+
+TArray<const FSceneView*> FSceneView::GetSecondaryViews() const
+{
+	// If called on a secondary view we'll return all other secondary views, including this view.
+	TArray<const FSceneView*> Views;
+	Views.Reserve(Family->Views.Num());
+	for (int32 ViewIndex = EStereoscopicPass::eSSP_LEFT_EYE; ViewIndex < Family->Views.Num() &&
+		IStereoRendering::IsASecondaryView(*Family->Views[ViewIndex]); ViewIndex++)
+	{
+		Views.Add(Family->Views[ViewIndex]);
+	}
+	return Views;
+}
+
 void FSceneView::SetupViewRectUniformBufferParameters(FViewUniformShaderParameters& ViewUniformShaderParameters,
 	const FIntPoint& BufferSize,
 	const FIntRect& EffectiveViewRect,

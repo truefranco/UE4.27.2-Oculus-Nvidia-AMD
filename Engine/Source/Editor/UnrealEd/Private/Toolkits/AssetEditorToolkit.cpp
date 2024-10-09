@@ -402,6 +402,17 @@ FText FAssetEditorToolkit::GetToolTipTextForObject(const UObject* InObject)
 	return FText::FromString(ToolTipString);
 }
 
+FEditorModeTools& FAssetEditorToolkit::GetEditorModeManager() const
+{
+	if (IsWorldCentricAssetEditor() && IsHosted())
+	{
+		return GetToolkitHost()->GetEditorModeManager();
+	}
+
+	check(EditorModeManager.IsValid());
+	return *EditorModeManager.Get();
+}
+
 class FEdMode* FAssetEditorToolkit::GetEditorMode() const
 {
 	return nullptr;

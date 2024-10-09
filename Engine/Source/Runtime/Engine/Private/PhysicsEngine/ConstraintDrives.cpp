@@ -79,6 +79,28 @@ void FLinearDriveConstraint::SetDriveParams(float InStiffness, float InDamping, 
 	ZDrive.SetDriveParams(InStiffness, InDamping, InForceLimit);
 }
 
+void FLinearDriveConstraint::SetDriveParams(const FVector& InStiffness, const FVector& InDamping, const FVector& InForceLimit)
+{
+	XDrive.SetDriveParams(InStiffness.X, InDamping.X, InForceLimit.X);
+	YDrive.SetDriveParams(InStiffness.Y, InDamping.Y, InForceLimit.Y);
+	ZDrive.SetDriveParams(InStiffness.Z, InDamping.Z, InForceLimit.Z);
+}
+
+void FLinearDriveConstraint::GetDriveParams(float& OutStiffness, float& OutDamping, float& OutForceLimit) const
+{
+	// we set the same value on all drives, just return XDrive ones
+	OutStiffness = XDrive.Stiffness;
+	OutDamping = XDrive.Damping;
+	OutForceLimit = XDrive.MaxForce;
+}
+
+void FLinearDriveConstraint::GetDriveParams(FVector& OutStiffness, FVector& OutDamping, FVector& OutForceLimit) const
+{
+	OutStiffness.Set(XDrive.Stiffness, YDrive.Stiffness, ZDrive.Stiffness);
+	OutDamping.Set(XDrive.Damping, YDrive.Damping, ZDrive.Damping);
+	OutForceLimit.Set(XDrive.MaxForce, YDrive.MaxForce, ZDrive.MaxForce);
+}
+
 void FAngularDriveConstraint::SetAngularDriveMode(EAngularDriveMode::Type DriveMode)
 {
 	AngularDriveMode = DriveMode;

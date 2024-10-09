@@ -572,6 +572,14 @@ public:
 	uint8 bEnablePhysicsOnDedicatedServer:1;
 
 	/**
+	 * If true, then the physics bodies will be used to drive the skeletal mesh even when they are
+	 * kinematic (not simulating), otherwise the skeletal mesh will be driven by the animation input
+	 * when the bodies are kinematic
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = SkeletalMesh)
+	uint8 bUpdateMeshWhenKinematic : 1;
+
+	/**
 	 *	If we should pass joint position to joints each frame, so that they can be used by motorized joints to drive the
 	 *	ragdoll based on the animation.
 	 */
@@ -1968,6 +1976,13 @@ public:
 	/** Sets the constraint profile properties (limits, motors, etc...) to match the constraint profile as defined in the physics asset for all constraints. If profile name is not found the joint is set to use the default constraint profile.*/
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
 	void SetConstraintProfileForAll(FName ProfileName, bool bDefaultIfNotFound = false);
+
+	/**
+	 * Gets the constraint profile properties that a joint drive would adopt if it were set to
+	 * the given constraint profile. The default will be returned if an empty or invalid profile name
+	 * is passed in. Returns true if the successful, or false if the joint can't be found.
+	 */
+	bool GetConstraintProfilePropertiesOrDefault(FConstraintProfileProperties& OutProperties, FName JointName, FName ProfileName);
 
 	/** Enable or Disable AngularPositionDrive based on a list of bone names */
 	void SetNamedMotorsAngularPositionDrive(bool bEnableSwingDrive, bool bEnableTwistDrive, const TArray<FName>& BoneNames, bool bSetOtherBodiesToComplement = false);

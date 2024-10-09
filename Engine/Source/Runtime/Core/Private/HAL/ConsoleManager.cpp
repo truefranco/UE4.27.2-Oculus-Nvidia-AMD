@@ -2669,6 +2669,26 @@ static TAutoConsoleVariable<int32> CVarDBuffer(
 	TEXT(" 1: on (default)"),
 	ECVF_RenderThreadSafe | ECVF_ReadOnly);
 
+static TAutoConsoleVariable<int32> CVarMobileDBuffer(
+	TEXT("r.Mobile.DBuffer"),
+	0,
+	TEXT("Enables DBuffer decal material blend modes when using the mobile forward renderer.\n"
+		"DBuffer decals are rendered before the base pass, allowing them to affect static lighting and skylighting correctly. \n"
+		"When enabled, a full prepass will be forced which adds CPU / GPU cost.  Several texture lookups will be done in the base pass to fetch the decal properties, which adds pixel work.\n"
+		" 0: off (default)\n"
+		" 1: on"),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> CVarMobileForwardDecalLighting(
+	TEXT("r.Mobile.Forward.DecalLighting"),
+	1,
+	TEXT("Enables lit decals when using the mobile forward renderer without DBuffer.\n"
+		" 0: off\n"
+		" 1: on, lighting channel 1 is used for decal lighting\n"
+		" 2: on, lighting channel 2 is used for decal lighting\n"
+		" 3: on, lighting channel 3 is used for decal lighting"),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly);
+
 static TAutoConsoleVariable<float> CVarSkeletalMeshLODRadiusScale(
 	TEXT("r.SkeletalMeshLODRadiusScale"),
 	1.0f,

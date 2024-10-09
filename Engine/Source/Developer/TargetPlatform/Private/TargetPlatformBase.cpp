@@ -76,6 +76,12 @@ bool FTargetPlatformBase::UsesMobileAmbientOcclusion() const
 	return CVar ? (CVar->GetInt() != 0) : false;
 }
 
+bool FTargetPlatformBase::UsesMobileDBuffer() const
+{
+	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Mobile.DBuffer"));
+	return CVar ? (CVar->GetInt() != 0) : false;
+}
+
 static bool IsPluginEnabledForTarget(const IPlugin& Plugin, const FProjectDescriptor* Project, const FString& Platform, EBuildConfiguration Configuration, EBuildTargetType TargetType)
 {
 	if (!Plugin.GetDescriptor().SupportsTargetPlatform(Platform))

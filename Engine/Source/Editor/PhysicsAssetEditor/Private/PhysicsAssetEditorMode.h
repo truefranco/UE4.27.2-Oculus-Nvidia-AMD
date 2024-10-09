@@ -11,7 +11,10 @@ class FPhysicsAssetEditor;
 class FPhysicsAssetEditorMode : public FApplicationMode
 {
 public:
-	FPhysicsAssetEditorMode(TSharedRef<class FWorkflowCentricApplication> InHostingApp, TSharedRef<class ISkeletonTree> InSkeletonTree, TSharedRef<class IPersonaPreviewScene> InPreviewScene);
+	FPhysicsAssetEditorMode(TSharedRef<class FWorkflowCentricApplication>
+		InHostingApp, 
+		TSharedRef<class ISkeletonTree> InSkeletonTree,
+		TSharedRef<class IPersonaPreviewScene> InPreviewScene);
 
 	/** FApplicationMode interface */
 	virtual void RegisterTabFactories(TSharedPtr<FTabManager> InTabManager) override;

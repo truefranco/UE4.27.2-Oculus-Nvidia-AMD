@@ -445,6 +445,11 @@ public:
 	 */
 	virtual bool UsesMobileAmbientOcclusion() const = 0;
 
+	/**
+	 * Gets whether the platform should use DBuffer for decals when using the mobile renderer.
+	 */
+	virtual bool UsesMobileDBuffer() const = 0;
+
 #if WITH_ENGINE
 	/**
 	 * Gets the format to use for a particular body setup.

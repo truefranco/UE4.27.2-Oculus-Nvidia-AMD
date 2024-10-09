@@ -1411,6 +1411,18 @@ public:
 	/** True if the view should render as an instanced stereo pass */
 	bool IsInstancedStereoPass() const;
 
+	/** Get the first secondary view associated with the primary view. */
+	const FSceneView* GetInstancedSceneView() const;
+
+	/** Checks whether this is the instanced view of a stereo pair. If the technique supports instanced rendering stereo and ISR is enabled, such views can be skipped. */
+	inline bool IsInstancedSceneView() const
+	{
+		return GetInstancedSceneView() == this;
+	}
+
+	/** Get all secondary views associated with the primary view. */
+	TArray<const FSceneView*> GetSecondaryViews() const;
+
 	/** Sets up the view rect parameters in the view's uniform shader parameters */
 	void SetupViewRectUniformBufferParameters(FViewUniformShaderParameters& ViewUniformShaderParameters, 
 		const FIntPoint& InBufferSize,

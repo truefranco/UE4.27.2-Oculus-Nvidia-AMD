@@ -133,6 +133,7 @@ public:
 	virtual class UEdMode* GetScriptableEditorMode() const override;
 	virtual FText GetEditorModeDisplayName() const override;
 	virtual FSlateIcon GetEditorModeIcon() const override;
+	virtual FEditorModeTools& GetEditorModeManager() const final;
 
 	/** IAssetEditorInstance interface */
 	virtual FName GetEditorName() const override;
@@ -378,6 +379,9 @@ protected:
 
 	/** Whether only dirty assets should be prompted about on save - otherwise all edited assets will be prompted to the user for save/check-out */
 	bool bCheckDirtyOnAssetSave;
+
+	/** The editor mode manager */
+	TSharedPtr<FEditorModeTools> EditorModeManager;
 
 	/** The asset editor mode manager */
 	FAssetEditorModeManager* AssetEditorModeManager;

@@ -257,6 +257,12 @@ TSharedRef< SDockTabStack > SStandaloneAssetEditorToolkitHost::GetTabSpot( const
 	return TSharedPtr<SDockTabStack>().ToSharedRef();
 }
 
+FEditorModeTools& SStandaloneAssetEditorToolkitHost::GetEditorModeManager() const
+{
+	check(HostedAssetEditorToolkit.IsValid());
+
+	return HostedAssetEditorToolkit->GetEditorModeManager();
+}
 
 void SStandaloneAssetEditorToolkitHost::OnToolkitHostingStarted( const TSharedRef< class IToolkit >& Toolkit )
 {

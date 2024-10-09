@@ -29,7 +29,7 @@ class UInputRouter;
 /**
  * A helper class to store the state of the various editor modes.
  */
-class UNREALED_API FEditorModeTools : public FGCObject, public FEditorUndoClient
+class UNREALED_API FEditorModeTools : public FGCObject, public FEditorUndoClient, public TSharedFromThis<FEditorModeTools>
 {
 public:
 	FEditorModeTools();

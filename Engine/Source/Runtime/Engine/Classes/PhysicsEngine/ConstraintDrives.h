@@ -115,6 +115,9 @@ private:
 	void SetLinearPositionDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive);
 	void SetLinearVelocityDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive);
 	void SetDriveParams(float InStiffness, float InDamping, float InForceLimit);
+	void SetDriveParams(const FVector& InStiffness, const FVector& InDamping, const FVector& InForceLimit);
+	void GetDriveParams(float& OutStiffness, float& OutDamping, float& OutForceLimit) const;
+	void GetDriveParams(FVector& OutStiffness, FVector& OutDamping, FVector& OutForceLimit) const;
 };
 
 

@@ -553,6 +553,14 @@ public:
 	/** Set the linear drive's strength parameters */
 	void SetLinearDriveParams(float InPositionStrength, float InVelocityStrength, float InForceLimit);
 
+	/** Set the linear drive's strength parameters per-axis */
+	void SetLinearDriveParams(const FVector& InPositionStrength, const FVector& InVelocityStrength, const FVector& InForceLimit);
+
+	/** Get the linear drive's strength parameters. Assumes all axes are the same so only returns the X values */
+	void GetLinearDriveParams(float& OutPositionStrength, float& OutVelocityStrength, float& OutForceLimit);
+
+	/** Get the linear drive's strength parameters. */
+	void GetLinearDriveParams(FVector& OutPositionStrength, FVector& OutVelocityStrength, FVector& OutForceLimit);
 	UE_DEPRECATED(4.15, "Please call SetOrientationDriveTwistAndSwing. Note the order of bools is reversed (Make sure to pass Twist and then Swing)")
 	void SetAngularPositionDrive(bool bInEnableSwingDrive, bool bInEnableTwistDrive)
 	{

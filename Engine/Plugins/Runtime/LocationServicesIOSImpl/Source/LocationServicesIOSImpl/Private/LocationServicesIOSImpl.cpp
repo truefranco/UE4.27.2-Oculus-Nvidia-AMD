@@ -15,6 +15,8 @@ DEFINE_LOG_CATEGORY(LogLocationServicesIOS);
 -(void)startUpdatingLocation;
 -(void)stopUpdatingLocation;
 -(CLLocation*)getLastKnownLocation;
+-(void)dealloc;
+
 @property CLLocationAccuracy Accuracy;
 @property CLLocationDistance DistanceFilter;
 @property(strong, nonatomic) CLLocationManager* LocManager;
@@ -41,7 +43,7 @@ DEFINE_LOG_CATEGORY(LogLocationServicesIOS);
      LocManager.distanceFilter = DistanceFilter;
      LocManager.desiredAccuracy = Accuracy;
      
-     if ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusNotDetermined)
+     if (LocManager.authorizationStatus == kCLAuthorizationStatusNotDetermined)
      {
         //we need to request location services
         [LocManager requestAlwaysAuthorization];
@@ -67,6 +69,16 @@ DEFINE_LOG_CATEGORY(LogLocationServicesIOS);
     }
     
     return nil;
+}
+- (void)dealloc
+{
+	if (LocManager != nil)
+	{
+		LocManager.delegate = nil;
+		[LocManager release] ;
+		LocManager = nil;
+	}
+	[super dealloc] ;
 }
 /*
 * Callback from the LocationManager when there's an update to our location
@@ -210,16 +222,21 @@ bool ULocationServicesIOSImpl::IsLocationAccuracyAvailable(ELocationAccuracy Acc
 	
 bool ULocationServicesIOSImpl::IsLocationServiceEnabled()
 {
+	CLLocationManager *LocManager = [[CLLocationManager alloc] init];;
+
 	bool bEnabled = [CLLocationManager locationServicesEnabled];
 	if (!bEnabled)
 	{
 		UE_LOG(LogLocationServicesIOS, Log, TEXT("ULocationServicesIOSImpl::IsServiceEnabled() - location services disabled in settings"));
 	}
-	bool bAuthorized = [CLLocationManager authorizationStatus] != kCLAuthorizationStatusDenied;
+	bool bAuthorized = LocManager.authorizationStatus == kCLAuthorizationStatusDenied;
 	if (!bAuthorized)
 	{
 		UE_LOG(LogLocationServicesIOS, Log, TEXT("ULocationServicesIOSImpl::IsServiceEnabled() - location services have not been authorized for use"));
 	}
+
+	[LocManager release];
+	LocManager = nil;
 
 	return bEnabled && bAuthorized;
 }

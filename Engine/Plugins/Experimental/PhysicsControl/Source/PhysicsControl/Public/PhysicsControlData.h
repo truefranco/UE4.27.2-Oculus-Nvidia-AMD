@@ -279,7 +279,7 @@ struct PHYSICSCONTROL_API FPhysicsControl
 
 	/**  The mesh that will be doing the driving. Blank/non-existent means it will happen in world space */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PhysicsControl)
-	UMeshComponent* ParentMeshComponent;
+	UMeshComponent* ParentMeshComponent = nullptr;
 
 	/** The name of the skeletal mesh bone or the name of the static mesh body that will be doing the driving. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PhysicsControl)
@@ -287,7 +287,7 @@ struct PHYSICSCONTROL_API FPhysicsControl
 
 	/** The mesh that the control will be driving. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PhysicsControl)
-	UMeshComponent* ChildMeshComponent;
+	UMeshComponent* ChildMeshComponent = nullptr;
 
 	/** 
 	 * The name of the skeletal mesh bone or the name of the static mesh body that the control 

@@ -23,7 +23,7 @@ struct PHYSICSCONTROL_API FInitialPhysicsControl
 
 	/** The owner of the mesh that will be doing the driving. Blank/non-existent means it will happen in world space */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PhysicsControl)
-	AActor* ParentActor;
+	AActor* ParentActor = nullptr;
 
 	/** 
 	 * The mesh that will be doing the driving. If this is blank but there is an actor, then we'll attempt to
@@ -41,7 +41,7 @@ struct PHYSICSCONTROL_API FInitialPhysicsControl
 
 	/** The owner of the mesh that the control will be driving */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PhysicsControl)
-	AActor* ChildActor;
+	AActor* ChildActor = nullptr;
 
 	/** 
 	 * The mesh that the control will be driving. If this is blank but there is an actor, then we'll attempt 
@@ -98,7 +98,7 @@ struct PHYSICSCONTROL_API FInitialBodyModifier
 
 	/** The owner of the mesh that that we will modify */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PhysicsControl)
-	AActor* Actor;
+	AActor* Actor = nullptr;
 
 	/** 
 	 * The mesh that will be modify. If this is blank but there is an actor, then we'll attempt to
@@ -158,7 +158,7 @@ struct PHYSICSCONTROL_API FInitialCharacterControls
 
 	/** The owner of the character skeletal mesh */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PhysicsControl)
-	AActor* CharacterActor;
+	AActor* CharacterActor = nullptr;
 
 	/**
 	 * The skeletal mesh that will have controls set up. If this is blank but there is an actor, then we'll attempt to

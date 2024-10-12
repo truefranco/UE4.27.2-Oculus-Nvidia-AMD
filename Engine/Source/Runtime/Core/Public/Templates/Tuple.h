@@ -90,7 +90,7 @@ namespace UE4Tuple_Private
 			: Value()
 		{
 		}
-
+#pragma warning(suppress : 4996)
 		TTupleBaseElement(TTupleBaseElement&&) = default;
 		TTupleBaseElement(const TTupleBaseElement&) = default;
 		TTupleBaseElement& operator=(TTupleBaseElement&&) = default;

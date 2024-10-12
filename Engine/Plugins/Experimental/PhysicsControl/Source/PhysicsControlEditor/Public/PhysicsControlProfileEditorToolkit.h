@@ -35,7 +35,7 @@ public:
 public:
 
 	/** Initialize the asset editor. This will register the application mode, init the preview scene, etc. */
-	void InitAssetEditor(
+	void InitPhysicsControlProfileEditorToolkit(
 		const EToolkitMode::Type        Mode,
 		const TSharedPtr<IToolkitHost>& InitToolkitHost,
 		UPhysicsControlProfileAsset*    InPhysicsControlProfileAsset);

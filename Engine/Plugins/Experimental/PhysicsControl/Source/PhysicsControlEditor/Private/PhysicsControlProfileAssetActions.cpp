@@ -41,7 +41,7 @@ void FPhysicsControlProfileAssetActions::OpenAssetEditor(
 		if (UPhysicsControlProfileAsset* Asset = Cast<UPhysicsControlProfileAsset>(Object))
 		{
 			TSharedRef<FPhysicsControlProfileEditorToolkit> NewEditor(new FPhysicsControlProfileEditorToolkit());
-			NewEditor->InitAssetEditor(Mode, EditWithinLevelEditor, Asset);
+			NewEditor->InitPhysicsControlProfileEditorToolkit(Mode, EditWithinLevelEditor, Asset);
 		}
 	}
 }

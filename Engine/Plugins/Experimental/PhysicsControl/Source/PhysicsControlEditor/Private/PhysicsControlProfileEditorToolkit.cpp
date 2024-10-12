@@ -23,7 +23,7 @@ const FName PhysicsControlProfileEditorModes::Editor("PhysicsControlProfileEdito
 const FName PhysicsControlProfileEditorAppName = FName(TEXT("PhysicsControlProfileEditorApp"));
 
 //======================================================================================================================
-void FPhysicsControlProfileEditorToolkit::InitAssetEditor(
+void FPhysicsControlProfileEditorToolkit::InitPhysicsControlProfileEditorToolkit(
 	const EToolkitMode::Type        Mode,
 	const TSharedPtr<IToolkitHost>& InitToolkitHost,
 	UPhysicsControlProfileAsset*    InPhysicsControlProfileAsset)

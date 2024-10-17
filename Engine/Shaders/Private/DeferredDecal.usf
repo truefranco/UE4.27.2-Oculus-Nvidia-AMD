@@ -14,7 +14,10 @@
 float4x4 SvPositionToDecal;
 // to transform position from decal space to world space, for normals use transpose of inverse
 // from InstancedSvPosition to decal space (for position), used like this: mul(float4(SvPosition.xyz, 1), RightEyeSvPositionToDecal);
+#if MOBILE_MULTI_VIEW || (INSTANCED_STEREO && MOBILE_MULTI_VIEW)
+// For stereo rendering.
 float4x4 RightEyeSvPositionToDecal;
+#endif
 
 float4x4 DecalToWorld;
 // to transform position from world space to decal space, for normals use transpose of inverse

@@ -158,12 +158,12 @@ public:
 		if (SvPositionToDecal.IsBound() && View.Family->Views.Num() > 1)
 		{
 			const FViewInfo* FirstView = static_cast<const FViewInfo*>(View.Family->Views[0]);
-			FVector2D InvViewSize = FVector2D(1.0f / FirstView->ViewRect.Width(), 1.0f / FirstView->ViewRect.Height());
+			FVector2D InvViewSize = FVector2D(1.0f / View.ViewRect.Width(), 1.0f / View.ViewRect.Height());
 
 			float Mx = 2.0f * InvViewSize.X;
 			float My = -2.0f * InvViewSize.Y;
-			float Ax = -1.0f - 2.0f * FirstView->ViewRect.Min.X * InvViewSize.X;
-			float Ay = 1.0f + 2.0f * FirstView->ViewRect.Min.Y * InvViewSize.Y;
+			float Ax = -1.0f - 2.0f * View.ViewRect.Min.X * InvViewSize.X;
+			float Ay = 1.0f + 2.0f * View.ViewRect.Min.Y * InvViewSize.Y;
 
 			// todo: we could use InvTranslatedViewProjectionMatrix and TranslatedWorldToComponent for better quality
 			const FMatrix SvPositionToDecalBase(
@@ -174,10 +174,20 @@ public:
 			);
 
 			// todo: we could use InvTranslatedViewProjectionMatrix and TranslatedWorldToComponent for better quality
-			FMatrix SvPositionToDecalValue = FMatrix(										// LWC_TODO: Precision loss
-				SvPositionToDecalBase * FirstView->ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent);
+			if (View.GetFeatureLevel() >= ERHIFeatureLevel::Type::SM5)
+			{
+				FMatrix SvPositionToDecalValue = FMatrix(										// LWC_TODO: Precision loss
+					SvPositionToDecalBase * View.ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent);
 
-			SetShaderValue(RHICmdList, ShaderRHI, SvPositionToDecal, SvPositionToDecalValue);
+				SetShaderValue(RHICmdList, ShaderRHI, SvPositionToDecal, SvPositionToDecalValue);
+			}
+			else {
+				FMatrix SvPositionToDecalValue = FMatrix(										// LWC_TODO: Precision loss
+					SvPositionToDecalBase * FirstView->ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent);
+
+				SetShaderValue(RHICmdList, ShaderRHI, SvPositionToDecal, SvPositionToDecalValue);
+			}
+			
 			if (RightEyeSvPositionToDecal.IsBound())
 			{
 				const FViewInfo* InstancedView = View.GetInstancedView();

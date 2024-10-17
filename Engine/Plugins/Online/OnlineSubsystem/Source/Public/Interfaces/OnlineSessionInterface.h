@@ -176,6 +176,38 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnSessionParticipantsChange, FName, cons
 typedef FOnSessionParticipantsChange::FDelegate FOnSessionParticipantsChangeDelegate;
 
 /**
+ * Delegate fired when a player has joined a session
+ *
+ * @param SessionName The name of the session that changed
+ * @param UniqueId The ID of the user who joined
+ */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnSessionParticipantJoined, FName, const FUniqueNetId&);
+typedef FOnSessionParticipantJoined::FDelegate FOnSessionParticipantJoinedDelegate;
+
+/** Possible motives for a participant leaving an online session */
+enum class EOnSessionParticipantLeftReason : uint8
+{
+	/** The participant left the session of their own accord */
+	Left,
+	/** The participant got disconnected from a session that is still active */
+	Disconnected,
+	/** The participant was forcefully removed from the session */
+	Kicked,
+	/** The session ended and the participant got removed from it */
+	Closed
+};
+
+/**
+ * Delegate fired when a player has left a session
+ *
+ * @param SessionName The name of the session that changed
+ * @param UniqueId The ID of the user who left
+ * @param LeaveReason An enum defining the motive for the participant's leave
+ */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnSessionParticipantLeft, FName, const FUniqueNetId&, EOnSessionParticipantLeftReason);
+typedef FOnSessionParticipantLeft::FDelegate FOnSessionParticipantLeftDelegate;
+
+/**
  * Delegate fired when session is requesting QOS measurements
  * @param The name of the session for which the measurements need to be made
  */
@@ -717,6 +749,21 @@ public:
 	 * @param bJoined if true this is a join event, (if false it is a leave event)
 	 */
 	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnSessionParticipantsChange, FName, const FUniqueNetId&, bool);
+
+		/**
+		* Delegate fired when a player joins a session
+		* @param SessionName The name of the session
+		* @param UniqueId The ID of the user who joined
+		*/
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnSessionParticipantJoined, FName, const FUniqueNetId&);
+
+	/**
+	* Delegate fired when a player leaves a session
+	* @param SessionName The name of the session
+	* @param UniqueId The ID of the user who left
+	* @param LeaveReason An enum defining the motive for the participant's leave
+	*/
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnSessionParticipantLeft, FName, const FUniqueNetId&, EOnSessionParticipantLeftReason);
 
 	/**
 	 * Delegate fired when session is requesting QOS measurements
